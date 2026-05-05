@@ -8,6 +8,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -61,7 +62,8 @@ public class Sonic1ChopperBadnikInstance extends AbstractBadnikInstance {
 
     private final int origY;          // chop_origY (objoff_30): saved spawn Y position
     private int yVelocity;            // obVelY: current vertical velocity (subpixels)
-    private int ySubpixel;            // Fractional Y for SpeedToPos precision
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int currentAnim;          // Current animation index (0=slow, 1=fast, 2=still)
     private int animTickCounter;      // Ticks within current animation frame
 
@@ -75,7 +77,6 @@ public class Sonic1ChopperBadnikInstance extends AbstractBadnikInstance {
 
         // Chop_Main: move.w #-$700,obVelY(a0)
         this.yVelocity = INITIAL_Y_VELOCITY;
-        this.ySubpixel = 0;
         this.currentAnim = ANIM_FAST;
         this.animTickCounter = 0;
     }
@@ -83,21 +84,22 @@ public class Sonic1ChopperBadnikInstance extends AbstractBadnikInstance {
     @Override
     protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Chop_ChgSpeed: SpeedToPos - apply velocity to Y position
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-
-        // addi.w #$18,obVelY(a0) - apply gravity
-        yVelocity += GRAVITY;
+        // Chop_ChgSpeed: SpeedToPos - apply velocity to Y position, then add gravity
+        // (matches ROM order: move with current velocity, then add gravity for next frame).
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentY = motion.y;
+        yVelocity = motion.yVel;
 
         // cmp.w obY(a0),d0 / bhs.s .chganimation
         // Has Chopper fallen back to or below its original position?
         if (currentY >= origY) {
             // move.w d0,obY(a0) - snap to origin
             currentY = origY;
-            ySubpixel = 0;
+            motion.ySub = 0;
             // move.w #-$700,obVelY(a0) - reset velocity for next jump
             yVelocity = INITIAL_Y_VELOCITY;
         }

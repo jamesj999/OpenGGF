@@ -201,20 +201,21 @@ public class HeadlessTestRunner {
         this.bk2StartIndex = bk2FrameOffset;
         this.currentBk2Index = bk2StartIndex;
 
-        // ROM parity: v_vbla_byte counts ALL VBlanks since power-on, never
-        // resets. Objects with timing gates like (v_vbla_byte + d7) & 7 depend
-        // on the absolute mod-8 alignment. The bk2FrameOffset equals
-        // emu.framecount() at the trace start. ObjectManager.update()
-        // increments frameCounter BEFORE passing it to objects, so we
-        // initialise one below the offset so the first increment lands on the
-        // correct alignment: v_vbla_byte = bk2FrameOffset at the first game
-        // frame, and objects see frameCounter = bk2FrameOffset after the ++.
-        // TODO: Disabled until slot allocation matches ROM exactly. With correct
-        // vbla alignment, slot-dependent timing gates (e.g. Batbrain dropcheck)
-        // fire at the wrong frame because engine slots differ from ROM slots.
-        // Without init, accidental mod-8 alignment of frameCounter happens to
-        // match the first Batbrain encounter. See cascading slot issue analysis.
-        // levelManager.getObjectManager().initVblaCounter(bk2FrameOffset - 1);
+        // ROM parity note (vbla counter alignment):
+        //
+        // v_vbla_byte counts ALL VBlanks since power-on and never resets.
+        // Objects with timing gates like (v_vbla_byte + d7) & 7 depend on
+        // absolute mod-8 alignment. ObjectManager.initVblaCounter(bk2FrameOffset - 1)
+        // would seed that alignment correctly here, but the cascading-slot
+        // issue (engine slot indices differing from ROM slot indices)
+        // makes it unsafe to enable globally — slot-dependent gates would
+        // fire at wrong frames in tests that rely on the current accidental
+        // mod-8 alignment of an uninitialised counter.
+        //
+        // Trace replay tests that need ROM-aligned vbla seed it themselves
+        // via objectManager.initVblaCounter(...) after fixture build (see
+        // TestS3kAizTraceReplay.buildReplayFixture). When the slot-allocation
+        // parity work lands, this can be re-enabled here as the default.
     }
 
     /**

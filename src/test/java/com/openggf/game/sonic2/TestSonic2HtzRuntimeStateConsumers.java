@@ -38,7 +38,6 @@ class TestSonic2HtzRuntimeStateConsumers {
     @Test
     void swScrlHtzUsesTypedRuntimeStateOffsetsInEarthquakeMode() {
         GameServices.zoneRuntimeRegistry().install(new StubHtzRuntimeState(0, 1, true, 0x140, -0x680, 0));
-        GameServices.gameState().setHtzScreenShakeActive(true);
         GameServices.gameState().setScreenShakeActive(false);
 
         SwScrlHtz handler = new SwScrlHtz(null, new BackgroundCamera());
@@ -59,7 +58,6 @@ class TestSonic2HtzRuntimeStateConsumers {
     @Test
     void risingLavaUsesTypedRuntimeStateYOffset() {
         GameServices.zoneRuntimeRegistry().install(new StubHtzRuntimeState(0, 0, true, 0x120, 0, 0));
-        GameServices.gameState().setHtzScreenShakeActive(true);
 
         ObjectServices services = new TestObjectServices()
                 .withCamera(GameServices.camera())

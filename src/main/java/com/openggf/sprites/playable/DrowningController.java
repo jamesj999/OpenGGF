@@ -10,7 +10,6 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 
-import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -73,7 +72,6 @@ public class DrowningController {
 
     private final AbstractPlayableSprite player;
     private final AudioManager audioManager;
-    private final Random random = new Random();
 
     /** Remaining air in seconds */
     private int remainingAir;
@@ -215,8 +213,9 @@ public class DrowningController {
      * @param countdownNumber Countdown number to display (-1 for regular bubble)
      */
     private void spawnBreathingBubbles(int countdownNumber) {
+        com.openggf.game.GameRng rng = player.currentRng();
         // Determine number of bubbles (1 or 2, equal chance)
-        int bubbleCount = random.nextBoolean() ? 1 : 2;
+        int bubbleCount = rng.nextBoolean() ? 1 : 2;
 
         if (countdownNumber >= 0) {
             // Countdown bubble logic
@@ -225,7 +224,7 @@ public class DrowningController {
                 spawnBubble(countdownNumber);
             } else {
                 // 2 bubbles - 25% chance first is countdown, otherwise second is countdown
-                boolean firstIsCountdown = random.nextInt(4) == 0;
+                boolean firstIsCountdown = rng.nextInt(4) == 0;
 
                 if (firstIsCountdown) {
                     spawnBubble(countdownNumber);
@@ -324,7 +323,7 @@ public class DrowningController {
     private void scheduleSecondBubble(int countdownNumber) {
         pendingSecondBubble = true;
         pendingCountdownNumber = countdownNumber;
-        secondBubbleDelay = 1 + random.nextInt(SECOND_BUBBLE_MAX_DELAY);
+        secondBubbleDelay = 1 + player.currentRng().nextInt(SECOND_BUBBLE_MAX_DELAY);
     }
 
     /**

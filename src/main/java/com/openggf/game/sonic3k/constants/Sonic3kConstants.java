@@ -1345,8 +1345,22 @@ public class Sonic3kConstants {
     // Pal_HCZMiniboss / Pal_HCZMinibossWater - normal + underwater palette variants.
     public static final int PAL_HCZ_MINIBOSS_ADDR = 0x06AE56;
     public static final int PAL_HCZ_MINIBOSS_WATER_ADDR = 0x06AE76;
-    // Map_HCZMiniboss - body, rockets, engine, and suction-state frames.
-    public static final int MAP_HCZ_MINIBOSS_ADDR = 0x362A28;
+    /**
+     * Map_HCZMiniboss — table base for HCZ miniboss sprite mappings (36 frames).
+     *
+     * <p>ROM disasm: {@code Lockon S3/LockOn Data.asm:838} ({@code Map_HCZMiniboss:})
+     * which {@code include}s {@code Levels/HCZ/Misc Object Data/Map - Miniboss.asm}.
+     * The include file's first non-{@code Frame_} entry is
+     * {@code dc.w Frame_362A28-Map_HCZMiniboss_} and there are 36 dc.w offset
+     * entries (0x48 bytes), so the table base is at {@code 0x362A28 - 0x48 = 0x3629E0}.
+     *
+     * <p>Verified by reading the ROM at {@code 0x3629E0}: the first word reads
+     * back as {@code 0x0048} (matches expected offset-table size), and the
+     * first frame at {@code 0x3629E0 + 0x48 = 0x362A28} reports piece-count 4,
+     * matching the source. Address lives in lock-on data ({@code >= 0x200000});
+     * this label only exists in the lock-on / S3-half ROM space.
+     */
+    public static final int MAP_HCZ_MINIBOSS_ADDR = 0x3629E0;
     // ArtTile_HCZMiniboss - VRAM destination tile index from sonic3k.constants.asm.
     public static final int ART_TILE_HCZ_MINIBOSS = 0x0304;
 
@@ -1357,9 +1371,42 @@ public class Sonic3kConstants {
     public static final int PAL_HCZ_END_BOSS_ADDR = 0x06BF0A;
     // ArtTile_HCZEndBoss - VRAM destination tile index from sonic3k.constants.asm.
     public static final int ARTTILE_HCZ_END_BOSS = 0x0320;
+    /**
+     * Map_HCZEndBoss — table base for HCZ end boss sprite mappings (50 frames).
+     *
+     * <p>ROM disasm: {@code Lockon S3/LockOn Data.asm:856} ({@code Map_HCZEndBoss:})
+     * which {@code include}s {@code Levels/HCZ/Misc Object Data/Map - End Boss.asm}.
+     * The include file's first entry is {@code dc.w Frame_363538-Map_HCZEndBoss_}
+     * and the table has 50 dc.w offset entries (0x64 bytes), so the table base is
+     * {@code 0x363538 - 0x64 = 0x3634D4}.
+     *
+     * <p>Verified by reading the ROM at {@code 0x3634D4}: first word = {@code 0x0064}
+     * (matches expected offset-table size), first frame at {@code 0x363538}
+     * reports piece-count 4 matching the source. Address lives in lock-on data
+     * ({@code >= 0x200000}); this label only exists in the lock-on / S3-half
+     * ROM space.
+     */
+    public static final int MAP_HCZ_END_BOSS_ADDR = 0x3634D4;
 
     // HCZ Geyser Cutscene Art (ArtTile_HCZCutsceneGeyser, from sonic3k.constants.asm)
     public static final int ARTTILE_HCZ_CUTSCENE_GEYSER = 0x036B;
+    /**
+     * Map_HCZWaterWall — table base for HCZ waterwall / geyser sprite mappings
+     * (11 frames).
+     *
+     * <p>ROM disasm: {@code Lockon S3/LockOn Data.asm:192} ({@code Map_HCZWaterWall:})
+     * which {@code include}s {@code Levels/HCZ/Misc Object Data/Map - Waterfall.asm}.
+     * The include file's first entry is {@code dc.w Frame_22EE26-Map_HCZWaterWall_}
+     * and the table has 11 dc.w offset entries (0x16 bytes), so the table base
+     * is {@code 0x22EE26 - 0x16 = 0x22EE10}.
+     *
+     * <p>Verified by reading the ROM at {@code 0x22EE10}: first word = {@code 0x0016}
+     * (matches expected offset-table size), first frame at {@code 0x22EE26}
+     * reports piece-count 14 matching the source. Address lives in lock-on data
+     * ({@code >= 0x200000}); this label only exists in the lock-on / S3-half
+     * ROM space.
+     */
+    public static final int MAP_HCZ_WATERWALL_ADDR = 0x22EE10;
 
     // ===== CNZ Teleporter / Miniboss / End Boss (Task 6 infrastructure only) =====
     // The CNZ teleporter route is split across Obj_CNZTeleporter and the shared

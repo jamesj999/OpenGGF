@@ -50,7 +50,7 @@ class TestSonic2CnzRuntimeStateConsumers {
 
     @Test
     void cnzRuntimeStateViewTracksBossArenaSemantics() {
-        LevelManager levelManager = RuntimeManager.getCurrent().getLevelManager();
+        LevelManager levelManager = GameServices.level();
         levelManager.setLevel(new SyntheticCnzLevel());
 
         Sonic2CNZEvents events = new Sonic2CNZEvents();
@@ -64,7 +64,7 @@ class TestSonic2CnzRuntimeStateConsumers {
         assertFalse(state.rightArenaWallPlaced());
         assertEquals(0, state.eventRoutine());
 
-        RuntimeManager.getCurrent().getCamera().setX((short) 0x2890);
+        GameServices.camera().setX((short) 0x2890);
         events.update(ACT_2, 1);
         events.update(ACT_2, 2);
 
@@ -75,7 +75,7 @@ class TestSonic2CnzRuntimeStateConsumers {
         assertTrue(state.rightArenaWallPlaced());
         assertEquals(4, state.eventRoutine());
 
-        RuntimeManager.getCurrent().getCamera().setY((short) 0x4E0);
+        GameServices.camera().setY((short) 0x4E0);
         for (int frame = 0; frame < 0x5A; frame++) {
             events.update(ACT_2, 3 + frame);
         }

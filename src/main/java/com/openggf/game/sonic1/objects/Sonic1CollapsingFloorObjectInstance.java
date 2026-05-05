@@ -384,9 +384,10 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         // Spawn remaining 7 fragments as dynamic objects
         int maxFragments = Math.min(FRAGMENT_COUNT, delays.length);
         for (int i = 1; i < maxFragments; i++) {
-            CollapsingFloorFragmentInstance fragment = new CollapsingFloorFragmentInstance(
-                    x, y, FRAME_SMASH, i, delays[i], hFlip, artKey);
-            objectManager.addDynamicObject(fragment);
+            final int idx = i;
+            final int delay = delays[i];
+            spawnFreeChild(() -> new CollapsingFloorFragmentInstance(
+                    x, y, FRAME_SMASH, idx, delay, hFlip, artKey));
         }
 
         // Play collapse sound: move.w #sfx_Collapse,d0 / jmp (QueueSound2).l

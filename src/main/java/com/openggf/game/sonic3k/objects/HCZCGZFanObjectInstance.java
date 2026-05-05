@@ -22,7 +22,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * Object 0x38 — HCZ/CGZ Fan (Sonic 3 &amp; Knuckles, Hydrocity Zone / Chrome Gadget Zone).
@@ -105,8 +104,6 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
     private static final int PLAYER_FLIPS_REMAINING = 0x7F;
     // ROM: move.b #8,flip_speed(a1)
     private static final int PLAYER_FLIP_SPEED = 8;
-
-    private static final Random RANDOM = new Random();
 
     // ===== Configuration (from subtype) =====
     private final int innerRange;      // $36(a0): inner detection range
@@ -409,7 +406,7 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         }
         // ROM: jsr (AllocateObject).l
         try {
-            int bubbleX = x + RANDOM.nextInt(16) - 8;  // ROM: random X offset -8..+7
+            int bubbleX = x + services().rng().nextInt(16) - 8;  // ROM: random X offset -8..+7
             spawnChild(() -> new FanBubbleChild(
                     new ObjectSpawn(bubbleX, y, Sonic3kObjectIds.HCZ_CGZ_FAN, 0, 0, false, 0)));
         } catch (Exception e) {

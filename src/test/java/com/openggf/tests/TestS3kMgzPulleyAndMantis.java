@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
@@ -32,7 +32,7 @@ class TestS3kMgzPulleyAndMantis {
     @BeforeEach
     void setUp() {
         RuntimeManager.destroyCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         AbstractObjectInstance.updateCameraBounds(0, 0, 1024, 1024, 0);
     }
 

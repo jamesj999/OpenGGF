@@ -160,22 +160,19 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     private void spawnChildComponents() {
-        var objectManager = services().objectManager();
-        if (objectManager == null) return;
+        if (services().objectManager() == null) return;
 
         // Spawn 4 cylinders with subtypes 0, 2, 4, 6 (ROM: loc_19E3E)
         for (int i = 0; i < 4; i++) {
-            int subtype = i * 2;
-            FZCylinder cylinder = new FZCylinder(this, subtype);
+            final int subtype = i * 2;
+            FZCylinder cylinder = spawnFreeChild(() -> new FZCylinder(this, subtype));
             cylinders[i] = cylinder;
             childComponents.add(cylinder);
-            objectManager.addDynamicObject(cylinder);
         }
 
         // Spawn plasma launcher (ROM: loc_19E20)
-        plasmaLauncher = new FZPlasmaLauncher(this);
+        plasmaLauncher = spawnFreeChild(() -> new FZPlasmaLauncher(this));
         childComponents.add(plasmaLauncher);
-        objectManager.addDynamicObject(plasmaLauncher);
     }
 
     private void ensureChildComponentsSpawned() {
@@ -824,12 +821,13 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         int random = services().rng().nextWord();
         int xOffset = ((random & 0xFF) >> 2) - 0x20;
         int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
-        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
-                sourceX + xOffset,
-                sourceY + yOffset,
+        final int finalSourceX = sourceX + xOffset;
+        final int finalSourceY = sourceY + yOffset;
+        spawnFreeChild(() -> new BossExplosionObjectInstance(
+                finalSourceX,
+                finalSourceY,
                 renderManager,
-                Sonic1Sfx.BOSS_EXPLOSION.id);
-        services().objectManager().addDynamicObject(explosion);
+                Sonic1Sfx.BOSS_EXPLOSION.id));
     }
 
     private void requestEndingTransition() {

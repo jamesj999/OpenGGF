@@ -10,6 +10,7 @@ import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -90,8 +91,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
 
     private int secondaryState;
     private int pauseTimer;        // yad_timedelay (objoff_30)
-    private int xSubpixel;         // Fractional X position for SpeedToPos
-    private int ySubpixel;         // Fractional Y position for ObjectFall
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int fallVelocity;      // obVelY during initialization
     private boolean initialized;
     private int walkAnimIndex;     // Current index into WALK_ANIM_FRAMES
@@ -105,8 +106,6 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
         this.facingLeft = !xFlip;
         this.secondaryState = STATE_MOVE;
         this.pauseTimer = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
         this.fallVelocity = 0;
         this.initialized = false;
         this.walkAnimIndex = 0;
@@ -133,11 +132,13 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
      */
     private void initialize() {
         // ObjectFall: apply velocity to position, then add gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += fallVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-        fallVelocity += GRAVITY;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = fallVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentY = motion.y;
+        fallVelocity = motion.yVel;
 
         // ObjFloorDist: check floor from feet
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -192,10 +193,10 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
      */
     private void updateFixToFloor(int frameCounter) {
         // SpeedToPos: apply X velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = xVelocity;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
 
         // ObjFloorDist
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);

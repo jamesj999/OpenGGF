@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.game.GameRuntime;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.HczZoneRuntimeState;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
@@ -20,7 +21,7 @@ class TestS3kZoneRuntimeRegistrationHeadless {
             HeadlessTestFixture fixture = HeadlessTestFixture.builder().withSharedLevel(level).build();
             GameRuntime runtime = fixture.runtime();
             assertNotNull(runtime, "Runtime should be active after fixture build");
-            ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+            ZoneRuntimeRegistry registry = GameServices.zoneRuntimeRegistry();
             assertTrue(registry.currentAs(AizZoneRuntimeState.class).isPresent(),
                     "AIZ zone runtime state should be installed after loading AIZ");
             assertEquals(0, registry.current().zoneIndex());
@@ -38,7 +39,7 @@ class TestS3kZoneRuntimeRegistrationHeadless {
             HeadlessTestFixture fixture = HeadlessTestFixture.builder().withSharedLevel(level).build();
             GameRuntime runtime = fixture.runtime();
             assertNotNull(runtime, "Runtime should be active after fixture build");
-            ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+            ZoneRuntimeRegistry registry = GameServices.zoneRuntimeRegistry();
             assertTrue(registry.currentAs(HczZoneRuntimeState.class).isPresent(),
                     "HCZ zone runtime state should be installed after loading HCZ");
             assertEquals(1, registry.current().zoneIndex());

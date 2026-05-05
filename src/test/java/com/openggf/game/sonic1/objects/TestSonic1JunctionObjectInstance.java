@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.ObjectSpawn;
 import org.junit.jupiter.api.Test;
@@ -14,7 +14,7 @@ class TestSonic1JunctionObjectInstance {
     @Test
     void constructorMatchesJunMainSeedState() throws Exception {
         RuntimeManager.destroyCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
         Sonic1JunctionObjectInstance junction = new Sonic1JunctionObjectInstance(
                 new ObjectSpawn(0x1490, 0x0170, 0x66, 0x00, 0, false, 0));

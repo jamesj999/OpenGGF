@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.scroll;
 import com.openggf.game.GameServices;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_MCZ (Mystic Cave Zone scroll routine).
@@ -57,6 +58,8 @@ public class SwScrlMcz extends AbstractZoneScrollHandler {
     // Pre-allocated segment scroll array
     private final short[] segScroll = new short[24];
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     public SwScrlMcz(ParallaxTables tables) {
         this.tables = tables;
     }
@@ -79,6 +82,7 @@ public class SwScrlMcz extends AbstractZoneScrollHandler {
             int actId) {
 
         resetScrollTracking();
+        composer.reset();
 
         // ==================== Step 1: Calculate BG Y (Act Dependent)
         // ====================
@@ -114,7 +118,7 @@ public class SwScrlMcz extends AbstractZoneScrollHandler {
         this.bgY = bgY;
 
         // Apply shake to vertical scroll factors
-        vscrollFactorBG = (short) (bgY + this.shakeOffsetY);
+        composer.setVscrollFactorBG((short) (bgY + this.shakeOffsetY));
         vscrollFactorFG = (short) (cameraY + this.shakeOffsetY);
 
         // ==================== Step 3: Build 24 Segment Scroll Values
@@ -174,8 +178,7 @@ public class SwScrlMcz extends AbstractZoneScrollHandler {
             short segScrollVal = segScroll[seg];
             short bgScroll = (short) (fgScroll + (cameraX - segScrollVal));
 
-            horizScrollBuf[screenLine] = M68KMath.packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
+            composer.writePackedScrollWord(screenLine, fgScroll, bgScroll);
 
             remainingInSeg--;
             if (remainingInSeg == 0) {
@@ -186,6 +189,11 @@ public class SwScrlMcz extends AbstractZoneScrollHandler {
                 remainingInSeg = rowHeights[seg] & 0xFF;
             }
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**
@@ -294,14 +302,12 @@ public class SwScrlMcz extends AbstractZoneScrollHandler {
     private void fillFallback(int[] horizScrollBuf, int cameraX) {
         short fgScroll = M68KMath.negWord(cameraX);
         short bgScroll = M68KMath.asrWord(cameraX, 1); // 0.5x scroll as fallback
-        int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
 
-        for (int i = 0; i < M68KMath.VISIBLE_LINES; i++) {
-            horizScrollBuf[i] = packed;
-        }
-
-        minScrollOffset = bgScroll - fgScroll;
-        maxScrollOffset = minScrollOffset;
+        composer.fillPackedScrollWords(0, M68KMath.VISIBLE_LINES, fgScroll, bgScroll);
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     public short getVscrollFactorFG() {

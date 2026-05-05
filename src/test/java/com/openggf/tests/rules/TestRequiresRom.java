@@ -2,7 +2,7 @@ package com.openggf.tests.rules;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
@@ -26,7 +26,7 @@ class TestRequiresRom {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RomManager.getInstance().setRom(null);
         RuntimeManager.destroyCurrent();
         SessionManager.clear();

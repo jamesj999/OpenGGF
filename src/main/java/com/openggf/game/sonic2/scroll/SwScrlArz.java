@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.scroll;
 import com.openggf.game.GameServices;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_ARZ (Aquatic Ruin Zone scroll routine).
@@ -60,6 +61,8 @@ public class SwScrlArz extends AbstractZoneScrollHandler {
     // Pre-allocated array for row scroll speeds
     private final int[] rowScrollPx = new int[16];
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     public SwScrlArz(ParallaxTables tables) {
         this.tables = tables;
         this.initialized = false;
@@ -104,6 +107,7 @@ public class SwScrlArz extends AbstractZoneScrollHandler {
         }
 
         resetScrollTracking();
+        composer.reset();
 
         // ==================== Step 1: Calculate Camera Diffs ====================
         int diffX = cameraX - lastCameraX;
@@ -142,7 +146,7 @@ public class SwScrlArz extends AbstractZoneScrollHandler {
         arzBgYPos += d5_fixed;
 
         // Update vscrollFactorBG for external use
-        vscrollFactorBG = (short) (arzBgYPos >> 16);
+        composer.setVscrollFactorBG((short) (arzBgYPos >> 16));
 
         // ==================== Step 4: Determine Starting Row ====================
         int bgY = arzBgYPos >> 16;
@@ -247,7 +251,7 @@ public class SwScrlArz extends AbstractZoneScrollHandler {
                 this.shakeOffsetX = tables.getRippleSigned(rippleIndex + 1);
             }
             // Apply vertical shake to vscrollFactorBG
-            vscrollFactorBG = (short) ((arzBgYPos >> 16) + this.shakeOffsetY);
+            composer.setVscrollFactorBG((short) ((arzBgYPos >> 16) + this.shakeOffsetY));
         }
 
         short fgScroll = M68KMath.negWord(cameraX + this.shakeOffsetX);
@@ -261,18 +265,17 @@ public class SwScrlArz extends AbstractZoneScrollHandler {
 
             for (int k = 0; k < count; k++) {
                 short bgScroll = M68KMath.negWord(speed + this.shakeOffsetX);
-                horizScrollBuf[currentLine++] = M68KMath.packScrollWords(fgScroll, bgScroll);
-
-                int offset = bgScroll - fgScroll;
-                if (offset < minScrollOffset)
-                    minScrollOffset = offset;
-                if (offset > maxScrollOffset)
-                    maxScrollOffset = offset;
+                composer.writePackedScrollWord(currentLine++, fgScroll, bgScroll);
             }
 
             rowIdx = (rowIdx + 1) % 16;
             pixelsInRow = ROW_HEIGHTS[rowIdx];
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**

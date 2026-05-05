@@ -2,7 +2,7 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
@@ -44,7 +44,7 @@ class TestSonic3kMgz2EndBossEvents {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameServices.configuration().resetToDefaults();
         GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.createGameplay();

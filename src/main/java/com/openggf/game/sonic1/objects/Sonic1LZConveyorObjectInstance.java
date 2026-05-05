@@ -427,20 +427,12 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
 
         // Spawn child platforms - first one replaces this object's identity,
         // rest are new dynamic objects.
-        // Set construction context so children can call services() in their constructors.
-        setConstructionContext(services());
-        try {
-            for (int i = 0; i < positionData.length; i++) {
-                int childX = positionData[i][0];
-                int childY = positionData[i][1];
-                int childSubtype = positionData[i][2];
+        for (int i = 0; i < positionData.length; i++) {
+            final int childX = positionData[i][0];
+            final int childY = positionData[i][1];
+            final int childSubtype = positionData[i][2];
 
-                Sonic1LZConveyorObjectInstance child =
-                        new Sonic1LZConveyorObjectInstance(childX, childY, childSubtype);
-                services().objectManager().addDynamicObject(child);
-            }
-        } finally {
-            clearConstructionContext();
+            spawnFreeChild(() -> new Sonic1LZConveyorObjectInstance(childX, childY, childSubtype));
         }
 
         // Spawner itself is consumed after spawning

@@ -10,7 +10,6 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.GameModule;
-import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PhysicsFeatureSet;
@@ -982,14 +981,11 @@ public class SpriteManager {
 	}
 
 	private boolean isCpuSidekickSuppressed() {
-		LevelManager lm = null;
+		LevelManager lm = GameServices.levelOrNull();
 		GameModule module = null;
-		GameRuntime runtime = GameServices.runtimeOrNull();
-		if (runtime != null) {
-			lm = runtime.getLevelManager();
-			if (runtime.getWorldSession() != null) {
-				module = runtime.getWorldSession().getGameModule();
-			}
+		var session = com.openggf.game.session.SessionManager.getCurrentWorldSession();
+		if (session != null) {
+			module = session.getGameModule();
 		}
 		if (lm == null) {
 			lm = getLevelManager();
@@ -1034,7 +1030,7 @@ public class SpriteManager {
 										   boolean jump, boolean test, boolean speedUp, boolean slowDown,
 										   LevelManager levelManager, int frameCounter) {
 		boolean isUnified = requiresPostMovementSolidPass(playable);
-		boolean usesInlineSolidResolution = levelManager != null && levelManager.usesInlineObjectSolidResolution();
+		boolean usesInlineSolidResolution = levelManager != null && levelManager.objectsExecuteAfterPlayerPhysics();
 		// For S1 UNIFIED: skip pre-movement solid pass. ROM processes all solid
 		// objects AFTER Sonic's movement (his slot runs first in ExecuteObjects),
 		// so only the post-movement pass is ROM-accurate. Running both creates

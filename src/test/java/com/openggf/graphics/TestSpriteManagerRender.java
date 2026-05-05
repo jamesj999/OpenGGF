@@ -1,7 +1,7 @@
 package com.openggf.graphics;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
@@ -29,7 +29,7 @@ public class TestSpriteManagerRender {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();

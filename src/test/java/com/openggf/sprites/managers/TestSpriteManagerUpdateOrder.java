@@ -1,6 +1,6 @@
 package com.openggf.sprites.managers;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.Sprite;
@@ -16,7 +16,7 @@ class TestSpriteManagerUpdateOrder {
 
     @BeforeEach
     void configureRuntime() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test

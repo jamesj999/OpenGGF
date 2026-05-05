@@ -13,10 +13,12 @@ import com.openggf.game.render.AdvancedRenderFrameState;
 import com.openggf.game.render.AdvancedRenderMode;
 import com.openggf.game.render.AdvancedRenderModeContext;
 import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffect;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
+import com.openggf.game.sonic3k.render.HczWallChaseBgOverlayEffect;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotMachinePanelAnimator;
 import com.openggf.game.sonic3k.features.HCZWaterSkimHandler;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
@@ -48,6 +50,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     private final AizBattleshipRenderFeature aizBattleshipRenderFeature = new AizBattleshipRenderFeature();
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
+    private final SpecialRenderEffect hczWallChaseBgOverlayEffect = new HczWallChaseBgOverlayEffect();
     private final AdvancedRenderMode slotMachineForegroundScrollMode = new AdvancedRenderMode() {
         @Override
         public String id() {
@@ -392,12 +395,14 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void registerSpecialRenderEffects(SpecialRenderEffectRegistry registry, int zoneIndex, int actIndex) {
-        if (zoneIndex != Sonic3kZoneIds.ZONE_AIZ) {
-            return;
+        if (zoneIndex == Sonic3kZoneIds.ZONE_AIZ) {
+            registry.register(aizTransitionRenderFeature);
+            if (actIndex == 1) {
+                registry.register(aizBattleshipRenderFeature);
+            }
         }
-        registry.register(aizTransitionRenderFeature);
-        if (actIndex == 1) {
-            registry.register(aizBattleshipRenderFeature);
+        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ) {
+            registry.register(hczWallChaseBgOverlayEffect);
         }
     }
 

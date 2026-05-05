@@ -9,6 +9,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -108,8 +109,8 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
 
     private int secondaryState;
     private int pauseTimer;         // objoff_30: wait timer
-    private int xSubpixel;          // Fractional X for SpeedToPos
-    private int ySubpixel;          // Fractional Y for ObjectFall
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private boolean initialized;
     private int currentAnim;        // Current animation ID
     private int animIndex;          // Current index within animation frame array
@@ -124,8 +125,6 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
         this.facingLeft = false;
         this.secondaryState = STATE_ROLL_CHK;
         this.pauseTimer = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
         this.initialized = false;
         this.currentAnim = ANIM_UNFOLD;
         this.animIndex = 0;
@@ -157,11 +156,13 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
      */
     private void initialize() {
         // ObjectFall: apply velocity then add gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-        yVelocity += GRAVITY;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentY = motion.y;
+        yVelocity = motion.yVel;
 
         // ObjFloorDist
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -248,10 +249,10 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
         checkStop(player);
 
         // SpeedToPos: apply X velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = xVelocity;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
 
         // ObjFloorDist
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -292,19 +293,15 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
      *      add.w d1,obY(a0) / subq.b #2,ob2ndRout(a0) / move.w #0,obVelY(a0)
      */
     private void updateMatchFloor() {
-        // ObjectFall: apply velocity then add gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-
-        // SpeedToPos for X (ObjectFall also applies X velocity in the ROM)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        yVelocity += GRAVITY;
+        // ObjectFall: apply velocity (using current values), then add gravity to yVel.
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = xVelocity;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentX = motion.x;
+        currentY = motion.y;
+        yVelocity = motion.yVel;
 
         // tst.w obVelY(a0) / bmi.s locret_E150 - only check floor when falling
         if (yVelocity < 0) {

@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2;
 
-import com.openggf.game.GameRuntime;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
@@ -32,12 +32,12 @@ class TestSonic2CnzRuntimeStateRegistration {
 
     @Test
     void cnzInstallsTypedRuntimeStateWithMetadata() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_CNZ, 1);
 
-        Object state = currentRegistry(runtime).currentAs(cnzRuntimeStateType()).orElseThrow();
+        Object state = currentRegistry().currentAs(cnzRuntimeStateType()).orElseThrow();
         assertEquals("s2", invokeString(state, "gameId"));
         assertEquals(Sonic2LevelEventManager.ZONE_CNZ, invokeInt(state, "zoneIndex"));
         assertEquals(1, invokeInt(state, "actIndex"));
@@ -51,28 +51,28 @@ class TestSonic2CnzRuntimeStateRegistration {
 
     @Test
     void nonCnzDoesNotInstallCnzRuntimeState() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_EHZ, 0);
 
-        assertTrue(currentRegistry(runtime).currentAs(cnzRuntimeStateType()).isEmpty());
+        assertTrue(currentRegistry().currentAs(cnzRuntimeStateType()).isEmpty());
     }
 
     @Test
     void cnzStateClearsWhenLeavingCnz() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_CNZ, 1);
         manager.initLevel(Sonic2LevelEventManager.ZONE_EHZ, 0);
 
-        assertTrue(currentRegistry(runtime).currentAs(cnzRuntimeStateType()).isEmpty());
+        assertTrue(currentRegistry().currentAs(cnzRuntimeStateType()).isEmpty());
     }
 
     @Test
     void nonCnzInitDoesNotClearUnrelatedRuntimeState() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
         ZoneRuntimeState sentinel = new ZoneRuntimeState() {
             @Override
@@ -90,16 +90,16 @@ class TestSonic2CnzRuntimeStateRegistration {
                 return 2;
             }
         };
-        currentRegistry(runtime).install(sentinel);
+        currentRegistry().install(sentinel);
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_EHZ, 0);
 
-        assertSame(sentinel, currentRegistry(runtime).current());
+        assertSame(sentinel, currentRegistry().current());
     }
 
     @Test
     void cnzInitDoesNotReplaceUnrelatedRuntimeState() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
         ZoneRuntimeState sentinel = new ZoneRuntimeState() {
             @Override
@@ -117,44 +117,42 @@ class TestSonic2CnzRuntimeStateRegistration {
                 return 3;
             }
         };
-        currentRegistry(runtime).install(sentinel);
+        currentRegistry().install(sentinel);
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_CNZ, 1);
 
-        assertSame(sentinel, currentRegistry(runtime).current());
+        assertSame(sentinel, currentRegistry().current());
     }
 
     @Test
     void cnzActSwitchRefreshesInstalledMetadata() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_CNZ, 0);
         manager.initLevel(Sonic2LevelEventManager.ZONE_CNZ, 1);
 
-        Object state = currentRegistry(runtime).currentAs(cnzRuntimeStateType()).orElseThrow();
+        Object state = currentRegistry().currentAs(cnzRuntimeStateType()).orElseThrow();
         assertEquals(1, invokeInt(state, "actIndex"));
     }
 
     @Test
     void resetStateClearsInstalledCnzRuntimeState() {
-        GameRuntime runtime = currentRuntime();
+        requireRuntime();
         Sonic2LevelEventManager manager = new Sonic2LevelEventManager();
 
         manager.initLevel(Sonic2LevelEventManager.ZONE_CNZ, 1);
         manager.resetState();
 
-        assertTrue(currentRegistry(runtime).currentAs(cnzRuntimeStateType()).isEmpty());
+        assertTrue(currentRegistry().currentAs(cnzRuntimeStateType()).isEmpty());
     }
 
-    private static GameRuntime currentRuntime() {
-        GameRuntime runtime = RuntimeManager.getActiveRuntime();
-        assertNotNull(runtime, "Expected gameplay runtime");
-        return runtime;
+    private static void requireRuntime() {
+        assertNotNull(GameServices.runtimeOrNull(), "Expected gameplay runtime");
     }
 
-    private static ZoneRuntimeRegistry currentRegistry(GameRuntime runtime) {
-        return runtime.getZoneRuntimeRegistry();
+    private static ZoneRuntimeRegistry currentRegistry() {
+        return GameServices.zoneRuntimeRegistry();
     }
 
     @SuppressWarnings("unchecked")

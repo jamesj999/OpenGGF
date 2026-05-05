@@ -6,7 +6,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SlopedSolidProvider;
 import com.openggf.level.objects.SolidContact;
@@ -302,13 +301,13 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        boolean flipped = (spawn.renderFlags() & 0x01) != 0;
+        final boolean flipped = (spawn.renderFlags() & 0x01) != 0;
 
-        ball = new Sonic1SeesawBallObjectInstance(this, spawn.x(), spawn.y(), flipped);
-
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager != null) {
-            objectManager.addDynamicObject(ball);
+        if (services().objectManager() != null) {
+            ball = spawnFreeChild(() -> new Sonic1SeesawBallObjectInstance(
+                    this, spawn.x(), spawn.y(), flipped));
+        } else {
+            ball = new Sonic1SeesawBallObjectInstance(this, spawn.x(), spawn.y(), flipped);
         }
     }
 

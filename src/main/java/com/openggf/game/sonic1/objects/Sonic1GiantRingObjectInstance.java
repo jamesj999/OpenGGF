@@ -193,14 +193,11 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
         // Spawn Ring Flash child object
         if (objectManager != null) {
             // ROM: Flash inherits position, gets parent pointer in objoff_3C
-            boolean flashHFlip = false;
             // ROM: cmp.w obX(a0),d0 / blo.s GRing_PlaySnd / bset #0,obRender(a1)
             // If Sonic is to the right of the ring, flip the flash
-            if (player.getCentreX() >= spawn.x()) {
-                flashHFlip = true;
-            }
-            objectManager.addDynamicObject(
-                    new Sonic1RingFlashObjectInstance(this, spawn.x(), spawn.y(), flashHFlip));
+            final boolean flashHFlip = (player.getCentreX() >= spawn.x());
+            spawnFreeChild(() -> new Sonic1RingFlashObjectInstance(
+                    this, spawn.x(), spawn.y(), flashHFlip));
         }
 
         // Play sound: move.w #sfx_GiantRing,d0 / jsr (QueueSound2).l

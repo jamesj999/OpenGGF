@@ -6,7 +6,7 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1ZoneRegistry;
@@ -235,7 +235,7 @@ public class TestS1DataSelectImageCacheManager {
             cameraService.when(GameServices::camera).thenReturn(camera);
             cameraService.when(GameServices::level).thenReturn(levelManager);
             GraphicsManager graphicsManager = org.mockito.Mockito.mock(GraphicsManager.class);
-            EngineServices engineServices = org.mockito.Mockito.mock(EngineServices.class);
+            EngineContext engineServices = org.mockito.Mockito.mock(EngineContext.class);
             runtimeManager.when(RuntimeManager::currentEngineServices).thenReturn(engineServices);
             org.mockito.Mockito.when(engineServices.graphics()).thenReturn(graphicsManager);
             org.mockito.Mockito.when(graphicsManager.submitRenderThreadTask(org.mockito.ArgumentMatchers.any()))

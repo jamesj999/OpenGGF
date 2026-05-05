@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
@@ -33,7 +33,7 @@ class TestSpiralObjectInstance {
     @BeforeEach
     void setUp() {
         previousModule = GameModuleRegistry.getCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         SessionManager.clear();
         RuntimeManager.createGameplay();

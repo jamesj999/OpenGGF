@@ -7,7 +7,7 @@ import com.openggf.control.InputHandler;
 import com.openggf.game.DataSelectProvider;
 import com.openggf.game.dataselect.DataSelectAction;
 import com.openggf.game.dataselect.DataSelectActionType;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.GameMode;
 import com.openggf.game.RuntimeManager;
@@ -62,7 +62,7 @@ public class TestGameLoop {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         RuntimeManager.createGameplay();
         mockInputHandler = mock(InputHandler.class);

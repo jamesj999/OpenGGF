@@ -9,6 +9,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -132,8 +133,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         //      move.w obY(a0),obY(a1)
         //      move.b obRender(a0),obRender(a1)
         //      move.b obStatus(a0),obStatus(a1)
-        Fireball fireball = new Fireball(spawn.x(), spawn.y(), facingRight);
-        services().objectManager().addDynamicObject(fireball);
+        spawnFreeChild(() -> new Fireball(spawn.x(), spawn.y(), facingRight));
         // Play fireball sound (ROM: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l)
         services().playSfx(Fireball.SFX_FIREBALL);
     }
@@ -253,8 +253,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         /** X velocity ($200 or -$200). */
         private final int velX;
 
-        /** X subpixel accumulator. */
-        private int xSubpixel;
+        /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+        private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
         /** Whether fireball is moving right. */
         private final boolean movingRight;
@@ -283,8 +283,6 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
             // move.b #2,obFrame(a0) -> starts at mapping frame 2
             this.currentFrame = FIREBALL_FRAME_1;
 
-            this.xSubpixel = 0;
-
             // Sound is played by the parent Gargoyle after construction
         }
 
@@ -302,11 +300,15 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
                         ? FIREBALL_FRAME_2 : FIREBALL_FRAME_1;
             }
 
-            // bsr.w SpeedToPos - apply X velocity
-            // 16.8 fixed-point: velX is in 1/256ths of a pixel per frame
-            xSubpixel += velX;
-            currentX += xSubpixel >> 8;
-            xSubpixel &= 0xFF;
+            // bsr.w SpeedToPos - apply X velocity using shared 16:8 helper.
+            // Note: the previous inline form (xSubpixel += velX; currentX += xSubpixel >> 8;
+            // xSubpixel &= 0xFF) is mathematically equivalent to SubpixelMotion.moveX for the
+            // velocities used here (FIREBALL_SPEED = ±$200, low byte 0), but the helper keeps
+            // the integration semantics consistent across the codebase.
+            motion.x = currentX;
+            motion.xVel = velX;
+            SubpixelMotion.moveX(motion);
+            currentX = motion.x;
 
             // Wall collision check
             // btst #0,obStatus(a0) / bne.s .isright

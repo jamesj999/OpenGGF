@@ -179,11 +179,12 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
         int missileXVel = facingLeft ? -MISSILE_X_VEL : MISSILE_X_VEL;
 
-        Sonic1BuzzBomberMissileInstance missile = new Sonic1BuzzBomberMissileInstance(
-                missileX, missileY, missileXVel, MISSILE_Y_VEL,
-                facingLeft, this);
-
-        services().objectManager().addDynamicObject(missile);
+        final int fMissileX = missileX;
+        final int fMissileY = missileY;
+        final int fMissileXVel = missileXVel;
+        spawnFreeChild(() -> new Sonic1BuzzBomberMissileInstance(
+                fMissileX, fMissileY, fMissileXVel, MISSILE_Y_VEL,
+                facingLeft, this));
 
         // Prevent refiring: set buzzStatus = 1
         buzzStatus = STATUS_FIRED;

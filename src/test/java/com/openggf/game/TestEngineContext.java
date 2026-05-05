@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.Engine;
 import com.openggf.GameLoop;
 import com.openggf.audio.AudioManager;
@@ -21,19 +22,20 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-class TestEngineServices {
+class TestEngineContext {
     @AfterEach
     void tearDown() {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test
     void defaultRootCollectsExistingProcessServicesAtCompositionBoundary() {
-        EngineServices services = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineContext services = EngineContext.fromLegacySingletonsForBootstrap();
 
         assertSame(SonicConfigurationService.getInstance(), services.configuration());
         assertSame(GraphicsManager.getInstance(), services.graphics());
@@ -48,32 +50,39 @@ class TestEngineServices {
 
     @Test
     void engineConfiguresRuntimeRootBeforeGameLoopCanAutoCreateRuntime() {
-        EngineServices staleRoot = EngineServices.fromLegacySingletonsForBootstrap();
-        EngineServices injectedRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineContext staleRoot = EngineContext.fromLegacySingletonsForBootstrap();
+        EngineContext injectedRoot = EngineContext.fromLegacySingletonsForBootstrap();
         RuntimeManager.configureEngineServices(staleRoot);
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
         new Engine(injectedRoot);
-
-        assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+        // After removing lazy-create-on-getCurrent, the runtime is built
+        // explicitly. Engine constructor reconfigures the root before any
+        // gameplay runtime exists; verify that downstream creation picks up
+        // the injected root.
+        com.openggf.game.GameRuntime runtime = RuntimeManager.createGameplay();
+        assertSame(injectedRoot, runtime.getEngineServices());
     }
 
     @Test
     void gameLoopInjectedRootIsUsedWhenConstructorAutoCreatesRuntime() {
-        EngineServices staleRoot = EngineServices.fromLegacySingletonsForBootstrap();
-        EngineServices injectedRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineContext staleRoot = EngineContext.fromLegacySingletonsForBootstrap();
+        EngineContext injectedRoot = EngineContext.fromLegacySingletonsForBootstrap();
         RuntimeManager.configureEngineServices(staleRoot);
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
         new GameLoop(injectedRoot);
-
-        assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+        // After removing lazy-create-on-getCurrent, runtime build is explicit;
+        // the GameLoop constructor reconfigures the root, and the next
+        // explicit createGameplay() picks it up.
+        com.openggf.game.GameRuntime runtime = RuntimeManager.createGameplay();
+        assertSame(injectedRoot, runtime.getEngineServices());
     }
 
     @Test
     void runtimeRebindsWhenEngineServicesRootChangesWhileActive() {
-        EngineServices staleRoot = EngineServices.fromLegacySingletonsForBootstrap();
-        EngineServices injectedRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineContext staleRoot = EngineContext.fromLegacySingletonsForBootstrap();
+        EngineContext injectedRoot = EngineContext.fromLegacySingletonsForBootstrap();
         RuntimeManager.configureEngineServices(staleRoot);
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
@@ -81,8 +90,12 @@ class TestEngineServices {
         assertSame(staleRoot, runtime.getEngineServices());
 
         RuntimeManager.configureEngineServices(injectedRoot);
-
-        com.openggf.game.GameRuntime rebound = RuntimeManager.getCurrent(injectedRoot);
+        // getCurrent with a different EngineContext root drops the stale
+        // runtime; an explicit createGameplay() builds a fresh one bound to
+        // the new root.
+        assertNull(RuntimeManager.getCurrent(injectedRoot),
+                "getCurrent should drop the runtime whose EngineContext no longer matches");
+        com.openggf.game.GameRuntime rebound = RuntimeManager.createGameplay();
 
         assertSame(injectedRoot, rebound.getEngineServices());
         assertNotSame(runtime, rebound);
@@ -90,7 +103,7 @@ class TestEngineServices {
 
     @Test
     void defaultEngineConstructorUsesCurrentlyConfiguredEngineServicesRoot() {
-        EngineServices configuredRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineContext configuredRoot = EngineContext.fromLegacySingletonsForBootstrap();
         RuntimeManager.configureEngineServices(configuredRoot);
 
         new Engine();
@@ -100,7 +113,7 @@ class TestEngineServices {
 
     @Test
     void defaultGameLoopConstructorsUseCurrentlyConfiguredEngineServicesRoot() {
-        EngineServices configuredRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineContext configuredRoot = EngineContext.fromLegacySingletonsForBootstrap();
         RuntimeManager.configureEngineServices(configuredRoot);
 
         new GameLoop();
@@ -118,8 +131,8 @@ class TestEngineServices {
 
     private static void assertNoRootBypass(Path path) throws IOException {
         String source = Files.readString(path);
-        assertFalse(source.contains("GameServices.debugOverlay()"), path + " should use EngineServices.debugOverlay()");
-        assertFalse(source.contains("GameServices.rom()"), path + " should use EngineServices.roms()");
+        assertFalse(source.contains("GameServices.debugOverlay()"), path + " should use EngineContext.debugOverlay()");
+        assertFalse(source.contains("GameServices.rom()"), path + " should use EngineContext.roms()");
     }
 }
 

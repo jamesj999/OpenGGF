@@ -23,7 +23,6 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Hydrocity Act 1 miniboss (object 0x99).
@@ -961,8 +960,8 @@ public class HczMinibossInstance extends AbstractBossInstance {
         int vortexCentreX = getWaterEffectX();
         int vortexCentreY = getWaterEffectY();
         vortexBubbles.clear();
+        var rng = services().rng();
         for (int i = 0; i < 0x1E; i++) {
-            var rng = ThreadLocalRandom.current();
             int bubbleX = vortexCentreX + (byte) rng.nextInt(256);
             int bubbleY = vortexCentreY + (rng.nextInt(64) - 8);
             int bubbleFrame = rng.nextInt(4);

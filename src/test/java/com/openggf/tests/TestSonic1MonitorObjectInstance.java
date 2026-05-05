@@ -1,7 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.objects.Sonic1MonitorObjectInstance;
 import com.openggf.game.sonic1.objects.Sonic1MonitorPowerUpObjectInstance;
@@ -40,7 +40,7 @@ class TestSonic1MonitorObjectInstance {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

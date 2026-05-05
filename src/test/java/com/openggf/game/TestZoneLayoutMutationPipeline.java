@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.LevelFrameStep;
 import com.openggf.game.mutation.DirectLevelMutationSurface;
 import com.openggf.game.mutation.LayoutMutationContext;
@@ -47,7 +48,7 @@ class TestZoneLayoutMutationPipeline {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();
@@ -55,7 +56,7 @@ class TestZoneLayoutMutationPipeline {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();
@@ -139,26 +140,12 @@ class TestZoneLayoutMutationPipeline {
         assertEquals("ABC", log.toString());
     }
 
-    @Test
-    void parkAndResumeClearsQueuedMutationState() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
-        ZoneLayoutMutationPipeline pipeline = runtime.getZoneLayoutMutationPipeline();
-        GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
-        StringBuilder log = new StringBuilder();
-
-        pipeline.queue(intent(log, "A"));
-
-        RuntimeManager.parkCurrent();
-
-        assertNull(GameServices.zoneLayoutMutationPipelineOrNull());
-
-        GameRuntime resumed = RuntimeManager.resumeParked(gameplayMode);
-        assertSame(runtime, resumed);
-        assertSame(pipeline, resumed.getZoneLayoutMutationPipeline());
-
-        pipeline.flush(context());
-        assertEquals("", log.toString(), "park/resume should discard queued mutations from the parked frame");
-    }
+    // Removed: parkAndResumeClearsQueuedMutationState. Tested
+    // RuntimeManager.parkCurrent / resumeParked, which have been deleted
+    // in favor of proper teardown+rebuild (RuntimeManager.destroyCurrent +
+    // initializeGameplayRuntime + level restoration). Queued mutation
+    // discard at runtime teardown is exercised by
+    // runtimeDestroyClearsPendingMutationState below.
 
     @Test
     void mutableLevelSurfaceUsesDirtyTrackingAndRequestsSameFrameProcessing() {
@@ -234,7 +221,7 @@ class TestZoneLayoutMutationPipeline {
         StringBuilder log = new StringBuilder();
         AtomicInteger eventCalls = new AtomicInteger();
 
-        when(levelManager.usesInlineObjectSolidResolution()).thenReturn(false);
+        when(levelManager.objectsExecuteAfterPlayerPhysics()).thenReturn(false);
         when(levelManager.getCurrentLevel()).thenReturn(new TestLevel());
         doCallRealMethod().when(levelManager).flushQueuedLayoutMutations();
         doCallRealMethod().when(levelManager).applyMutationEffects(org.mockito.ArgumentMatchers.any());
@@ -291,6 +278,9 @@ class TestZoneLayoutMutationPipeline {
         pipeline.queue(intent(log, "A"));
 
         RuntimeManager.destroyCurrent();
+        // Post-migration: GameServices accessors throw only when the gameplay
+        // mode is gone — destroyCurrent leaves cleared managers attached.
+        SessionManager.clear();
 
         assertNull(GameServices.zoneLayoutMutationPipelineOrNull());
         assertThrows(IllegalStateException.class, GameServices::zoneLayoutMutationPipeline);
@@ -299,7 +289,10 @@ class TestZoneLayoutMutationPipeline {
         assertEquals("", log.toString(), "destroy should clear queued mutations on the old pipeline instance");
 
         GameRuntime recreated = RuntimeManager.createGameplay();
-        assertNotSame(runtime.getZoneLayoutMutationPipeline(), recreated.getZoneLayoutMutationPipeline());
+        // After the runtime ownership migration, both GameRuntime references
+        // resolve to the live shared registry on the gameplay mode context,
+        // so compare against the originally captured pipeline instance.
+        assertNotSame(pipeline, recreated.getZoneLayoutMutationPipeline());
     }
 
     private static LayoutMutationIntent intent(StringBuilder log, String marker) {

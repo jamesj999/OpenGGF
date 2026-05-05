@@ -1,5 +1,6 @@
 package com.openggf;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.editor.EditorInputHandler;
@@ -98,7 +99,7 @@ public class GameLoop {
                     | (1 << STATUS_BUBBLE_SHIELD_BIT);
 
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
-    private final EngineServices engineServices;
+    private final EngineContext engineServices;
     private final SonicConfigurationService configService;
     private final AudioManager audioManager;
     private final RomManager romManager;
@@ -207,7 +208,7 @@ public class GameLoop {
         this(RuntimeManager.currentEngineServices());
     }
 
-    public GameLoop(EngineServices engineServices) {
+    public GameLoop(EngineContext engineServices) {
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
         RuntimeManager.configureEngineServices(this.engineServices);
         this.configService = this.engineServices.configuration();
@@ -223,7 +224,7 @@ public class GameLoop {
         this(RuntimeManager.currentEngineServices(), inputHandler);
     }
 
-    public GameLoop(EngineServices engineServices, InputHandler inputHandler) {
+    public GameLoop(EngineContext engineServices, InputHandler inputHandler) {
         this(engineServices);
         this.inputHandler = inputHandler;
     }
@@ -623,7 +624,7 @@ public class GameLoop {
                 // starts like SBZ3, HCZ1, and LRZ1).
                 if (tcpCard.shouldRunPlayerPhysics()) {
                     spriteManager.updateWithoutInput();
-                    if (levelManager.usesInlineObjectSolidResolution()) {
+                    if (levelManager.objectsExecuteAfterPlayerPhysics()) {
                         levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
                     } else {
                         levelManager.updateObjectPositions();
@@ -3302,7 +3303,7 @@ public class GameLoop {
         // Run level physics — follows LevelFrameStep canonical order (steps 1-4),
         // but steps 5-6 are conditional on scroll-freeze state during ending fadeout.
         levelManager.updateZoneFeaturesPrePhysics();
-        if (levelManager.usesInlineObjectSolidResolution()) {
+        if (levelManager.objectsExecuteAfterPlayerPhysics()) {
             spriteManager.update(inputHandler);
             levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
         } else {

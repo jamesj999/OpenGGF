@@ -573,7 +573,69 @@ public record PhysicsFeatureSet(
          *  <p>S1: false. S1's {@code Sonic_Water} applies
          *  {@code asl.w obVelY(a0)} on exit without this velocity gate
          *  (s1disasm/_incObj/01 Sonic.asm:246-248). */
-        boolean waterExitBoostSkipsFastUpwardVelocity
+        boolean waterExitBoostSkipsFastUpwardVelocity,
+        /** Whether {@code Sonic_SlopeResist} can apply slope force when ground
+         *  velocity is zero (i.e. when the player is stationary on a slope).
+         *
+         *  <p>S3K: {@code true}. {@code Player_SlopeResist}
+         *  (sonic3k.asm:23830-23856) branches {@code beq.s loc_11DDC} on the
+         *  zero-inertia case, then applies the force only when
+         *  {@code |slope_force| >= $D} ({@code cmpi.w #$D,d1 / blo.s}).
+         *  This is what kicks a stationary player into motion on a steep
+         *  slope.
+         *
+         *  <p>S1/S2: {@code false}. {@code Sonic_SlopeResist}
+         *  (s1disasm/_incObj/01 Sonic.asm:1243-1244;
+         *  s2.asm:37394-37395) returns unconditionally on
+         *  {@code tst.w inertia(a0) / beq.s return_1ADCA}, leaving the
+         *  player at rest. {@code Tails_SlopeResist} (s2.asm:40249-40250)
+         *  matches Sonic. Required for S2 EHZ trace replay frame 3644
+         *  where Tails decelerates to {@code g_speed = 0} at angle 0xD0
+         *  and ROM keeps her stationary while the engine was sliding her
+         *  back down the slope. */
+        boolean slopeResistAppliesAtZeroInertia,
+        /** Whether {@code Object_respawn_table} bit 7 stays permanently
+         *  set after a player kill, preventing the spawn from re-triggering
+         *  for the rest of the level.
+         *
+         *  <p>S3K: {@code true}. {@code Touch_EnemyNormal}
+         *  (sonic3k.asm:20953 {@code bset #7,status(a1)}) sets the
+         *  destroyed bit on kill; the badnik is then converted to
+         *  {@code Obj_Explosion} which never re-enters the alive-offscreen
+         *  {@code Sprite_OnScreen_Test} clear path, so the bit persists
+         *  until level reset. The cursor helpers also set the bit on spawn
+         *  at {@code loc_1BA40 / loc_1BA64}.
+         *
+         *  <p>S1/S2: {@code false}. ROM only latches respawn-tracked spawns
+         *  via the {@code remember_state} status bit; non-remembered spawns
+         *  re-trigger when the cursor passes them again
+         *  (s2.asm:33402 {@code tst.b 2(a0); bpl.s +}). */
+        boolean permanentRespawnTableLatch,
+        /** Whether the frame loop schedules object execution AFTER player
+         *  physics (with inline solid checkpoints visible to subsequent
+         *  objects), instead of before.
+         *
+         *  <p>This controls {@code LevelManager.objectsExecuteAfterPlayerPhysics()},
+         *  which {@code LevelFrameStep} and {@code GameLoop} read to decide
+         *  whether to run {@code physics} then {@code objects} (true) or
+         *  {@code objects} then {@code physics} (false). It is independent
+         *  of {@code collisionModel}: S1 (UNIFIED) and S2/S3K (DUAL_PATH)
+         *  all use the post-physics ordering on this branch per the
+         *  2026-04-18-solid-ordering-rom-accuracy plan.
+         *
+         *  <p>S1/S2/S3K: {@code true}. */
+        boolean objectsExecuteAfterPlayerPhysics,
+        /** Fixed object slot index used for shield power-ups, or {@code -1}
+         *  when shields are dynamically allocated through the normal slot pool.
+         *
+         *  <p>S1: 6. ROM Variables.asm hardcodes {@code v_shieldobj = v_objspace
+         *  + object_size*6}, so the shield object always lives at object slot 6
+         *  ({@link com.openggf.level.objects.DefaultPowerUpSpawner} routes
+         *  shield objects through {@code addDynamicObjectAtSlot}).
+         *
+         *  <p>S2/S3K: -1. Shields share the dynamic slot pool with other
+         *  spawned objects; no fixed slot reservation. */
+        int shieldObjectFixedSlotIndex
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -658,7 +720,11 @@ public record PhysicsFeatureSet(
             false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278-289) tests y_vel before any lift and returns Solid_Miss when upward */,
             false /* sidekickNormalCpuSkipsHurtRoutine: S1 has no Tails CPU */,
             false /* controlLockLatchesLogicalInput: S1 uses separate Ctrl_Lock_byte; preserve baseline */,
-            false /* waterExitBoostSkipsFastUpwardVelocity: S1 exits water with unconditional asl.w obVelY(a0) */);
+            false /* waterExitBoostSkipsFastUpwardVelocity: S1 exits water with unconditional asl.w obVelY(a0) */,
+            false /* slopeResistAppliesAtZeroInertia: S1 Sonic_SlopeResist (s1disasm/_incObj/01 Sonic.asm:1243-1244) returns unconditionally when inertia=0 */,
+            false /* permanentRespawnTableLatch: S1 ObjectsManager_Main only latches remembered spawns; non-remembered spawns re-trigger when cursor passes */,
+            true /* objectsExecuteAfterPlayerPhysics: S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan */,
+            6 /* shieldObjectFixedSlotIndex: S1 Variables.asm v_shieldobj = v_objspace + object_size*6 */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -686,7 +752,11 @@ public record PhysicsFeatureSet(
             false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S2 SolidObject_Landed (s2.asm:35379-35380) tests y_vel before lift and branches to SolidObject_Miss when upward */,
             false /* sidekickNormalCpuSkipsHurtRoutine: keep S2's separate Tails_respawn_counter baseline until dispatcher parity is revalidated */,
             false /* controlLockLatchesLogicalInput: ROM Obj01_Control (s2.asm:35933-35935) has the short-circuit, but engine S2 setControlLocked sites (FlipperObjectInstance, CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance, SignpostObjectInstance) and EHZ trace baseline expect post-lock zero state for animation gating; universal latch regressed S2 EHZ to F5121 (commit f3347ea89, reverted in 9793e4617); flip after S2 traces are re-validated */,
-            true /* waterExitBoostSkipsFastUpwardVelocity: S2 Sonic_Water skips asl y_vel when y_vel < -$400 (s2.asm:36120-36124) */);
+            true /* waterExitBoostSkipsFastUpwardVelocity: S2 Sonic_Water skips asl y_vel when y_vel < -$400 (s2.asm:36120-36124) */,
+            false /* slopeResistAppliesAtZeroInertia: S2 Sonic_SlopeResist/Tails_SlopeResist (s2.asm:37394-37395, 40249-40250) return unconditionally on tst.w inertia(a0)/beq when stationary. Required for EHZ trace F3644 Tails-on-loop divergence. */,
+            false /* permanentRespawnTableLatch: S2 ObjectsManager_Main only latches remembered spawns (s2.asm:33402 tst.b 2(a0); bpl.s +); non-remembered spawns re-trigger when cursor passes */,
+            true /* objectsExecuteAfterPlayerPhysics: S2 DUAL_PATH uses post-physics object ordering with inline solid checkpoints */,
+            -1 /* shieldObjectFixedSlotIndex: S2 shields use the dynamic slot pool, no fixed v_shieldobj slot */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -718,7 +788,11 @@ public record PhysicsFeatureSet(
             true /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S3K loc_1E154 (sonic3k.asm:41606-41632) writes subq.w #1, y_pos(a1) and sub.w d3, y_pos(a1) BEFORE tst.w y_vel(a1) / bmi.s loc_1E198 — the lift is unconditional, only the standing/RideObject_SetRide is gated on y_vel >= 0. CNZ F7614 Tails_Jump (y_vel=-0x680) on Obj_Spring_Horizontal at 0x0E38,0x04D0 produces a +2 px lift the engine was missing. */,
             true /* sidekickNormalCpuSkipsHurtRoutine: S3K Tails_Index routine 4 bypasses Tails_Control, so sub_13EFC does not tick during hurt/object frames (sonic3k.asm:26091-26096,26159-26190,26816-26833). MGZ F1910 keeps Tails local instead of despawning. */,
             true /* controlLockLatchesLogicalInput: S3K Sonic_Control (sonic3k.asm:21541-21545 loc_10760) skips move.w (Ctrl_1).w,(Ctrl_1_logical).w when Ctrl_1_locked != 0, latching the previous frame's logical pad state. Required so Sonic_RecordPos (sonic3k.asm:22132) writes the latched value into Stat_table for Tails_CPU_Control's $40-frame-delayed read (sonic3k.asm:26683-26689). */,
-            true /* waterExitBoostSkipsFastUpwardVelocity: S3K Sonic_Water skips asl y_vel when y_vel < -$400 (sonic3k.asm:22267-22270) */);
+            true /* waterExitBoostSkipsFastUpwardVelocity: S3K Sonic_Water skips asl y_vel when y_vel < -$400 (sonic3k.asm:22267-22270) */,
+            true /* slopeResistAppliesAtZeroInertia: S3K Player_SlopeResist (sonic3k.asm:23830-23856) branches to loc_11DDC on inertia=0 and applies slope force when |force| >= $D, kicking stationary player into motion */,
+            true /* permanentRespawnTableLatch: S3K Touch_EnemyNormal (sonic3k.asm:20953 bset #7,status(a1)) sets the destroyed bit on kill; badnik becomes Obj_Explosion which never re-enters Sprite_OnScreen_Test clear path, so bit persists until level reset */,
+            true /* objectsExecuteAfterPlayerPhysics: S3K DUAL_PATH uses post-physics object ordering with inline solid checkpoints */,
+            -1 /* shieldObjectFixedSlotIndex: S3K shields use the dynamic slot pool, no fixed v_shieldobj slot */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

@@ -2,7 +2,7 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -35,7 +35,7 @@ class TestSonic3kMgz2QuakeEvents {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.createGameplay();
     }

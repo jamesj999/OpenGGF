@@ -102,7 +102,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
      */
     private void spawnJetChild() {
         // Create jet child spawn - subtype $1A selects Obj9C_SubObjData
-        ObjectSpawn jetSpawn = new ObjectSpawn(
+        final ObjectSpawn jetSpawn = new ObjectSpawn(
                 currentX, currentY,
                 Sonic2ObjectIds.BALKIRY_JET,
                 0x1A, // subtype for jet exhaust
@@ -110,8 +110,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
                 false,
                 spawn.rawYWord());
 
-        BalkiryJetObjectInstance jet = new BalkiryJetObjectInstance(jetSpawn, this);
-        services().objectManager().addDynamicObject(jet);
+        spawnFreeChild(() -> new BalkiryJetObjectInstance(jetSpawn, this));
     }
 
     @Override

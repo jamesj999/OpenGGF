@@ -426,10 +426,16 @@ class TestS3kSlotBonusStageRuntime {
 
         runtime.shutdown();
 
+        // After the runtime ownership migration, GameplayModeContext owns the
+        // disposable managers (SpriteManager, Camera, etc.). Multiple
+        // GameRuntimes constructed on the same gameplay mode share those
+        // managers, so the two runtime references resolve to the same
+        // SpriteManager. The shutdown invariant — original player restored to
+        // the active SpriteManager — is preserved through that shared view.
         assertSame(originalPlayer, bootstrapRuntime.getSpriteManager().getSprite("tails"));
         assertSame(originalPlayer, bootstrapRuntime.getCamera().getFocusedSprite());
         assertFalse(runtime.isInitialized());
-        assertTrue(recreatedRuntime.getSpriteManager().getSprite("tails") == null);
+        assertSame(originalPlayer, recreatedRuntime.getSpriteManager().getSprite("tails"));
 
         bootstrapRuntime.destroy();
     }

@@ -545,11 +545,12 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
      * Spawn the spike child component.
      */
     private void spawnSpikeChild() {
-        spikeChild = new SYZBossSpike(this);
-        childComponents.add(spikeChild);
         if (services().objectManager() != null) {
-            services().objectManager().addDynamicObject(spikeChild);
+            spikeChild = spawnFreeChild(() -> new SYZBossSpike(this));
+        } else {
+            spikeChild = new SYZBossSpike(this);
         }
+        childComponents.add(spikeChild);
     }
 
     /**

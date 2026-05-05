@@ -1520,9 +1520,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		int slopeEffect = (slopeRunning * TrigLookupTable.sinHex(hexAngle)) >> 8;
 		if (gSpeed == 0) {
+			// S1/S2 ROM Sonic_SlopeResist (s1disasm/_incObj/01 Sonic.asm:1243-1244,
+			// s2.asm:37394-37395) returns unconditionally on
+			// `tst.w inertia(a0) / beq.s return_1ADCA` when stationary.
+			// S3K Player_SlopeResist (sonic3k.asm:23830-23856) instead branches
+			// to loc_11DDC on inertia=0 and applies the force when |force| >= $D,
+			// kicking the stationary player into motion on a steep enough slope.
 			PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-			if (fs == null || !fs.slopeResistStartsFromRest()
-					|| Math.abs(slopeEffect) < 0x0D) {
+			boolean s3kKickAtRest = fs != null && fs.slopeResistAppliesAtZeroInertia();
+			if (!s3kKickAtRest || Math.abs(slopeEffect) < 0x0D) {
 				return;
 			}
 		}

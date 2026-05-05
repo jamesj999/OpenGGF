@@ -4,7 +4,7 @@ import com.openggf.game.GameMode;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic1.Sonic1GameModule;
@@ -19,7 +19,7 @@ class TestSessionManager {
 
     @BeforeEach
     void configureServices() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @AfterEach
@@ -113,6 +113,9 @@ class TestSessionManager {
     @Test
     void runtimeManager_returnsCurrentGameplayContextFacade() {
         SessionManager.openGameplaySession(new Sonic2GameModule());
+        // After removing lazy-create-on-getCurrent, an explicit
+        // createGameplay() call is required to build the runtime.
+        com.openggf.game.RuntimeManager.createGameplay();
 
         assertNotNull(com.openggf.game.RuntimeManager.getCurrent());
         assertNotNull(com.openggf.game.RuntimeManager.getCurrent().getWorldSession());
@@ -123,6 +126,7 @@ class TestSessionManager {
     @Test
     void runtimeManager_returnsNullAfterSessionClear() {
         SessionManager.openGameplaySession(new Sonic2GameModule());
+        com.openggf.game.RuntimeManager.createGameplay();
         assertNotNull(RuntimeManager.getCurrent());
 
         SessionManager.clear();
@@ -133,8 +137,13 @@ class TestSessionManager {
     @Test
     void runtimeManager_returnsNullAfterEnteringEditorMode() {
         SessionManager.openGameplaySession(new Sonic2GameModule());
+        com.openggf.game.RuntimeManager.createGameplay();
         assertNotNull(RuntimeManager.getCurrent());
 
+        // Editor entry no longer leaves a runtime alive; production callers
+        // (Engine.enterEditorFromCurrentPlayer) explicitly call destroyCurrent
+        // before swapping into editor mode.
+        RuntimeManager.destroyCurrent();
         SessionManager.enterEditorMode(new EditorCursorState(128, 256));
 
         assertNull(RuntimeManager.getCurrent());

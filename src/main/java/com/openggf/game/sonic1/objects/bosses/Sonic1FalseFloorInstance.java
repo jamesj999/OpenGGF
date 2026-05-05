@@ -158,17 +158,16 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         currentY = MASTER_Y;
         updateDynamicSpawn(currentX, currentY);
 
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // Spawn 8 child blocks (ROM: moveq #7,d6 -> dbf loop = 8 iterations)
         for (int i = 0; i < CHILD_COUNT; i++) {
-            int childX = CHILD_START_X + (i * CHILD_SPACING);
-            FalseFloorBlock block = new FalseFloorBlock(childX, CHILD_Y, i);
+            final int childX = CHILD_START_X + (i * CHILD_SPACING);
+            final int slot = i;
+            FalseFloorBlock block = spawnFreeChild(() -> new FalseFloorBlock(childX, CHILD_Y, slot));
             childBlocks.add(block);
-            objectManager.addDynamicObject(block);
         }
 
         routine = ROUTINE_SOLID_WAITING;
@@ -379,8 +378,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         private void breakApart() {
             broken = true;
 
-            ObjectManager objectManager = services().objectManager();
-            if (objectManager == null) {
+            if (services().objectManager() == null) {
                 setDestroyed(true);
                 return;
             }
@@ -388,14 +386,13 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
             // ROM: FFloor_Break - first fragment reuses parent, remaining 3 are new objects.
             // We create all 4 as new objects since our architecture differs.
             for (int i = 0; i < 4; i++) {
-                int fragX = currentX + FRAGMENT_OFFSETS[i][0];
-                int fragY = currentY + FRAGMENT_OFFSETS[i][1];
-                int fragYVel = FRAGMENT_Y_VEL[i];
-                int fragFrame = FRAGMENT_FRAMES[i];
+                final int fragX = currentX + FRAGMENT_OFFSETS[i][0];
+                final int fragY = currentY + FRAGMENT_OFFSETS[i][1];
+                final int fragYVel = FRAGMENT_Y_VEL[i];
+                final int fragFrame = FRAGMENT_FRAMES[i];
 
-                FalseFloorFragment fragment = new FalseFloorFragment(
-                        fragX, fragY, fragYVel, fragFrame);
-                objectManager.addDynamicObject(fragment);
+                spawnFreeChild(() -> new FalseFloorFragment(
+                        fragX, fragY, fragYVel, fragFrame));
             }
 
             // ROM: move.w #sfx_WallSmash,d0; jsr (QueueSound2).l

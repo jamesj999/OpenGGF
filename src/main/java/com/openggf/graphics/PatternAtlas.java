@@ -39,6 +39,11 @@ public class PatternAtlas {
     private Entry[] fastEntries = new Entry[FAST_ENTRIES_SIZE];
     private final Map<Integer, Entry> sparseEntries = new HashMap<>();
     private final List<AtlasPage> pages = new ArrayList<>();
+    // Per-(atlasIndex, slot) reference count. Replaces the O(N) scan in isSlotShared:
+    // multiple Entry objects (aliases) can point at the same physical atlas slot, and we
+    // must only free that slot when the last reference is removed. Key encoding:
+    //   ((long) atlasIndex << 32) | (slot & 0xFFFFFFFFL)
+    private final Map<Long, Integer> slotRefCounts = new HashMap<>();
     // Lazily allocated to avoid LWJGL native library loading in headless tests
     private ByteBuffer patternUploadBuffer;
     private boolean initialized = false;
@@ -211,8 +216,6 @@ public class PatternAtlas {
      * @return true if the pattern was removed, false if it wasn't cached
      */
     public boolean removeEntry(int patternId) {
-        // Remove from lookup BEFORE calling isSlotShared() —
-        // the scan must not find this entry itself.
         Entry old;
         if (patternId >= 0 && patternId < FAST_ENTRIES_SIZE) {
             old = fastEntries[patternId];
@@ -221,7 +224,7 @@ public class PatternAtlas {
             old = sparseEntries.remove(patternId);
         }
         if (old != null) {
-            if (!isSlotShared(old)) {
+            if (releaseSlotRef(old.atlasIndex(), old.slot())) {
                 AtlasPage page = pages.get(old.atlasIndex());
                 page.freeSlot(old.slot());
             }
@@ -230,25 +233,31 @@ public class PatternAtlas {
         return false;
     }
 
+    private static long slotRefKey(int atlasIndex, int slot) {
+        return ((long) atlasIndex << 32) | (slot & 0xFFFFFFFFL);
+    }
+
+    /** Increment the reference count for an (atlasIndex, slot) pair. */
+    private void retainSlotRef(int atlasIndex, int slot) {
+        long key = slotRefKey(atlasIndex, slot);
+        slotRefCounts.merge(key, 1, Integer::sum);
+    }
+
     /**
-     * Check whether any remaining entry shares the same physical atlas slot
-     * as the given (already-removed) entry. Used to guard against freeing
-     * slots that are still referenced by aliases.
+     * Decrement the reference count for an (atlasIndex, slot) pair.
+     * @return {@code true} if the count reached zero (caller may free the physical slot).
      */
-    private boolean isSlotShared(Entry removed) {
-        int targetAtlas = removed.atlasIndex();
-        int targetSlot = removed.slot();
-        for (int i = 0; i < FAST_ENTRIES_SIZE; i++) {
-            Entry e = fastEntries[i];
-            if (e != null && e.atlasIndex() == targetAtlas && e.slot() == targetSlot) {
-                return true;
-            }
+    private boolean releaseSlotRef(int atlasIndex, int slot) {
+        long key = slotRefKey(atlasIndex, slot);
+        Integer count = slotRefCounts.get(key);
+        if (count == null) {
+            return true;
         }
-        for (Entry e : sparseEntries.values()) {
-            if (e.atlasIndex() == targetAtlas && e.slot() == targetSlot) {
-                return true;
-            }
+        if (count <= 1) {
+            slotRefCounts.remove(key);
+            return true;
         }
+        slotRefCounts.put(key, count - 1);
         return false;
     }
 
@@ -302,6 +311,7 @@ public class PatternAtlas {
         batchMode = false;
         Arrays.fill(fastEntries, null);
         sparseEntries.clear();
+        slotRefCounts.clear();
         pages.clear();
         cpuPixels = null;
         dirtyPages = null;
@@ -349,11 +359,22 @@ public class PatternAtlas {
     }
 
     private void putEntry(int patternId, Entry entry) {
+        Entry previous;
         if (patternId >= 0 && patternId < FAST_ENTRIES_SIZE) {
+            previous = fastEntries[patternId];
             fastEntries[patternId] = entry;
         } else {
-            sparseEntries.put(patternId, entry);
+            previous = sparseEntries.put(patternId, entry);
         }
+        // If we displaced an existing entry at the same patternId, release its slot ref.
+        // ensureEntry() short-circuits on existing IDs, so this branch is defensive — but
+        // any code path that overwrites a live entry must keep ref counts balanced.
+        if (previous != null) {
+            if (releaseSlotRef(previous.atlasIndex(), previous.slot())) {
+                pages.get(previous.atlasIndex()).freeSlot(previous.slot());
+            }
+        }
+        retainSlotRef(entry.atlasIndex(), entry.slot());
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.specialstage;
 
+import com.openggf.game.session.EngineContext;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,7 +16,7 @@ public class Sonic2SpecialStageManagerTest {
     @Test
     public void testManagerConstruction() {
         Sonic2SpecialStageManager instance1 = assertDoesNotThrow(() -> new Sonic2SpecialStageManager(),
-                "Default construction should not require configured EngineServices");
+                "Default construction should not require configured EngineContext");
         Sonic2SpecialStageManager instance2 = assertDoesNotThrow(() -> new Sonic2SpecialStageManager(),
                 "Repeated default construction should stay bootstrap-safe");
 
@@ -28,7 +29,7 @@ public class Sonic2SpecialStageManagerTest {
         Sonic2SpecialStageSpriteDebug debug = new Sonic2SpecialStageSpriteDebug();
 
         Sonic2SpecialStageManager manager = assertDoesNotThrow(() -> new Sonic2SpecialStageManager(debug),
-                "Injected debug construction should not require configured EngineServices");
+                "Injected debug construction should not require configured EngineContext");
 
         assertNotNull(manager, "Manager instance should not be null");
     }

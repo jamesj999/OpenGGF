@@ -9,7 +9,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidExecutionMode;
@@ -436,10 +435,8 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             // move.w obX(a0),obX(a1)
             // move.w obY(a0),obY(a1)
             // move.b #$E,obSubtype(a1)
-            var objectManager = services().objectManager();
-            if (objectManager != null) {
-                ObjectInstance child = new Sonic1ElevatorObjectInstance(origX, origY);
-                objectManager.addDynamicObject(child);
+            if (services().objectManager() != null) {
+                spawnFreeChild(() -> new Sonic1ElevatorObjectInstance(origX, origY));
             }
         }
     }

@@ -1748,9 +1748,9 @@ public class TestPlayableSpriteMovement {
 
         private static void installRuntimeCollisionSystem(CollisionSystem collisionSystem) throws Exception {
                 GameRuntime runtime = RuntimeManager.getCurrent();
-                Field field = GameRuntime.class.getDeclaredField("collisionSystem");
+                Field field = com.openggf.game.session.GameplayModeContext.class.getDeclaredField("collisionSystem");
                 field.setAccessible(true);
-                field.set(runtime, collisionSystem);
+                field.set(runtime.getGameplayModeContext(), collisionSystem);
         }
 
         /**

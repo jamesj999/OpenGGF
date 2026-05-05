@@ -4,13 +4,11 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.runtime.CnzZoneRuntimeState;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
-
-import java.util.Arrays;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 import static com.openggf.level.scroll.M68KMath.VISIBLE_LINES;
 import static com.openggf.level.scroll.M68KMath.asrWord;
 import static com.openggf.level.scroll.M68KMath.negWord;
-import static com.openggf.level.scroll.M68KMath.packScrollWords;
 
 /**
  * Carnival Night Zone scroll handler for S3K.
@@ -27,6 +25,8 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
     /** Boss arena BG Y offset from CNZ1_BossLevelScroll2. */
     private static final int BOSS_BG_Y_OFFSET = 0x100;
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     @Override
     public void update(int[] horizScrollBuf,
                        int cameraX,
@@ -34,6 +34,7 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
                        int frameCounter,
                        int actId) {
         resetScrollTracking();
+        composer.reset();
 
         short fgScroll = negWord(cameraX);
         int shakeY = resolveShakeOffsetY();
@@ -43,7 +44,7 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
             return;
         }
 
-        vscrollFactorBG = cnzBgY(cameraY, shakeY);
+        composer.setVscrollFactorBG(cnzBgY(cameraY, shakeY));
         applyDeformation(horizScrollBuf, fgScroll, cnzBgX(cameraX));
         publishNormalDeformOutputs(cameraX);
     }
@@ -66,11 +67,13 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
                                  int cameraY,
                                  int shakeY) {
         short bgScroll = negWord(cameraX - BOSS_BG_X_OFFSET);
-        vscrollFactorBG = (short) (cameraY - BOSS_BG_Y_OFFSET + shakeY);
+        composer.setVscrollFactorBG((short) (cameraY - BOSS_BG_Y_OFFSET + shakeY));
 
-        int packed = packScrollWords(fgScroll, bgScroll);
-        trackOffset(fgScroll, bgScroll);
-        Arrays.fill(horizScrollBuf, 0, VISIBLE_LINES, packed);
+        composer.fillPackedScrollWords(0, VISIBLE_LINES, fgScroll, bgScroll);
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**
@@ -124,11 +127,11 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
     }
 
     private void applyDeformation(int[] horizScrollBuf, short fgScroll, short bgScroll) {
-        int packed = packScrollWords(fgScroll, bgScroll);
-        trackOffset(fgScroll, bgScroll);
-        for (int i = 0; i < VISIBLE_LINES; i++) {
-            horizScrollBuf[i] = packed;
-        }
+        composer.fillPackedScrollWords(0, VISIBLE_LINES, fgScroll, bgScroll);
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     private CnzZoneRuntimeState cnzRuntimeState() {

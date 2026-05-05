@@ -182,6 +182,19 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     /** Prevents Act 2 BG logic from double-advancing when pre-physics already ran it. */
     private boolean act2BgUpdatedPrePhysics;
 
+    /**
+     * BG high-priority wall-chase overlay flag. Drives an extra BG pass
+     * (high-priority tiles only) rendered after sprites so the approaching
+     * water wall covers FG terrain and gameplay objects, matching VDP layer
+     * order (BG-low -&gt; FG-low -&gt; BG-high -&gt; FG-high). Set when the
+     * wall-chase activation conditions are met (HCZ2BGE_WallMoveInit) and
+     * cleared on transition back to normal deformation
+     * (HCZ2BGE_NormalTransition). Owned exclusively by {@link Sonic3kHCZEvents};
+     * consumers read it via
+     * {@link com.openggf.game.sonic3k.runtime.HczZoneRuntimeState#wallChaseBgOverlayActive()}.
+     */
+    private boolean wallChaseBgOverlayActive;
+
     // =========================================================================
     // Post-transition whirlpool descent cutscene
     // =========================================================================
@@ -236,6 +249,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         shakeTimer = 0;
         wallObject = null;
         act2BgUpdatedPrePhysics = false;
+        wallChaseBgOverlayActive = false;
     }
 
     @Override
@@ -604,7 +618,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             }
 
             // Enable BG high-priority overlay so wall tiles render in front of FG
-            gameState().setBgHighPriorityOverlayActive(true);
+            setWallChaseBgOverlayActive(true);
 
             // Spawn wall collision object
             wallObject = new HCZ2WallObjectInstance();
@@ -676,7 +690,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             scrollHandler.primeBgCollisionState(camera().getX(), camera().getY());
         }
         gameState().setBackgroundCollisionFlag(false);
-        gameState().setBgHighPriorityOverlayActive(false);
+        setWallChaseBgOverlayActive(false);
         act2BgRoutine = BG_WALL_REFRESH;
         LOG.fine("HCZ2 BG: transitioning to normal deformation");
     }
@@ -889,5 +903,24 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     @Override
     public void setDynamicResizeRoutine(int routine) {
         this.fgRoutine = routine;
+    }
+
+    /**
+     * Whether the HCZ2 wall-chase BG high-priority overlay is currently active.
+     * Drives {@link com.openggf.game.sonic3k.runtime.HczZoneRuntimeState#wallChaseBgOverlayActive()}
+     * and the registered {@code HczWallChaseBgOverlayEffect}.
+     */
+    public boolean isWallChaseBgOverlayActive() {
+        return wallChaseBgOverlayActive;
+    }
+
+    /**
+     * Sets the HCZ2 wall-chase BG high-priority overlay flag.
+     * Encapsulates the activation/deactivation of the staged BG overlay so
+     * external code reads it through {@link com.openggf.game.sonic3k.runtime.HczZoneRuntimeState} rather than
+     * touching shared global state.
+     */
+    private void setWallChaseBgOverlayActive(boolean active) {
+        this.wallChaseBgOverlayActive = active;
     }
 }

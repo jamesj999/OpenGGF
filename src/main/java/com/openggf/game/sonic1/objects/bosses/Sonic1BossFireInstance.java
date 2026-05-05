@@ -246,10 +246,12 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
 
         // Spawn mirrored twin by copying parent state then negating X speed.
         if (services().objectManager() != null) {
-            Sonic1BossFireInstance twin = new Sonic1BossFireInstance(this);
-            twin.xVel = -FLAME_X_VEL;
-            twin.xFixed = twin.currentX << 16;
-            services().objectManager().addDynamicObject(twin);
+            spawnFreeChild(() -> {
+                Sonic1BossFireInstance twin = new Sonic1BossFireInstance(this);
+                twin.xVel = -FLAME_X_VEL;
+                twin.xFixed = twin.currentX << 16;
+                return twin;
+            });
         }
 
         routineSecondary = STATE_DUPLICATE;
@@ -283,7 +285,7 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
         if (services().objectManager() == null) {
             return;
         }
-        services().objectManager().addDynamicObject(createDuplicateDecayFlame(currentX, currentY));
+        spawnFreeChild(() -> createDuplicateDecayFlame(currentX, currentY));
     }
 
     private void updateFallEdge() {

@@ -6,7 +6,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -58,7 +58,7 @@ public class TestS3kSpecialStageResultsVisual {
     @BeforeAll
     public static void setUpClass() {
         try {
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
             RuntimeManager.destroyCurrent();
 
             // Check for S3K ROM
@@ -71,9 +71,9 @@ public class TestS3kSpecialStageResultsVisual {
                 return;
             }
 
-            // Bootstrap EngineServices once so GraphicsManager.init can reach
+            // Bootstrap EngineContext once so GraphicsManager.init can reach
             // GameServices.configuration() during the fresh-singleton init below.
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
             GLFWErrorCallback.createPrint(System.err).set();
             if (!glfwInit()) {
@@ -124,13 +124,13 @@ public class TestS3kSpecialStageResultsVisual {
             RomManager.getInstance().setRom(rom);
             RuntimeManager.createGameplay();
 
-            // Re-capture EngineServices now that GraphicsManager has been re-created by
+            // Re-capture EngineContext now that GraphicsManager has been re-created by
             // destroyForReinit() + getInstance() above. The earlier bootstrap captured
             // the now-destroyed singleton; without refreshing, GameServices.graphics()
             // (called from S3kSpecialStageResultsScreen.ensureArtCached) would write
             // pattern/palette cache entries into the dead instance and the rendered
             // frame would stay all-white.
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
             // Create the gameplay runtime so GameServices.* accessors resolve.
             RuntimeManager.createGameplay();

@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.camera.Camera;
 import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
@@ -40,21 +41,19 @@ import java.util.Objects;
 public final class RuntimeManager {
 
     private static GameRuntime current;
-    private static GameRuntime parked;
-    private static GameplayModeContext suppressedGameplayMode;
-    private static EngineServices engineServices;
+    private static EngineContext engineServices;
 
     private RuntimeManager() {}
 
-    public static synchronized void configureEngineServices(EngineServices services) {
+    public static synchronized void configureEngineServices(EngineContext services) {
         engineServices = Objects.requireNonNull(services, "services");
     }
 
-    public static synchronized EngineServices getEngineServices() {
+    public static synchronized EngineContext getEngineServices() {
         return requireConfiguredEngineServices();
     }
 
-    public static synchronized EngineServices currentEngineServices() {
+    public static synchronized EngineContext currentEngineServices() {
         return requireConfiguredEngineServices();
     }
 
@@ -66,20 +65,21 @@ public final class RuntimeManager {
         return getCurrent(requireConfiguredEngineServices());
     }
 
-    public static synchronized GameRuntime getCurrent(EngineServices services) {
+    public static synchronized GameRuntime getCurrent(EngineContext services) {
         Objects.requireNonNull(services, "services");
+        // If the active gameplay mode has changed under us (e.g. session was
+        // re-opened), drop the now-stale runtime. Otherwise return what's
+        // there — callers must explicitly invoke createGameplay() to build
+        // a fresh runtime; we no longer lazy-create on read, since that
+        // mid-flow side effect can re-attach fresh managers (replacing
+        // camera/sprite/etc) to a still-referenced gameplay mode and
+        // surprise callers holding manager refs across the transition.
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
-        if (current != null) {
-            if (current.getGameplayModeContext() != gameplayMode
-                    || current.getEngineServices() != services) {
-                current.destroy();
-                current = null;
-            } else {
-                return current;
-            }
-        }
-        if (gameplayMode != null && gameplayMode != suppressedGameplayMode) {
-            return createGameplay(gameplayMode, services);
+        if (current != null
+                && (current.getGameplayModeContext() != gameplayMode
+                || current.getEngineServices() != services)) {
+            current.destroy();
+            current = null;
         }
         return current;
     }
@@ -114,9 +114,7 @@ public final class RuntimeManager {
      * production code should use {@link #createGameplay()}.
      */
     public static synchronized void setCurrent(GameRuntime runtime) {
-        destroyParkedRuntimeIfSupersededBy(runtime);
         current = runtime;
-        suppressedGameplayMode = runtime == null ? SessionManager.getCurrentGameplayMode() : null;
     }
 
     /**
@@ -126,7 +124,7 @@ public final class RuntimeManager {
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay() {
-        EngineServices services = requireConfiguredEngineServices();
+        EngineContext services = requireConfiguredEngineServices();
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (gameplayMode == null) {
             GameModule defaultModule = GameModuleRegistry.getCurrent();
@@ -146,13 +144,11 @@ public final class RuntimeManager {
         return createGameplay(gameplayMode, requireConfiguredEngineServices());
     }
 
-    public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode, EngineServices services) {
+    public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode, EngineContext services) {
         Objects.requireNonNull(services, "services");
         if (gameplayMode == null) {
             throw new NullPointerException("gameplayMode");
         }
-        destroyParkedRuntimeIfSupersededBy(null);
-        suppressedGameplayMode = null;
         Camera camera = new Camera();
         TimerManager timers = new TimerManager();
         GameStateManager gameState = new GameStateManager();
@@ -165,67 +161,40 @@ public final class RuntimeManager {
                     sessionModule.getChaosEmeraldCount());
         }
         FadeManager fadeManager = new FadeManager();
+        // Use the session's module for RNG flavor, not GameModuleRegistry —
+        // the latter can be out of sync when a GameplayModeContext was opened
+        // with a specific module before the registry was updated. Falls back
+        // to S1_S2 only when no session module is set (bootstrap path).
+        GameRng rng = new GameRng(sessionModule != null
+                ? sessionModule.rngFlavour()
+                : GameRng.Flavour.S1_S2);
+        SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
+        gameplayMode.attachGameplayManagers(camera, timers, gameState, fadeManager, rng, solidExecutionRegistry);
+
         WaterSystem waterSystem = new WaterSystem();
         ParallaxManager parallaxManager = new ParallaxManager();
         TerrainCollisionManager terrainCollisionManager = new TerrainCollisionManager();
         CollisionSystem collisionSystem = new CollisionSystem(terrainCollisionManager);
         SpriteManager spriteManager = new SpriteManager();
         LevelManager levelManager = new LevelManager(
-                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState, services);
-        GameModule currentModule = GameModuleRegistry.getCurrent();
-        GameRng rng = new GameRng(currentModule != null
-                ? currentModule.rngFlavour()
-                : GameRng.Flavour.S1_S2);
+                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState, services,
+                gameplayMode.getWorldSession());
+        gameplayMode.attachLevelManagers(waterSystem, parallaxManager, terrainCollisionManager,
+                collisionSystem, spriteManager, levelManager);
+
         ZoneRuntimeRegistry zoneRuntimeRegistry = new ZoneRuntimeRegistry();
         PaletteOwnershipRegistry paletteOwnershipRegistry = new PaletteOwnershipRegistry();
         AnimatedTileChannelGraph animatedTileChannelGraph = new AnimatedTileChannelGraph();
         SpecialRenderEffectRegistry specialRenderEffectRegistry = new SpecialRenderEffectRegistry();
         AdvancedRenderModeController advancedRenderModeController = new AdvancedRenderModeController();
         ZoneLayoutMutationPipeline zoneLayoutMutationPipeline = new ZoneLayoutMutationPipeline();
-        SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
+        gameplayMode.attachSharedRegistries(zoneRuntimeRegistry, paletteOwnershipRegistry,
+                animatedTileChannelGraph, specialRenderEffectRegistry,
+                advancedRenderModeController, zoneLayoutMutationPipeline);
 
-        GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode,
-                camera, timers, gameState, fadeManager,
-                waterSystem, parallaxManager, terrainCollisionManager,
-                collisionSystem, spriteManager, levelManager, rng, zoneRuntimeRegistry,
-                paletteOwnershipRegistry, animatedTileChannelGraph, specialRenderEffectRegistry,
-                advancedRenderModeController,
-                zoneLayoutMutationPipeline, solidExecutionRegistry);
+        GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode);
         current = runtime;
         return runtime;
-    }
-
-    /**
-     * Detaches the active gameplay runtime without destroying it so editor mode can take over.
-     */
-    public static synchronized void parkCurrent() {
-        if (current == null) {
-            return;
-        }
-        current.clearTransientFrameState();
-        parked = current;
-        current = null;
-        suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
-    }
-
-    /**
-     * Rebinds a previously parked runtime to the resumed gameplay mode, or creates a fresh runtime
-     * if nothing is parked.
-     */
-    public static synchronized GameRuntime resumeParked(GameplayModeContext gameplayMode) {
-        if (parked == null) {
-            return createGameplay(gameplayMode);
-        }
-        if (parked.getWorldSession() != gameplayMode.getWorldSession()) {
-            destroyParkedRuntimeIfSupersededBy(null);
-            return createGameplay(gameplayMode);
-        }
-        parked.clearTransientFrameState();
-        parked.updateGameplayModeContext(gameplayMode);
-        current = parked;
-        parked = null;
-        suppressedGameplayMode = null;
-        return current;
     }
 
     /**
@@ -236,17 +205,6 @@ public final class RuntimeManager {
         if (current != null) {
             current.destroy();
             current = null;
-        }
-        destroyParkedRuntimeIfSupersededBy(null);
-        suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
-    }
-
-    private static void destroyParkedRuntimeIfSupersededBy(GameRuntime replacement) {
-        if (parked != null && parked != replacement) {
-            parked.destroy();
-        }
-        if (parked != replacement) {
-            parked = null;
         }
     }
 
@@ -264,10 +222,10 @@ public final class RuntimeManager {
         return null;
     }
 
-    private static EngineServices requireConfiguredEngineServices() {
+    private static EngineContext requireConfiguredEngineServices() {
         if (engineServices == null) {
             throw new IllegalStateException(
-                    "EngineServices have not been configured. Configure RuntimeManager before using default runtime accessors.");
+                    "EngineContext have not been configured. Configure RuntimeManager before using default runtime accessors.");
         }
         return engineServices;
     }

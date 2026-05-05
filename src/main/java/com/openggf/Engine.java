@@ -1,5 +1,6 @@
 package com.openggf;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.*;
 import com.openggf.graphics.*;
 import com.openggf.version.AppVersion;
@@ -175,7 +176,7 @@ public class Engine {
 		this(RuntimeManager.currentEngineServices());
 	}
 
-	public Engine(EngineServices engineServices) {
+	public Engine(EngineContext engineServices) {
 		engineServices = Objects.requireNonNull(engineServices, "engineServices");
 		RuntimeManager.configureEngineServices(engineServices);
 		this.configService = engineServices.configuration();
@@ -508,8 +509,31 @@ public class Engine {
 		prepareMutableEditorLevel();
 		primeEditorSelection(playerX, playerY);
 		levelEditorController.setWorldCursor(new EditorCursorState(playerX, playerY));
-		RuntimeManager.parkCurrent();
+		// World data on WorldSession (loaded Level + zone/act metadata) is
+		// meant to survive runtime teardown per the runtime ownership
+		// migration design. SessionManager.runRuntimeTeardownPreservingWorld
+		// owns the capture/restore around the destroyCurrent so this flow
+		// doesn't reach into LevelManager.resetState() implementation
+		// details. Camera bounds (world-derived but stored on the
+		// gameplay-mode camera, which gets reset by destroyCurrent) need a
+		// similar capture+restore — they're not on WorldSession so they
+		// ride alongside this call rather than through it.
+		short savedMinX = camera != null ? camera.getMinX() : 0;
+		short savedMaxX = camera != null ? camera.getMaxX() : 0;
+		short savedMinY = camera != null ? camera.getMinY() : 0;
+		short savedMaxY = camera != null ? camera.getMaxY() : 0;
+		SessionManager.runRuntimeTeardownPreservingWorld(() -> {
+			RuntimeManager.destroyCurrent();
+			runtime = null;
+			gameLoop.setRuntime(null);
+		});
 		SessionManager.enterEditorMode(new EditorCursorState(playerX, playerY), stash);
+		if (camera != null) {
+			camera.setMinX(savedMinX);
+			camera.setMaxX(savedMaxX);
+			camera.setMinY(savedMinY);
+			camera.setMaxY(savedMaxY);
+		}
 		syncEditorState();
 		gameLoop.setGameMode(GameMode.EDITOR);
 	}
@@ -518,8 +542,20 @@ public class Engine {
 		repairEditorCursorForResume();
 		syncEditorState();
 		GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
-		runtime = RuntimeManager.resumeParked(gameplay);
-		bindRuntime(runtime);
+		// Build a fresh gameplay runtime over the surviving WorldSession, then
+		// rehydrate the loaded level (preserving any MutableLevel mutations
+		// made in editor) via restoreInheritedLevel.
+		initializeGameplayRuntime(gameplay, false);
+		try {
+			runtime.getLevelManager().restoreInheritedLevel();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to restore inherited level on editor exit", e);
+		}
+		// Per the design, editor exit reinitializes gameplay session state as
+		// fresh — score/timer/checkpoint must not carry over from before the
+		// editor detour. (Counters that initializeGameplayRuntime already set —
+		// special-stage progress configuration — stay.)
+		gameplay.initializeFreshGameplayState();
 		applyResumedPlaytestState(gameplay);
 		gameLoop.setGameMode(GameMode.LEVEL);
 	}
@@ -537,7 +573,7 @@ public class Engine {
 		GameModuleRegistry.setCurrent(module);
 		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
 		bindRuntime(runtime);
-		GameServices.gameState().configureSpecialStageProgress(
+		runtime.getGameState().configureSpecialStageProgress(
 				module.getSpecialStageCycleCount(),
 				module.getChaosEmeraldCount());
 
@@ -1205,6 +1241,11 @@ public class Engine {
 		if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
 			EndingProvider provider = gameLoop.getEndingProvider();
 			if (provider != null && provider.shouldRenderDemoSpritesOverFade()) {
+				// Reset shader/texture state before the post-fade sprite pass: the fade
+				// shader binds a program and modifies blend/depth state, and even though
+				// FadeManager restores blend on its own, we must not rely on the next pass
+				// inheriting whatever shader/texture bindings the fade pass left active.
+				graphicsManager.resetForFixedFunction();
 				levelManager.renderSpriteObjectPass(spriteManager, true);
 				graphicsManager.flush();
 			}
@@ -1513,7 +1554,7 @@ public class Engine {
 				System.setProperty("org.lwjgl.librarypath", libPath);
 			}
 		}
-		EngineServices services = EngineServices.fromLegacySingletonsForBootstrap();
+		EngineContext services = EngineContext.fromLegacySingletonsForBootstrap();
 		services.configuration().ensureConfigFileExists();
 		new Engine(services).run();
 	}

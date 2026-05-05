@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_MTZ (Metropolis Zone scroll routine).
@@ -17,6 +18,7 @@ import com.openggf.level.scroll.M68KMath;
 public class SwScrlMtz extends AbstractZoneScrollHandler {
 
     private final BackgroundCamera bgCamera;
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
 
     public SwScrlMtz(BackgroundCamera bgCamera) {
         this.bgCamera = bgCamera;
@@ -29,20 +31,20 @@ public class SwScrlMtz extends AbstractZoneScrollHandler {
                        int frameCounter,
                        int actId) {
         resetScrollTracking();
+        composer.reset();
 
         short fgScroll = M68KMath.negWord(cameraX);
         // BG X scrolls at 1/8 camera speed
         int offset = cameraX - (cameraX >> 3);
         short bgScroll = (short) (fgScroll + offset);
-        int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-
-        trackOffset(fgScroll, bgScroll);
-
-        for (int line = 0; line < M68KMath.VISIBLE_LINES; line++) {
-            horizScrollBuf[line] = packed;
-        }
 
         // MTZ BG Y scrolls at 1/4 camera speed
-        vscrollFactorBG = (short) (cameraY >> 2);
+        composer.setVscrollFactorBG((short) (cameraY >> 2));
+        composer.fillPackedScrollWords(0, M68KMath.VISIBLE_LINES, fgScroll, bgScroll);
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 }

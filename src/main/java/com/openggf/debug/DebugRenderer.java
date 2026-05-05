@@ -337,7 +337,7 @@ public class DebugRenderer {
                 }
                 Camera camera = GameServices.camera();
                 int screenX = playable.getCentreX() - camera.getX();
-                int screenY = playable.getY() - camera.getY();
+                int screenY = playable.getCentreY() - camera.getY();
                 if (screenX < -16 || screenX > baseWidth + 16) {
                         return;
                 }

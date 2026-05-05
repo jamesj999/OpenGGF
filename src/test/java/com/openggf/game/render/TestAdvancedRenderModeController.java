@@ -1,6 +1,6 @@
 package com.openggf.game.render;
 
-import com.openggf.game.GameRuntime;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.tests.TestEnvironment;
 import org.junit.jupiter.api.AfterEach;
@@ -23,16 +23,16 @@ class TestAdvancedRenderModeController {
 
     @Test
     void emptyControllerResolvesDisabledFrameState() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
+        RuntimeManager.createGameplay();
         AdvancedRenderModeController controller = new AdvancedRenderModeController();
 
         AdvancedRenderFrameState state = controller.resolve(new AdvancedRenderModeContext(
-                runtime.getCamera(),
+                GameServices.camera(),
                 0,
-                runtime.getLevelManager(),
+                GameServices.level(),
                 0,
                 0,
-                runtime.getCamera().getX()));
+                GameServices.camera().getX()));
 
         assertFalse(state.enableForegroundHeatHaze());
         assertFalse(state.enablePerLineForegroundScroll());
@@ -41,7 +41,7 @@ class TestAdvancedRenderModeController {
 
     @Test
     void registeredModesMergeFrameStateContributions() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
+        RuntimeManager.createGameplay();
         AdvancedRenderModeController controller = new AdvancedRenderModeController();
 
         controller.register(new AdvancedRenderMode() {
@@ -69,12 +69,12 @@ class TestAdvancedRenderModeController {
         });
 
         AdvancedRenderFrameState state = controller.resolve(new AdvancedRenderModeContext(
-                runtime.getCamera(),
+                GameServices.camera(),
                 10,
-                runtime.getLevelManager(),
+                GameServices.level(),
                 1,
                 2,
-                runtime.getCamera().getX()));
+                GameServices.camera().getX()));
 
         assertTrue(state.enableForegroundHeatHaze());
         assertTrue(state.enablePerLineForegroundScroll());

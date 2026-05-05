@@ -942,8 +942,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final LevelManager currentLevelManagerIfAvailable() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                return runtime != null ? runtime.getLevelManager() : null;
+                return GameServices.levelOrNull();
         }
 
         public final GameModule currentGameModule() {
@@ -987,6 +986,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public final AudioManager currentAudioManager() {
                 return GameServices.audio();
+        }
+
+        public final com.openggf.game.GameRng currentRng() {
+                return GameServices.rng();
+        }
+
+        public final com.openggf.game.GameRng currentRngOrNull() {
+                return GameServices.rngOrNull();
         }
 
         public final WaterSystem currentWaterSystem() {

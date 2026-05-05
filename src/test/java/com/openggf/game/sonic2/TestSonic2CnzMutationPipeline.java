@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
@@ -39,7 +39,7 @@ class TestSonic2CnzMutationPipeline {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();
@@ -49,7 +49,7 @@ class TestSonic2CnzMutationPipeline {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();
@@ -57,7 +57,7 @@ class TestSonic2CnzMutationPipeline {
 
     @Test
     void cnzArenaWallPlacementAndRemovalWaitForQueuedFlush() {
-        LevelManager levelManager = RuntimeManager.getCurrent().getLevelManager();
+        LevelManager levelManager = GameServices.level();
         SyntheticCnzLevel level = new SyntheticCnzLevel();
         levelManager.setLevel(level);
 
@@ -69,7 +69,7 @@ class TestSonic2CnzMutationPipeline {
         assertFalse(state.rightArenaWallPlaced());
         assertFalse(state.bossSpawned());
 
-        RuntimeManager.getCurrent().getCamera().setX((short) 0x2890);
+        GameServices.camera().setX((short) 0x2890);
 
         events.update(ACT_2, 1);
         events.update(ACT_2, 2);

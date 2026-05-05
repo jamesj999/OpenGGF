@@ -1,6 +1,6 @@
 package com.openggf.sprites.playable;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
@@ -24,7 +24,7 @@ class TestSidekickCpuDespawnParity {
 
     @BeforeEach
     void configureRuntime() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

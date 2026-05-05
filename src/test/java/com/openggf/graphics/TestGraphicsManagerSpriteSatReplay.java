@@ -1,6 +1,6 @@
 package com.openggf.graphics;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpritePieceRenderer;
@@ -20,7 +20,7 @@ public class TestGraphicsManagerSpriteSatReplay {
     @BeforeEach
     public void setUp() {
         GraphicsManager.destroyForReinit();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         graphicsManager = GraphicsManager.getInstance();
         graphicsManager.initHeadless();
     }

@@ -4,13 +4,12 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
-import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.DemoInputPlayer;
+import com.openggf.game.sonic1.credits.Sonic1CreditsDemoBootstrap;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
 import com.openggf.game.sonic1.objects.Sonic1FlappingDoorObjectInstance;
 import com.openggf.game.sonic1.objects.Sonic1PoleThatBreaksObjectInstance;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.physics.CollisionSystem;
@@ -23,14 +22,12 @@ import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceExecutionPhase;
-import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceReplayBootstrap;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
-import java.util.Map;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class DebugS1Credits03LzDoorProbe {
@@ -66,9 +63,15 @@ public class DebugS1Credits03LzDoorProbe {
                     .build();
 
             initialiseDemoPlayerState(fixture.sprite());
-            setupLzDemoState(fixture, trace);
+            // ROM-derived constants only — no trace hydration. See
+            // CLAUDE.md "Trace Replay Tests" comparison-only invariant.
+            Sonic1CreditsDemoBootstrap.applyLzLampostState(
+                    fixture.sprite(), fixture.camera());
             resetStreamingWindows(fixture);
-            applyFrameZeroPlayerSnapshot(trace, fixture.sprite());
+            // Per-demo starting animation/direction are intentionally NOT
+            // forced here — the engine's natural post-spawn init drives the
+            // pose. Trace-replay comparison-only invariant forbids
+            // trace-derived hydration.
             GameServices.level().updateObjectPositionsWithoutTouches();
 
             for (int i = 0; i <= 360; i++) {
@@ -188,40 +191,6 @@ public class DebugS1Credits03LzDoorProbe {
         player.setForcedInputMask(0);
     }
 
-    private void setupLzDemoState(HeadlessTestFixture fixture, TraceData trace) {
-        AbstractPlayableSprite player = fixture.sprite();
-        TraceFrame frameZero = trace.frameCount() > 0 ? trace.getFrame(0) : null;
-
-        int recordedRings = frameZero != null && frameZero.rings() >= 0
-                ? frameZero.rings()
-                : Sonic1CreditsDemoData.LZ_LAMP_RINGS;
-        int recordedCameraX = frameZero != null && frameZero.cameraX() >= 0
-                ? frameZero.cameraX()
-                : Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X;
-        int recordedCameraY = frameZero != null && frameZero.cameraY() >= 0
-                ? frameZero.cameraY()
-                : Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y;
-
-        player.setRingCount(recordedRings);
-        fixture.camera().setX((short) recordedCameraX);
-        fixture.camera().setY((short) recordedCameraY);
-        fixture.camera().setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
-
-        WaterSystem waterSystem = GameServices.water();
-        int featureZone = GameServices.level().getFeatureZoneId();
-        int featureAct = GameServices.level().getFeatureActId();
-        waterSystem.setWaterLevelDirect(featureZone, featureAct,
-                Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
-        waterSystem.setWaterLevelTarget(featureZone, featureAct,
-                Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
-
-        ZoneFeatureProvider featureProvider = GameServices.level().getZoneFeatureProvider();
-        if (featureProvider != null) {
-            featureProvider.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
-        }
-        player.updateWaterState(Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
-    }
-
     private void resetStreamingWindows(HeadlessTestFixture fixture) {
         int cameraX = fixture.camera().getX();
         if (GameServices.level().getObjectManager() != null) {
@@ -230,81 +199,6 @@ public class DebugS1Credits03LzDoorProbe {
         if (GameServices.level().getRingManager() != null) {
             GameServices.level().getRingManager().reset(cameraX);
         }
-    }
-
-    private void applyFrameZeroPlayerSnapshot(TraceData trace, AbstractPlayableSprite player) {
-        TraceEvent.StateSnapshot snapshot = trace.getEventsForFrame(0).stream()
-                .filter(TraceEvent.StateSnapshot.class::isInstance)
-                .map(TraceEvent.StateSnapshot.class::cast)
-                .findFirst()
-                .orElse(null);
-        if (snapshot == null) {
-            return;
-        }
-
-        Map<String, Object> fields = snapshot.fields();
-        int statusByte = parseInt(fields.get("status_byte"), 0);
-        boolean controlLocked = parseBoolean(fields.get("control_locked"), false);
-        boolean onObject = parseBoolean(fields.get("on_object"), (statusByte & 0x08) != 0);
-        boolean pushing = parseBoolean(fields.get("pushing"), (statusByte & 0x20) != 0);
-        boolean underwater = parseBoolean(fields.get("underwater"), (statusByte & 0x40) != 0);
-        boolean rollingJump = parseBoolean(fields.get("roll_jumping"), false);
-
-        player.setControlLocked(controlLocked);
-        player.setObjectControlled(controlLocked);
-        player.setAnimationId(parseInt(fields.get("anim_id"), player.getAnimationId()));
-        player.setDirection((statusByte & 0x01) != 0
-                ? com.openggf.physics.Direction.LEFT
-                : com.openggf.physics.Direction.RIGHT);
-        player.setAir((statusByte & 0x02) != 0);
-        player.setRolling((statusByte & 0x04) != 0);
-        player.setOnObject(onObject);
-        player.setPushing(pushing);
-        player.setRollingJump(rollingJump);
-        player.setInWater(underwater);
-
-        int xRadius = parseInt(fields.get("x_radius"), -1);
-        int yRadius = parseInt(fields.get("y_radius"), -1);
-        if (xRadius > 0 && yRadius > 0) {
-            player.applyCustomRadii(xRadius, yRadius);
-        }
-    }
-
-    private int parseInt(Object value, int defaultValue) {
-        if (value == null) {
-            return defaultValue;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String text) {
-            try {
-                return Integer.decode(text);
-            } catch (NumberFormatException ignored) {
-                return defaultValue;
-            }
-        }
-        return defaultValue;
-    }
-
-    private boolean parseBoolean(Object value, boolean defaultValue) {
-        if (value instanceof Boolean bool) {
-            return bool;
-        }
-        if (value instanceof Number number) {
-            return number.intValue() != 0;
-        }
-        if (value instanceof String text) {
-            if ("true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text)) {
-                return Boolean.parseBoolean(text);
-            }
-            try {
-                return Integer.decode(text) != 0;
-            } catch (NumberFormatException ignored) {
-                return defaultValue;
-            }
-        }
-        return defaultValue;
     }
 
     private int getPrivateInt(AbstractObjectInstance target, String fieldName) throws Exception {

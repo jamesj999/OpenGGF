@@ -9,6 +9,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -87,8 +88,8 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
     private int timeDelay;         // crab_timedelay (objoff_30)
     private int crabMode;          // crab_mode (objoff_32)
     private byte terrainAngle;     // obAngle - surface angle for animation selection
-    private int xSubpixel;         // 8-bit fractional X position
-    private int ySubpixel;         // 8-bit fractional Y position (for ObjectFall subpixel)
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int fallVelocity;      // obVelY for ObjectFall during init
     private boolean initialized;
 
@@ -107,8 +108,6 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         this.timeDelay = 0;
         this.crabMode = 0;
         this.terrainAngle = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
         this.fallVelocity = 0;
         this.initialized = false;
         this.baseAnimIndex = 0;
@@ -140,11 +139,13 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         // ObjectFall: apply CURRENT velocity to position, THEN add gravity for next frame.
         // ROM order: move.w obVelY(a0),d0 / addi.w #$38,obVelY(a0) / ... / add.l d0,d3
         // The velocity applied to position is the value BEFORE gravity is added.
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += fallVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-        fallVelocity += GRAVITY;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = fallVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentY = motion.y;
+        fallVelocity = motion.yVel;
 
         // ObjFloorDist: check floor from feet
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -202,18 +203,16 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         renderedFrame = 4; // Firing animation (mapping frame 4)
 
         // Left projectile
-        Sonic1CrabmeatProjectileInstance leftBall = new Sonic1CrabmeatProjectileInstance(
+        spawnFreeChild(() -> new Sonic1CrabmeatProjectileInstance(
                 currentX - PROJECTILE_X_OFFSET, currentY,
                 -PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this);
-        services().objectManager().addDynamicObject(leftBall);
+                this));
 
         // Right projectile
-        Sonic1CrabmeatProjectileInstance rightBall = new Sonic1CrabmeatProjectileInstance(
+        spawnFreeChild(() -> new Sonic1CrabmeatProjectileInstance(
                 currentX + PROJECTILE_X_OFFSET, currentY,
                 PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this);
-        services().objectManager().addDynamicObject(rightBall);
+                this));
     }
 
     /**
@@ -251,10 +250,10 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         }
 
         // SpeedToPos: apply velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = xVelocity;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
 
         // Toggle terrain check each frame
         // ROM: bchg #0,crab_mode(a0) / bne.s loc_9654

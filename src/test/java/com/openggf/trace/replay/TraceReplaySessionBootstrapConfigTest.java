@@ -2,7 +2,7 @@ package com.openggf.trace.replay;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceFixtures;
@@ -32,7 +32,7 @@ class TraceReplaySessionBootstrapConfigTest {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         config = SonicConfigurationService.getInstance();
         savedMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
         savedSidekick = config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE);

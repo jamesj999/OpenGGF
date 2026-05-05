@@ -8,7 +8,7 @@ import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 
-import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -181,16 +181,17 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void fireProjectile() {
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager == null) {
+        ObjectServices svc = tryServices();
+        if (svc == null || svc.objectManager() == null) {
             return;
         }
 
-        int bulletX = facingLeft ? currentX - BULLET_X_OFFSET : currentX + BULLET_X_OFFSET;
-        int bulletY = currentY + BULLET_Y_OFFSET;
-        int bulletXVel = facingLeft ? -BULLET_X_VEL : BULLET_X_VEL;
+        final int bulletX = facingLeft ? currentX - BULLET_X_OFFSET : currentX + BULLET_X_OFFSET;
+        final int bulletY = currentY + BULLET_Y_OFFSET;
+        final int bulletXVel = facingLeft ? -BULLET_X_VEL : BULLET_X_VEL;
+        final boolean bulletHFlip = !facingLeft;
 
-        BadnikProjectileInstance bullet = new BadnikProjectileInstance(
+        spawnFreeChild(() -> new BadnikProjectileInstance(
                 spawn,
                 BadnikProjectileInstance.ProjectileType.AQUIS_BULLET,
                 bulletX,
@@ -198,8 +199,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
                 bulletXVel,
                 BULLET_Y_VEL,
                 false,      // No gravity
-                !facingLeft);
-        objectManager.addDynamicObject(bullet);
+                bulletHFlip));
     }
 
     private void applyMovement() {

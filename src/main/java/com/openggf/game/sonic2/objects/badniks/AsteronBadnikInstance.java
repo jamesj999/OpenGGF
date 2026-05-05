@@ -197,9 +197,10 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Spawn explosion at current position
-        var explosion = new ExplosionObjectInstance(
-                0x27, currentX, currentY, services().renderManager());
-        objectManager.addDynamicObject(explosion);
+        final int explosionX = currentX;
+        final int explosionY = currentY;
+        spawnFreeChild(() -> new ExplosionObjectInstance(
+                0x27, explosionX, explosionY, services().renderManager()));
 
         // Play explosion SFX
         services().playSfx(
@@ -207,14 +208,14 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
 
         // Spawn 5 projectiles (from word_38A68 / Obj_CreateProjectiles)
         for (int[] data : PROJECTILE_DATA) {
-            int projX = currentX + data[0];
-            int projY = currentY + data[1];
-            int projXVel = data[2];
-            int projYVel = data[3];
-            int mappingFrame = data[4];
-            boolean hFlip = data[5] != 0;
+            final int projX = currentX + data[0];
+            final int projY = currentY + data[1];
+            final int projXVel = data[2];
+            final int projYVel = data[3];
+            final int mappingFrame = data[4];
+            final boolean hFlip = data[5] != 0;
 
-            BadnikProjectileInstance projectile = new BadnikProjectileInstance(
+            spawnFreeChild(() -> new BadnikProjectileInstance(
                     spawn,
                     BadnikProjectileInstance.ProjectileType.ASTERON_SPIKE,
                     projX, projY,
@@ -222,9 +223,7 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
                     false,  // No gravity - uses ObjectMove (straight line)
                     hFlip,
                     0,      // No initial delay
-                    mappingFrame);
-
-            objectManager.addDynamicObject(projectile);
+                    mappingFrame));
         }
     }
 

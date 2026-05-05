@@ -427,20 +427,13 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         //   move.w  (a2)+,obY(a1)
         //   move.w  (a2)+,d0
         //   move.b  d0,obSubtype(a1)
-        // Set construction context so children can call services() in their constructors.
-        setConstructionContext(services());
-        try {
-            for (int[] entry : positionData) {
-                int childX = entry[0];
-                int childY = entry[1];
-                int childSubtype = entry[2];
+        for (int[] entry : positionData) {
+            final int childX = entry[0];
+            final int childY = entry[1];
+            final int childSubtype = entry[2];
 
-                Sonic1SpinConveyorObjectInstance child =
-                        new Sonic1SpinConveyorObjectInstance(childX, childY, childSubtype);
-                services().objectManager().addDynamicObject(child);
-            }
-        } finally {
-            clearConstructionContext();
+            spawnFreeChild(() -> new Sonic1SpinConveyorObjectInstance(
+                    childX, childY, childSubtype));
         }
 
         // Spawner itself is consumed after spawning

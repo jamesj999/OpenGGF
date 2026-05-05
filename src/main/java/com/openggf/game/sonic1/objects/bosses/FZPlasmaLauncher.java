@@ -105,8 +105,8 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
             if (!explodedOnDefeat) {
                 ObjectRenderManager renderManager = services().renderManager();
                 if (renderManager != null && services().objectManager() != null) {
-                    services().objectManager().addDynamicObject(
-                            new BossExplosionObjectInstance(currentX, currentY, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id));
+                    spawnFreeChild(() -> new BossExplosionObjectInstance(
+                            currentX, currentY, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id));
                 }
                 explodedOnDefeat = true;
             }
@@ -131,7 +131,6 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
         // Spawn 4 balls
         activeBalls.clear();
         activeBallCount = 4;
-        var objectManager = services().objectManager();
         var rng = services().rng();
 
         for (int i = 0; i < 4; i++) {
@@ -140,11 +139,10 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
             int targetX = Sonic1Constants.BOSS_FZ_X + 0x128 + (i * -0x4F);
             targetX += (random & 0x1F) - 0x10;
 
-            FZPlasmaBall ball = new FZPlasmaBall(this, LAUNCHER_X, LAUNCHER_Y, targetX);
+            final int fTargetX = targetX;
+            FZPlasmaBall ball = spawnFreeChild(() -> new FZPlasmaBall(
+                    this, LAUNCHER_X, LAUNCHER_Y, fTargetX));
             activeBalls.add(ball);
-            if (objectManager != null) {
-                objectManager.addDynamicObject(ball);
-            }
         }
 
         launcherState = 2; // Wait for balls to finish

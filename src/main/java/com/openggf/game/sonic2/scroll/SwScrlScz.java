@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_SCZ (Sky Chase Zone scroll routine).
@@ -39,6 +40,8 @@ public class SwScrlScz extends AbstractZoneScrollHandler {
     // Level events routine index (ROM: Dynamic_Resize_Routine)
     private int routineIndex = 0;
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     public SwScrlScz() {
     }
 
@@ -59,6 +62,7 @@ public class SwScrlScz extends AbstractZoneScrollHandler {
                        int frameCounter,
                        int actId) {
         resetScrollTracking();
+        composer.reset();
 
         Camera camera = GameServices.camera();
 
@@ -107,15 +111,11 @@ public class SwScrlScz extends AbstractZoneScrollHandler {
         short bgXWord = (short) (bgXPos32 >> 16);
         short bgScroll = M68KMath.negWord(bgXWord);
 
-        int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-        for (int line = 0; line < M68KMath.VISIBLE_LINES; line++) {
-            horizScrollBuf[line] = packed;
-        }
+        composer.fillPackedScrollWords(0, M68KMath.VISIBLE_LINES, fgScroll, bgScroll);
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
 
-        // Track scroll offsets for LevelManager tile loading bounds
-        int offset = bgScroll - fgScroll;
-        minScrollOffset = offset;
-        maxScrollOffset = offset;
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**

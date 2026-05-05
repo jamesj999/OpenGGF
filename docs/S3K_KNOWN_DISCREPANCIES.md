@@ -17,6 +17,7 @@ Each entry describes what the ROM does, what we do, and why — focusing on *why
 4. [Knuckles DPLC Pre-Loading](#knuckles-dplc-pre-loading)
 5. [Save System](#save-system)
 6. [Tails Flying-With-Cargo Physics](#tails-flying-with-cargo-physics)
+7. [HCZ Object Mappings: Removal of `docs/` Runtime Reads](#hcz-object-mappings-removal-of-docs-runtime-reads)
 
 ---
 
@@ -253,3 +254,33 @@ The engine reproduces this behavior with a feature-scoped gate rather than a fla
 ### Verification
 
 `TestSidekickCpuControllerCarry`, `TestSidekickCpuControllerCatchUpFlight`, and `TestSidekickCpuControllerFlightAutoRecovery` cover the state-machine transitions. `TestS3kCnzCarryHeadless` verifies the CNZ1 intro carry-release frame window.
+
+---
+
+## HCZ Object Mappings: Removal of `docs/` Runtime Reads
+
+**Location:** `Sonic3kObjectArtProvider.java`, `Sonic3kConstants.java`
+**ROM Reference:** `Lockon S3/LockOn Data.asm:838` (`Map_HCZMiniboss`), `:856` (`Map_HCZEndBoss`), `:192` (`Map_HCZWaterWall`)
+
+### Original Implementation (engine, pre-fix)
+
+`Sonic3kObjectArtProvider` previously parsed three HCZ object mapping tables (`Map_HCZMiniboss`, `Map_HCZEndBoss`, `Map_HCZWaterWall`) by reading `.asm` source files from `docs/skdisasm/Levels/HCZ/Misc Object Data/` at runtime via `Files.readAllLines`, falling back to an empty mapping list (and therefore invisible sprites) whenever the disassembly tree was absent. This violated the project's "ROM only for runtime assets" hard rule documented in `CLAUDE.md`.
+
+### Fixed Implementation
+
+All three call sites now read mapping bytes from the user-supplied ROM via `S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr)` using the new constants:
+- `MAP_HCZ_MINIBOSS_ADDR = 0x3629E0` (was incorrectly `0x362A28`, which pointed at the first frame body rather than the offset table base)
+- `MAP_HCZ_END_BOSS_ADDR = 0x3634D4`
+- `MAP_HCZ_WATERWALL_ADDR = 0x22EE10`
+
+Each address was derived from the disassembly's absolute `Frame_<addr>` labels (since the lock-on data is anchored at `org $200000` in the `Sonic3_Complete` build) and verified by reading the ROM at the computed offset and confirming the first word equals the expected offset-table size and the first frame's piece count matches the source.
+
+The duplicate-frame workaround for shared `Frame_362BB0` labels in HCZ miniboss is no longer needed, because ROM-based reading of duplicate offsets yields duplicate frame entries naturally.
+
+### Rationale
+
+This is not a behavioral discrepancy from the ROM — sprite output is identical to before, when the disassembly tree was present. It is recorded here only because the previous implementation deviated from the project's ROM-only sourcing rule and silently degraded under the (CI / fresh clone) configurations where `docs/skdisasm/` is absent.
+
+### Verification
+
+`TestSonic3kLevelLoading` and `TestSonic3kBootstrapResolver` continue to pass. The `loadMappingsFromAsmInclude` helper and the three `Path` constants pointing under `docs/` have been removed from `Sonic3kObjectArtProvider`.

@@ -9,7 +9,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -149,10 +148,9 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
         }
 
         // Spawn twirl child: jsr (FindFreeObj).l
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager != null) {
+        if (services().objectManager() != null) {
             twirlActive = true;
-            objectManager.addDynamicObject(new Sonic1LamppostTwirlInstance(this));
+            spawnFreeChild(() -> new Sonic1LamppostTwirlInstance(this));
         }
 
         // Set frame to pole only: move.b #1,obFrame(a0)

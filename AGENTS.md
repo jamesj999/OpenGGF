@@ -207,12 +207,25 @@ services().gameState()            // GameStateManager
 services().zoneFeatureProvider()  // ZoneFeatureProvider
 ```
 
-### GameRuntime
-`GameRuntime` (`com.openggf.game`) is the explicit runtime object owning all mutable gameplay state. `RuntimeManager` manages its lifecycle. Enables safe editor mode enter/exit, level rebuilds, and undo/redo.
+### Session Ownership (post runtime-ownership migration)
 
-### Runtime-Owned Framework Stack
+Per `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`, gameplay state is split by lifetime across three layers:
 
-`GameRuntime` now hosts the shared registries/controllers used to normalize zone-specific logic across games:
+- **`WorldSession`** (`com.openggf.game.session`) — durable, survives editor swaps. Owns the active `GameModule`, the loaded `Level` (incl. `MutableLevel`), and zone/act metadata.
+- **`GameplayModeContext`** (`com.openggf.game.session`) — disposable, rebuilt per gameplay session. Owns all gameplay-scoped managers (Camera, Timer, GameState, Fade, Rng, SolidExecution, Water, Parallax, TerrainCollision, Collision, Sprite, LevelManager) and the runtime-shared registries listed below. Provides `initializeFreshGameplayState()` for editor-exit counter reset.
+- **`SessionManager`** (`com.openggf.game.session`) — manages lifecycle (`openGameplaySession`, `enterEditorMode`, `resumeGameplayFromEditor`).
+
+`GameRuntime` (`com.openggf.game`) is now a thin coordinator façade over these — it delegates manager getters to the gameplay mode context. New code should prefer `gameplayMode.getX()` directly. `RuntimeManager.getCurrent` no longer lazy-creates; explicit `createGameplay(...)` is required.
+
+**Editor mode entry/exit** uses proper teardown+rebuild (no parking):
+- Entry: `Engine.enterEditorFromCurrentPlayer` captures world-scoped state (loaded `Level`, zone/act, camera bounds), calls `RuntimeManager.destroyCurrent()`, then re-publishes the captured state on `WorldSession` before `SessionManager.enterEditorMode`.
+- Exit: `Engine.resumePlaytestFromEditor` calls `initializeGameplayRuntime` plus `LevelManager.restoreInheritedLevel()` to rebuild a fresh runtime over the surviving `Level`. `MutableLevel` mutations made in editor survive the round trip; gameplay counters are reset via `GameplayModeContext.initializeFreshGameplayState()`.
+
+Eliminating the `GameRuntime` façade and folding `RuntimeManager` into `SessionManager` are deferred follow-up work.
+
+### Runtime-Shared Framework Stack
+
+`GameplayModeContext` hosts the shared registries/controllers used to normalize zone-specific logic across games:
 
 - `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
 - `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring

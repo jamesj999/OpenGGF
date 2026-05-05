@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 import java.util.Arrays;
 
@@ -64,6 +65,8 @@ public class SwScrlWfz extends AbstractZoneScrollHandler {
     // Pre-allocated array for per-frame layer scroll values
     private final int[] layerScrollWord = new int[5];
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     public SwScrlWfz(ParallaxTables tables, BackgroundCamera bgCamera) {
         this.tables = tables;
         this.bgCamera = bgCamera;
@@ -77,10 +80,11 @@ public class SwScrlWfz extends AbstractZoneScrollHandler {
                        int actId) {
 
         resetScrollTracking();
+        composer.reset();
 
         // ==================== Step 1: Update VScroll factor ====================
         // move.w (Camera_BG_Y_pos).w,(Vscroll_Factor_BG).w
-        vscrollFactorBG = (short) bgCamera.getBgYPos();
+        composer.setVscrollFactorBG((short) bgCamera.getBgYPos());
 
         // ==================== Step 2: Build TempArray_LayerDef ====================
         // move.l (Camera_BG_X_pos).w,d0  -- reads 32-bit (integer.subpixel)
@@ -178,8 +182,7 @@ public class SwScrlWfz extends AbstractZoneScrollHandler {
         // .next_row:
         //   dbf d2,.row_loop
         for (int screenLine = 0; screenLine < M68KMath.VISIBLE_LINES; screenLine++) {
-            horizScrollBuf[screenLine] = M68KMath.packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
+            composer.writePackedScrollWord(screenLine, fgScroll, bgScroll);
 
             linesInCurrentSeg--;
             if (linesInCurrentSeg == 0) {
@@ -199,17 +202,21 @@ public class SwScrlWfz extends AbstractZoneScrollHandler {
                 }
             }
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     private void fillFallback(int[] horizScrollBuf, int cameraX) {
         short fgScroll = M68KMath.negWord(cameraX);
         short bgScroll = M68KMath.negWord(cameraX >> 4);
-        int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-        for (int i = 0; i < M68KMath.VISIBLE_LINES; i++) {
-            horizScrollBuf[i] = packed;
-        }
-        minScrollOffset = bgScroll - fgScroll;
-        maxScrollOffset = minScrollOffset;
+        composer.fillPackedScrollWords(0, M68KMath.VISIBLE_LINES, fgScroll, bgScroll);
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
 }

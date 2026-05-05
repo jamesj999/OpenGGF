@@ -12,7 +12,7 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.NoOpBonusStageProvider;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameRuntime;
@@ -61,7 +61,7 @@ public class DefaultObjectServices implements ObjectServices {
     private final ParallaxManager parallaxManager;
     private final WorldSession worldSession;
     private final GameRng rng;
-    private final EngineServices engineServices;
+    private final EngineContext engineServices;
     private final BonusStageProvider bonusStageProvider;
 
     /**
@@ -102,7 +102,7 @@ public class DefaultObjectServices implements ObjectServices {
                                  ParallaxManager parallaxManager,
                                  WorldSession worldSession,
                                  GameRng rng,
-                                 EngineServices engineServices,
+                                 EngineContext engineServices,
                                  BonusStageProvider bonusStageProvider) {
         this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
         this.camera = Objects.requireNonNull(camera, "camera");
@@ -117,8 +117,8 @@ public class DefaultObjectServices implements ObjectServices {
         this.bonusStageProvider = Objects.requireNonNull(bonusStageProvider, "bonusStageProvider");
     }
 
-    private static EngineServices engineServicesFromGameServices() {
-        return new EngineServices(
+    private static EngineContext engineServicesFromGameServices() {
+        return new EngineContext(
                 GameServices.configuration(),
                 GameServices.graphics(),
                 GameServices.audio(),
@@ -264,7 +264,7 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
-    public EngineServices engineServices() {
+    public EngineContext engineServices() {
         return engineServices;
     }
 

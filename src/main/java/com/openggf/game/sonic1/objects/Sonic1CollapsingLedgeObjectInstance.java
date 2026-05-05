@@ -325,11 +325,11 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
         // Spawn remaining fragments as dynamic objects
         int maxFragments = Math.min(pieceCount, COLLAPSE_DELAYS.length);
         for (int i = 1; i < maxFragments; i++) {
-            int delay = COLLAPSE_DELAYS[i];
-            CollapsingLedgeFragmentInstance fragment = new CollapsingLedgeFragmentInstance(
-                    x, y, smashFrameIndex, i, delay,
-                    spawn.renderFlags());
-            objectManager.addDynamicObject(fragment);
+            final int idx = i;
+            final int delay = COLLAPSE_DELAYS[i];
+            spawnFreeChild(() -> new CollapsingLedgeFragmentInstance(
+                    x, y, smashFrameIndex, idx, delay,
+                    spawn.renderFlags()));
         }
 
         // Play collapse sound: move.w #sfx_Collapse,d0 / jmp (QueueSound2).l

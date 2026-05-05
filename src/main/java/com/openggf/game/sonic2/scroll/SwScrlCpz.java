@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_CPZ (Chemical Plant Zone scroll
@@ -52,6 +53,8 @@ public class SwScrlCpz extends AbstractZoneScrollHandler {
     private int ripplePhase;
     private int frameCounterForRipple; // Tracks frames for 8-frame decrement
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     public SwScrlCpz(ParallaxTables tables) {
         this.tables = tables;
         this.initialized = false;
@@ -97,6 +100,7 @@ public class SwScrlCpz extends AbstractZoneScrollHandler {
         }
 
         resetScrollTracking();
+        composer.reset();
 
         // ==================== Step 1: Calculate Camera Diffs ====================
         // Diffs in subpixels (1/256 pixel units, which is camera diff << 8)
@@ -143,7 +147,7 @@ public class SwScrlCpz extends AbstractZoneScrollHandler {
         int bgYpx = bgY_16_16 >> 16;
 
         // Set vscrollFactorBG for external use (renderer vertical scroll)
-        vscrollFactorBG = (short) bgYpx;
+        composer.setVscrollFactorBG((short) bgYpx);
 
         // ==================== Step 5: Calculate Block Position ====================
         // Position within the current 16-pixel block (0-15)
@@ -173,44 +177,29 @@ public class SwScrlCpz extends AbstractZoneScrollHandler {
             if (blockIdx < SEAM_BLOCK_INDEX) {
                 // Above seam: use BG1 (slow scroll)
                 bgScroll = M68KMath.negWord(bg1Xpx);
-                // Fill linesToFill lines with same value
-                int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-                trackOffset(fgScroll, bgScroll);
-                for (int i = 0; i < linesToFill; i++) {
-                    horizScrollBuf[screenLine++] = packed;
-                }
+                composer.fillPackedScrollWords(screenLine, linesToFill, fgScroll, bgScroll);
+                screenLine += linesToFill;
             } else if (blockIdx > SEAM_BLOCK_INDEX) {
                 // Below seam: use BG2 (fast scroll)
                 bgScroll = M68KMath.negWord(bg2Xpx);
-                // Fill linesToFill lines with same value
-                int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-                trackOffset(fgScroll, bgScroll);
-                for (int i = 0; i < linesToFill; i++) {
-                    horizScrollBuf[screenLine++] = packed;
-                }
+                composer.fillPackedScrollWords(screenLine, linesToFill, fgScroll, bgScroll);
+                screenLine += linesToFill;
             } else {
                 // Seam block (blockIdx == 18): Apply ripple effect
-                // Base is BG1 X, add ripple offset per scanline
                 int baseBg1Xpx = bg1Xpx;
                 int rippleStart = ripplePhase & 0x1F; // 0..31 index into ripple data
 
-                // lineInBlock tells us where in the block we start (for first iteration)
-                // For the seam block, we need to track the actual position within the block
-                int posInBlock = LINES_PER_BLOCK - remainingInBlock; // 0-15 position we start at
+                int posInBlock = LINES_PER_BLOCK - remainingInBlock;
 
                 for (int i = 0; i < linesToFill; i++) {
-                    // Get ripple offset from ROM data
-                    // Use position within block + rippleStart for the ripple index
                     int ripple = 0;
                     if (tables != null) {
                         int rippleIdx = (rippleStart + posInBlock + i) & 0x3F;
-                        ripple = tables.getRippleByte(rippleIdx) & 0xFF; // Unsigned 0..3
+                        ripple = tables.getRippleByte(rippleIdx) & 0xFF;
                     }
 
-                    // Apply ripple: bgScrollXpx = baseBg1Xpx + ripple
                     bgScroll = M68KMath.negWord(baseBg1Xpx + ripple);
-                    horizScrollBuf[screenLine++] = M68KMath.packScrollWords(fgScroll, bgScroll);
-                    trackOffset(fgScroll, bgScroll);
+                    composer.writePackedScrollWord(screenLine++, fgScroll, bgScroll);
                 }
             }
 
@@ -218,6 +207,11 @@ public class SwScrlCpz extends AbstractZoneScrollHandler {
             currentBlockIdx++;
             remainingInBlock = LINES_PER_BLOCK;
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**

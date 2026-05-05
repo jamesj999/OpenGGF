@@ -1,6 +1,6 @@
 package com.openggf.sprites.playable;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
@@ -18,7 +18,7 @@ class TestRespawnStrategies {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         SessionManager.clear();
         RuntimeManager.createGameplay();

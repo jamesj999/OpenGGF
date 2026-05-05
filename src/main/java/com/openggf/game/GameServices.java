@@ -11,6 +11,8 @@ import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.game.render.AdvancedRenderModeController;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
+import com.openggf.game.session.GameplayModeContext;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.session.WorldSession;
 import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
@@ -29,10 +31,11 @@ import com.openggf.timer.TimerManager;
 /**
  * Thin service locator for non-object code.
  * <p>
- * Runtime-owned managers delegate to {@link RuntimeManager#getCurrent()}.
- * Engine globals (audio, ROM, config, debug overlay, graphics, ROM detection,
- * cross-game features)
- * stay behind the engine-services root.
+ * Gameplay-scoped managers resolve through
+ * {@link SessionManager#getCurrentGameplayMode()}; engine globals (audio, ROM,
+ * config, debug overlay, graphics, ROM detection, cross-game features) stay
+ * behind the engine-services root. The bonus stage provider remains attached
+ * to the {@link GameRuntime} façade for now (lifecycle handle).
  * <p>
  * Object instances should use {@code services()} instead of this class.
  */
@@ -41,6 +44,26 @@ public final class GameServices {
     private GameServices() {
     }
 
+    private static GameplayModeContext requireGameplayMode(String accessor) {
+        GameplayModeContext mode = SessionManager.getCurrentGameplayMode();
+        if (mode == null || mode.getCamera() == null) {
+            throw new IllegalStateException(
+                    "GameServices." + accessor + "() requires an active gameplay mode. "
+                    + "Create one via RuntimeManager.createGameplay() before accessing gameplay-scoped managers.");
+        }
+        return mode;
+    }
+
+    /**
+     * @deprecated No production callers remain; gameplay-scoped state has moved
+     * to {@link GameplayModeContext}. Prefer {@link #requireGameplayMode(String)}
+     * which avoids the {@link RuntimeManager#getCurrent()} mode-transition side
+     * effect (silent runtime destroy on mode mismatch). Kept for source
+     * compatibility; do not introduce new callers.
+     */
+    // Still used by: (none — all GameServices callers migrated). Kept private
+    // and deprecated until ready to delete.
+    @Deprecated
     private static GameRuntime requireRuntime(String accessor) {
         GameRuntime rt = RuntimeManager.getCurrent();
         if (rt == null) {
@@ -51,111 +74,124 @@ public final class GameServices {
         return rt;
     }
 
+    /**
+     * Returns {@code true} when a gameplay mode is active and core managers are
+     * attached. Unified with {@link #gameplayModeOrNull()} so callers that guard
+     * on {@code hasRuntime()} and read via {@code gameplayModeOrNull()} (or any
+     * of the {@code *OrNull()} accessors) see consistent results across
+     * {@link RuntimeManager#parkCurrent()} (which clears the runtime but leaves
+     * the gameplay mode live in {@link com.openggf.game.session.SessionManager}).
+     */
     public static boolean hasRuntime() {
-        return RuntimeManager.getActiveRuntime() != null;
+        return gameplayModeOrNull() != null;
     }
 
     public static GameRuntime runtimeOrNull() {
         return RuntimeManager.getActiveRuntime();
     }
 
+    private static GameplayModeContext gameplayModeOrNull() {
+        GameplayModeContext mode = SessionManager.getCurrentGameplayMode();
+        return mode != null && mode.getCamera() != null ? mode : null;
+    }
+
     public static Camera cameraOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getCamera() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getCamera() : null;
     }
 
     public static LevelManager levelOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getLevelManager() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getLevelManager() : null;
     }
 
     public static GameStateManager gameStateOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getGameState() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getGameStateManager() : null;
     }
 
     public static TimerManager timersOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getTimers() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getTimerManager() : null;
     }
 
     public static GameRng rngOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getRng() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getRng() : null;
     }
 
     public static ParallaxManager parallaxOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getParallaxManager() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getParallaxManager() : null;
     }
 
     public static FadeManager fadeOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getFadeManager() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getFadeManager() : null;
     }
 
     public static SpriteManager spritesOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getSpriteManager() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getSpriteManager() : null;
     }
 
     public static CollisionSystem collisionOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getCollisionSystem() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getCollisionSystem() : null;
     }
 
     public static TerrainCollisionManager terrainCollisionOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getTerrainCollisionManager() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getTerrainCollisionManager() : null;
     }
 
     public static WaterSystem waterOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getWaterSystem() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getWaterSystem() : null;
     }
 
     public static AnimatedTileChannelGraph animatedTileChannelGraphOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getAnimatedTileChannelGraph() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getAnimatedTileChannelGraph() : null;
     }
 
     public static ZoneLayoutMutationPipeline zoneLayoutMutationPipelineOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getZoneLayoutMutationPipeline() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getZoneLayoutMutationPipeline() : null;
     }
 
     public static SpecialRenderEffectRegistry specialRenderEffectRegistryOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getSpecialRenderEffectRegistry() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getSpecialRenderEffectRegistry() : null;
     }
 
     public static AdvancedRenderModeController advancedRenderModeControllerOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getAdvancedRenderModeController() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getAdvancedRenderModeController() : null;
     }
 
     public static BonusStageProvider bonusStageOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getActiveBonusStageProvider() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getActiveBonusStageProvider() : null;
     }
 
     public static SolidExecutionRegistry solidExecutionRegistryOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getSolidExecutionRegistry() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getSolidExecutionRegistry() : null;
     }
 
-    // â”€â”€ Runtime-owned managers (delegate to RuntimeManager) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â”€â”€ Gameplay-scoped managers (resolve through SessionManager) â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Global camera accessor for non-object code (HUD, level loading, rendering).
      * Object instances should use {@code services().camera()} instead.
      */
     public static Camera camera() {
-        return requireRuntime("camera").getCamera();
+        return requireGameplayMode("camera").getCamera();
     }
 
     public static LevelManager level() {
-        return requireRuntime("level").getLevelManager();
+        return requireGameplayMode("level").getLevelManager();
     }
 
     /**
@@ -163,59 +199,65 @@ public final class GameServices {
      * Object instances should use {@code services().gameState()} instead.
      */
     public static GameStateManager gameState() {
-        return requireRuntime("gameState").getGameState();
+        return requireGameplayMode("gameState").getGameStateManager();
     }
 
     public static TimerManager timers() {
-        return requireRuntime("timers").getTimers();
+        return requireGameplayMode("timers").getTimerManager();
     }
 
     public static GameRng rng() {
-        return requireRuntime("rng").getRng();
+        return requireGameplayMode("rng").getRng();
     }
 
     public static FadeManager fade() {
-        return requireRuntime("fade").getFadeManager();
+        return requireGameplayMode("fade").getFadeManager();
     }
 
     public static SpriteManager sprites() {
-        return requireRuntime("sprites").getSpriteManager();
+        return requireGameplayMode("sprites").getSpriteManager();
     }
 
     public static CollisionSystem collision() {
-        return requireRuntime("collision").getCollisionSystem();
+        return requireGameplayMode("collision").getCollisionSystem();
     }
 
     public static TerrainCollisionManager terrainCollision() {
-        return requireRuntime("terrainCollision").getTerrainCollisionManager();
+        return requireGameplayMode("terrainCollision").getTerrainCollisionManager();
     }
 
     public static ParallaxManager parallax() {
-        return requireRuntime("parallax").getParallaxManager();
+        return requireGameplayMode("parallax").getParallaxManager();
     }
 
     public static WaterSystem water() {
-        return requireRuntime("water").getWaterSystem();
+        return requireGameplayMode("water").getWaterSystem();
     }
 
     public static AnimatedTileChannelGraph animatedTileChannelGraph() {
-        return requireRuntime("animatedTileChannelGraph").getAnimatedTileChannelGraph();
+        return requireGameplayMode("animatedTileChannelGraph").getAnimatedTileChannelGraph();
     }
 
     public static ZoneLayoutMutationPipeline zoneLayoutMutationPipeline() {
-        return requireRuntime("zoneLayoutMutationPipeline").getZoneLayoutMutationPipeline();
+        return requireGameplayMode("zoneLayoutMutationPipeline").getZoneLayoutMutationPipeline();
     }
 
     public static SpecialRenderEffectRegistry specialRenderEffectRegistry() {
-        return requireRuntime("specialRenderEffectRegistry").getSpecialRenderEffectRegistry();
+        return requireGameplayMode("specialRenderEffectRegistry").getSpecialRenderEffectRegistry();
     }
 
     public static AdvancedRenderModeController advancedRenderModeController() {
-        return requireRuntime("advancedRenderModeController").getAdvancedRenderModeController();
+        return requireGameplayMode("advancedRenderModeController").getAdvancedRenderModeController();
     }
 
     public static WorldSession worldSession() {
-        return requireRuntime("worldSession").getWorldSession();
+        WorldSession ws = SessionManager.getCurrentWorldSession();
+        if (ws == null) {
+            throw new IllegalStateException(
+                    "GameServices.worldSession() requires an active WorldSession. "
+                    + "Open one via SessionManager.openGameplaySession() before accessing world data.");
+        }
+        return ws;
     }
 
     public static GameModule module() {
@@ -228,15 +270,20 @@ public final class GameServices {
      * via {@link BonusStageProvider#requestExit()}.
      */
     public static BonusStageProvider bonusStage() {
-        return requireRuntime("bonusStage").getActiveBonusStageProvider();
+        return requireGameplayMode("bonusStage").getActiveBonusStageProvider();
     }
 
     public static SolidExecutionRegistry solidExecutionRegistry() {
-        return requireRuntime("solidExecutionRegistry").getSolidExecutionRegistry();
+        return requireGameplayMode("solidExecutionRegistry").getSolidExecutionRegistry();
     }
 
     public static ZoneRuntimeRegistry zoneRuntimeRegistry() {
-        return requireRuntime("zoneRuntimeRegistry").getZoneRuntimeRegistry();
+        return requireGameplayMode("zoneRuntimeRegistry").getZoneRuntimeRegistry();
+    }
+
+    public static ZoneRuntimeRegistry zoneRuntimeRegistryOrNull() {
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getZoneRuntimeRegistry() : null;
     }
 
     public static ZoneRuntimeState zoneRuntimeState() {
@@ -244,12 +291,12 @@ public final class GameServices {
     }
 
     public static PaletteOwnershipRegistry paletteOwnershipRegistry() {
-        return requireRuntime("paletteOwnershipRegistry").getPaletteOwnershipRegistry();
+        return requireGameplayMode("paletteOwnershipRegistry").getPaletteOwnershipRegistry();
     }
 
     public static PaletteOwnershipRegistry paletteOwnershipRegistryOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getPaletteOwnershipRegistry() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getPaletteOwnershipRegistry() : null;
     }
     //â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

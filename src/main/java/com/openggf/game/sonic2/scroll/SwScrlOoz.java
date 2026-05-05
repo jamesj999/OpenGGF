@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 import java.util.Arrays;
 
@@ -44,6 +45,8 @@ public class SwScrlOoz extends AbstractZoneScrollHandler {
 
     // Pre-allocated buffer for per-scanline BG scroll values (bottom-to-top order)
     private final short[] bgScrollValues = new short[M68KMath.VISIBLE_LINES];
+
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
 
     // Camera_BG_X_pos tracking (16.16 fixed-point for subpixel accuracy)
     // Initialized to 0 by InitCam_OOZ, updated each frame at 1/4 FG speed
@@ -104,6 +107,7 @@ public class SwScrlOoz extends AbstractZoneScrollHandler {
                        int actId) {
 
         resetScrollTracking();
+        composer.reset();
 
         // ==================== Step 1: Initialize if needed ====================
         if (!initialized) {
@@ -124,7 +128,7 @@ public class SwScrlOoz extends AbstractZoneScrollHandler {
         int cameraBgXPos = (int) (bgXPos >> 16);
 
         // Set vertical scroll factor
-        vscrollFactorBG = (short) cameraBgYPos;
+        composer.setVscrollFactorBG((short) cameraBgYPos);
 
         // ==================== Step 3: Update heat-haze phase ====================
         // Phase decrements every 8 frames: when (Vint_runcount + 3) & 7 == 0
@@ -196,9 +200,13 @@ public class SwScrlOoz extends AbstractZoneScrollHandler {
             int fromBottom = M68KMath.VISIBLE_LINES - 1 - screenLine;
             short bgScroll = (fromBottom < bgScrollValues.length) ? bgScrollValues[fromBottom] : bgxFull;
 
-            horizScrollBuf[screenLine] = M68KMath.packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
+            composer.writePackedScrollWord(screenLine, fgScroll, bgScroll);
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**

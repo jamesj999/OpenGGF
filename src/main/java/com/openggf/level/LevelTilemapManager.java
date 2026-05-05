@@ -1,7 +1,10 @@
 package com.openggf.level;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
+import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternAtlas;
 import com.openggf.graphics.TilemapGpuRenderer;
@@ -9,12 +12,20 @@ import com.openggf.graphics.TilemapGpuRenderer;
 import java.util.logging.Logger;
 
 /**
- * Manages the build, cache, upload, and invalidation lifecycle of GPU tilemap data
- * (foreground and background layers) extracted from LevelManager.
+ * Manages the build, cache, upload, and invalidation lifecycle of GPU tilemap
+ * data (foreground and background layers) derived from the loaded {@link Level}.
  * <p>
- * This class owns all tilemap byte arrays, dirty flags, pattern lookup data,
- * and prebuilt transition tilemaps.  LevelManager delegates tilemap operations
- * here and reads back data via getters for its GL command lambdas.
+ * Owns tilemap byte arrays, dirty flags, pattern lookup data, and prebuilt
+ * transition tilemaps. LevelManager delegates tilemap operations here and
+ * reads back data via getters for its GL command lambdas.
+ * <p>
+ * <b>Lifecycle:</b> entirely gameplay-disposable. All state is derived from
+ * the {@link Level} (which is owned by {@code WorldSession}) and is rebuilt
+ * each time a new {@code LevelTilemapManager} is constructed — typically
+ * during {@code LevelManager.loadLevelData(...)}. After an editor mode swap
+ * that destroys the gameplay-mode managers, a fresh tilemap manager is
+ * rebuilt over the same surviving {@code Level}, so no tilemap state needs
+ * to persist outside the gameplay mode context.
  */
 public class LevelTilemapManager {
     private static final Logger LOGGER = Logger.getLogger(LevelTilemapManager.class.getName());
@@ -82,7 +93,8 @@ public class LevelTilemapManager {
      *
      * @param geometry        level geometry snapshot (dimensions, level reference)
      * @param graphicsManager graphics manager for pattern atlas access
-     * @param gameState       runtime game state retained across parked editor mode
+     * @param gameState       gameplay-mode game state; reserved for future
+     *                        cross-zone tilemap-upload decisions, may be null
      */
     public LevelTilemapManager(LevelGeometry geometry, GraphicsManager graphicsManager, GameStateManager gameState) {
         this.geometry = geometry;
@@ -293,6 +305,15 @@ public class LevelTilemapManager {
         foregroundTilemapHeightTiles = data.heightTiles;
     }
 
+    private static boolean zoneRuntimeRequiresFullWidthBgTilemap() {
+        ZoneRuntimeRegistry registry = GameServices.zoneRuntimeRegistryOrNull();
+        if (registry == null) {
+            return false;
+        }
+        ZoneRuntimeState state = registry.current();
+        return state != null && state.requiresFullWidthBgTilemap();
+    }
+
     private TilemapData buildTilemapData(byte layerIndex, BlockLookup blockLookup,
                                          ZoneFeatureProvider zoneFeatureProvider,
                                          int currentZone,
@@ -311,7 +332,7 @@ public class LevelTilemapManager {
         boolean bgWrap = layerIndex == 1
                 && zoneFeatureProvider != null
                 && zoneFeatureProvider.bgWrapsHorizontally()
-                && (gameState == null || !gameState.isHtzScreenShakeActive());
+                && !zoneRuntimeRequiresFullWidthBgTilemap();
         // Use the currently selected BG period width. LevelManager may widen this
         // beyond the scroll handler's nominal period when the renderer needs the
         // full BG strip instead of a 64-cell wrapped cache (for example MGZ2

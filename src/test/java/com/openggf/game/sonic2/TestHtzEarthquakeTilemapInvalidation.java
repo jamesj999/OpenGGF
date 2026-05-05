@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
+import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.LevelTilemapManager;
@@ -58,7 +59,8 @@ class TestHtzEarthquakeTilemapInvalidation {
         assertFalse(tilemapManager.isBackgroundTilemapDirty(),
                 "Initial background build should clear the dirty flag");
 
-        GameServices.parallax().setHtzScreenShake(true);
+        ((Sonic2LevelEventManager) GameServices.module().getLevelEventProvider())
+                .getHtzEvents().setEarthquakeActive(true);
 
         assertTrue(tilemapManager.isBackgroundTilemapDirty(),
                 "Entering HTZ earthquake mode must dirty the BG tilemap so the cave/lava overlay rebuilds");

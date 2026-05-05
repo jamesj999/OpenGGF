@@ -11,6 +11,7 @@ import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -135,8 +136,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     private int animAngle;        // obAngle: animation table index
     private int currentDisplayFrame; // Computed mapping frame from last animation update
     private int inertia;          // obInertia: body trailing offset
-    private int xSubpixel;
-    private int ySubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int fallVelocity;
     private boolean fragmenting;
     private boolean deleting;
@@ -165,8 +166,6 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         this.animAngle = 0;
         this.currentDisplayFrame = 0;
         this.inertia = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
         this.fallVelocity = 0;
         this.fragmenting = false;
         this.deleting = false;
@@ -216,11 +215,13 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      */
     private void initialize() {
         // ObjectFall: apply velocity, then gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += fallVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-        fallVelocity += GRAVITY;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = fallVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentY = motion.y;
+        fallVelocity = motion.yVel;
 
         // ObjFloorDist: check floor from feet
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -287,20 +288,30 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
             segX += spacing;
 
-            Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                    this, parentState, segX, currentY, facingLeft,
-                    isAnimated[i], i, ringBufIdx);
-            bodySegments.add(body);
+            final int segXFinal = segX;
+            final boolean animated = isAnimated[i];
+            final int segmentIndex = i;
+            final int ringBufIdxFinal = ringBufIdx;
+            final CaterkillerParentState parentStateFinal = parentState;
+            final int prevSlotFinal = prevSlot;
 
-            // Allocate slot after previous segment (FindNextFreeObj parity)
-            if (prevSlot >= 0) {
-                int localSlot = objectManager.allocateSlotAfter(prevSlot);
-                if (localSlot >= 0) {
-                    body.setSlotIndex(localSlot);
-                    prevSlot = localSlot;
+            Sonic1CaterkillerBodyInstance body = spawnFreeChild(() -> {
+                Sonic1CaterkillerBodyInstance segment = new Sonic1CaterkillerBodyInstance(
+                        this, parentStateFinal, segXFinal, currentY, facingLeft,
+                        animated, segmentIndex, ringBufIdxFinal);
+                // Allocate slot after previous segment (FindNextFreeObj parity)
+                if (prevSlotFinal >= 0) {
+                    int localSlot = objectManager.allocateSlotAfter(prevSlotFinal);
+                    if (localSlot >= 0) {
+                        segment.setSlotIndex(localSlot);
+                    }
                 }
+                return segment;
+            });
+            bodySegments.add(body);
+            if (body.getSlotIndex() >= 0) {
+                prevSlot = body.getSlotIndex();
             }
-            objectManager.addDynamicObject(body);
             parentState = body;
 
             ringBufIdx += 4;
@@ -377,10 +388,10 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         }
 
         int oldXWhole = currentX;
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += effectiveVel;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = effectiveVel;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
 
         // swap d3 / cmp.w obX(a0),d3 / beq.s .notmoving
         if (currentX == oldXWhole) {
@@ -434,8 +445,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
         // REV01: negate subpixel
         // neg.w obX+2(a0) / beq.s .loc_1730A / btst #0,obStatus(a0) / beq.s .loc_1730A
-        xSubpixel = (-xSubpixel) & 0xFFFF;
-        if (xSubpixel != 0 && !facingLeft) {
+        motion.xSub = (-motion.xSub) & 0xFFFF;
+        if (motion.xSub != 0 && !facingLeft) {
             // subq.w #1,obX(a0) - adjust when bit 0 = 1 (facing right)
             currentX--;
             ringBufferWriteIndex = (ringBufferWriteIndex + 1) & 0x0F;
@@ -503,18 +514,15 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      * From loc_16C96 and loc_16CC0.
      */
     private void updateFragment() {
-        // ObjectFall: apply velocity + gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        yVelocity += GRAVITY;
+        // ObjectFall: apply velocity, then gravity (uses pre-gravity velocity for movement).
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = xVelocity;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentX = motion.x;
+        currentY = motion.y;
+        yVelocity = motion.yVel;
 
         // Floor bounce when falling
         if (yVelocity >= 0) {

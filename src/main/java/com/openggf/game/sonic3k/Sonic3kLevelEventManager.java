@@ -1,10 +1,8 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.AbstractLevelEventManager;
-import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -158,12 +156,11 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     private void installZoneRuntimeState(int zone, int act) {
-        GameRuntime runtime = RuntimeManager.getActiveRuntime();
-        if (runtime == null) {
+        if (GameServices.runtimeOrNull() == null) {
             LOG.fine("Skipping S3K zone runtime registration because no active runtime is installed");
             return;
         }
-        ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+        ZoneRuntimeRegistry registry = GameServices.zoneRuntimeRegistry();
         PlayerCharacter playerCharacter = getPlayerCharacter();
         if (zone == Sonic3kZoneIds.ZONE_AIZ && aizEvents != null) {
             registry.install(new AizZoneRuntimeState(act, playerCharacter, aizEvents));

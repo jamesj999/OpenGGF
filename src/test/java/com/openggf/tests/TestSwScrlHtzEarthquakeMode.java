@@ -28,7 +28,7 @@ public class TestSwScrlHtzEarthquakeMode {
 
     @Test
     public void usesEarthquakeModeWhenHtzFlagIsActiveEvenWithoutGeneralShake() throws Exception {
-        GameServices.gameState().setHtzScreenShakeActive(true);
+        levelEvents.getHtzEvents().setEarthquakeActive(true);
         GameServices.gameState().setScreenShakeActive(false);
 
         Object htzHandler = getHtzHandler(levelEvents);
@@ -57,7 +57,7 @@ public class TestSwScrlHtzEarthquakeMode {
 
     @Test
     public void bottomRouteBgXOffsetAffectsBgHorizontalScroll() throws Exception {
-        GameServices.gameState().setHtzScreenShakeActive(true);
+        levelEvents.getHtzEvents().setEarthquakeActive(true);
         GameServices.gameState().setScreenShakeActive(false);
 
         Object htzHandler = getHtzHandler(levelEvents);

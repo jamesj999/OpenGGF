@@ -466,25 +466,26 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * Subtype gets addq.b #8 then andi.b #$F.
      */
     private void spawnReflection() {
-        var objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // Reflection subtype: addq.b #8,obSubtype(a1) / andi.b #$F,obSubtype(a1)
-        int reflectSubtype = ((fullSubtype + 8) & 0x0F);
+        final int reflectSubtype = ((fullSubtype + 8) & 0x0F);
+        final int mySlot = getSlotIndex();
 
-        reflectionChild = new Sonic1GlassReflectionInstance(
-                spawn, this, reflectSubtype, isTall);
-        // ROM: FindNextFreeObj allocates slot after glass block
-        int mySlot = getSlotIndex();
-        if (mySlot >= 0) {
-            int childSlot = objectManager.allocateSlotAfter(mySlot);
-            if (childSlot >= 0) {
-                reflectionChild.setSlotIndex(childSlot);
+        reflectionChild = spawnFreeChild(() -> {
+            Sonic1GlassReflectionInstance child = new Sonic1GlassReflectionInstance(
+                    spawn, this, reflectSubtype, isTall);
+            // ROM: FindNextFreeObj allocates slot after glass block
+            if (mySlot >= 0) {
+                int childSlot = services().objectManager().allocateSlotAfter(mySlot);
+                if (childSlot >= 0) {
+                    child.setSlotIndex(childSlot);
+                }
             }
-        }
-        objectManager.addDynamicObject(reflectionChild);
+            return child;
+        });
     }
 
     /**

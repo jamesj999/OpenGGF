@@ -271,27 +271,6 @@ public class ParallaxManager {
         GameServices.gameState().setScreenShakeActive(screenShakeFlag);
     }
 
-    /**
-     * Set the HTZ screen shake mode flag.
-     * This sets the HTZ-specific flag (Screen_Shaking_Flag_HTZ) which stays
-     * active for the entire earthquake sequence, as well as the general
-     * screen shake flag for visual shake effects.
-     */
-    public void setHtzScreenShake(boolean active) {
-        boolean oldHtzActive = GameServices.gameState().isHtzScreenShakeActive();
-        boolean oldScreenShakeActive = GameServices.gameState().isScreenShakeActive();
-
-        GameServices.gameState().setHtzScreenShakeActive(active);
-        GameServices.gameState().setScreenShakeActive(active);
-
-        if (oldHtzActive != active || oldScreenShakeActive != active) {
-            LevelManager levelManager = GameServices.levelOrNull();
-            if (levelManager != null) {
-                levelManager.invalidateAllTilemaps();
-            }
-        }
-    }
-
     public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY) {
         // Clear scroll buffer to ensure deterministic state
         // (some zone handlers intentionally leave lines unwritten)

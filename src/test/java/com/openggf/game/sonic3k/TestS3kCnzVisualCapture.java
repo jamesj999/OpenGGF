@@ -6,7 +6,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -107,7 +107,7 @@ public class TestS3kCnzVisualCapture {
     @BeforeAll
     static void setUpClass() {
         try {
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
             File romFile = RomTestUtils.ensureSonic3kRomAvailable();
             if (romFile == null) {

@@ -544,7 +544,11 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.sidekickPushBypassUsesGraceStatus(), // sidekickPushBypassUsesGraceStatus (from base game)
                 baseFeatureSet.sidekickNormalCpuSkipsHurtRoutine(), // sidekickNormalCpuSkipsHurtRoutine (from base game)
                 baseFeatureSet.controlLockLatchesLogicalInput(), // controlLockLatchesLogicalInput (from base game)
-                baseFeatureSet.waterExitBoostSkipsFastUpwardVelocity() // waterExitBoostSkipsFastUpwardVelocity (from base game)
+                baseFeatureSet.waterExitBoostSkipsFastUpwardVelocity(), // waterExitBoostSkipsFastUpwardVelocity (from base game)
+                baseFeatureSet.slopeResistAppliesAtZeroInertia(), // slopeResistAppliesAtZeroInertia (from base game)
+                baseFeatureSet.permanentRespawnTableLatch(), // permanentRespawnTableLatch (from base game)
+                baseFeatureSet.objectsExecuteAfterPlayerPhysics(), // objectsExecuteAfterPlayerPhysics (from base game)
+                baseFeatureSet.shieldObjectFixedSlotIndex() // shieldObjectFixedSlotIndex (from base game)
         );
     }
 

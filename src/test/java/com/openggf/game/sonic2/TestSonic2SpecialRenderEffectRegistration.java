@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.render.SpecialRenderEffectContext;
@@ -89,6 +88,18 @@ class TestSonic2SpecialRenderEffectRegistration {
     }
 
     @Test
+    void htzRegistersEarthquakeBgOverlayAtAfterForeground() {
+        Sonic2ZoneFeatureProvider provider = new Sonic2ZoneFeatureProvider();
+        SpecialRenderEffectRegistry registry = new SpecialRenderEffectRegistry();
+
+        provider.registerSpecialRenderEffects(registry, Sonic2ZoneConstants.ROM_ZONE_HTZ, 0);
+
+        assertEquals(1, registry.size(SpecialRenderEffectStage.AFTER_FOREGROUND));
+        assertEquals(0, registry.size(SpecialRenderEffectStage.AFTER_BACKGROUND));
+        assertEquals(0, registry.size(SpecialRenderEffectStage.AFTER_SPRITES));
+    }
+
+    @Test
     void cpzAct1DoesNotRegisterWaterSurfaceEffect() {
         Sonic2ZoneFeatureProvider provider = new Sonic2ZoneFeatureProvider();
         SpecialRenderEffectRegistry registry = new SpecialRenderEffectRegistry();
@@ -100,7 +111,7 @@ class TestSonic2SpecialRenderEffectRegistration {
 
     @Test
     void dispatchClearsDeferredSlotRequestsEvenWhenRendererIsUnavailable() throws Exception {
-        GameRuntime runtime = RuntimeManager.createGameplay();
+        RuntimeManager.createGameplay();
         Sonic2ZoneFeatureProvider provider = new Sonic2ZoneFeatureProvider();
         SpecialRenderEffectRegistry registry = new SpecialRenderEffectRegistry();
 
@@ -108,8 +119,8 @@ class TestSonic2SpecialRenderEffectRegistration {
         provider.requestSlotRender(0x100, 0x120, 8, 12);
         assertEquals(1, pendingSlotRenderCount(provider));
 
-        Camera camera = runtime.getCamera();
-        LevelManager levelManager = runtime.getLevelManager();
+        Camera camera = GameServices.camera();
+        LevelManager levelManager = GameServices.level();
         GraphicsManager graphicsManager = GameServices.graphics();
         registry.dispatch(
                 SpecialRenderEffectStage.AFTER_FOREGROUND,
@@ -120,14 +131,14 @@ class TestSonic2SpecialRenderEffectRegistration {
 
     @Test
     void stagedWaterSurfaceDispatchIsSafeWhenManagerIsAbsent() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
+        RuntimeManager.createGameplay();
         Sonic2ZoneFeatureProvider provider = new Sonic2ZoneFeatureProvider();
         SpecialRenderEffectRegistry registry = new SpecialRenderEffectRegistry();
 
         provider.registerSpecialRenderEffects(registry, Sonic2ZoneConstants.ROM_ZONE_ARZ, 0);
 
-        Camera camera = runtime.getCamera();
-        LevelManager levelManager = runtime.getLevelManager();
+        Camera camera = GameServices.camera();
+        LevelManager levelManager = GameServices.level();
         GraphicsManager graphicsManager = GameServices.graphics();
 
         assertNull(waterSurfaceManager(provider));

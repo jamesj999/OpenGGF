@@ -80,7 +80,7 @@ public final class HeadlessTestFixture implements TraceReplayFixture {
 
     /** Returns the camera from the runtime. */
     public Camera camera() {
-        return runtime.getCamera();
+        return GameServices.camera();
     }
 
     /** Returns the game runtime. */

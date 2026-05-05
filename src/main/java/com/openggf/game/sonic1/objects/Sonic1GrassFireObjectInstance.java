@@ -267,17 +267,20 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
             }
         }
 
-        Sonic1GrassFireObjectInstance child = new Sonic1GrassFireObjectInstance(
-                currentX, childBaseY, sinkOffset, slopeData, parentPlatform, false);
-        // ROM: FindNextFreeObj allocates a slot AFTER the current fire's slot.
-        int mySlot = getSlotIndex();
-        if (mySlot >= 0) {
-            int childSlot = services().objectManager().allocateSlotAfter(mySlot);
-            if (childSlot >= 0) {
-                child.setSlotIndex(childSlot);
+        final int fChildBaseY = childBaseY;
+        final int mySlot = getSlotIndex();
+        Sonic1GrassFireObjectInstance child = spawnFreeChild(() -> {
+            Sonic1GrassFireObjectInstance c = new Sonic1GrassFireObjectInstance(
+                    currentX, fChildBaseY, sinkOffset, slopeData, parentPlatform, false);
+            // ROM: FindNextFreeObj allocates a slot AFTER the current fire's slot.
+            if (mySlot >= 0) {
+                int childSlot = services().objectManager().allocateSlotAfter(mySlot);
+                if (childSlot >= 0) {
+                    c.setSlotIndex(childSlot);
+                }
             }
-        }
-        services().objectManager().addDynamicObject(child);
+            return c;
+        });
         children.add(child);
 
         // Register child with parent platform for sink offset updates

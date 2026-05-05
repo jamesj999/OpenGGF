@@ -4,7 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
@@ -31,7 +31,7 @@ public class TestHTZRisingLavaDisassemblyParity {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         com.openggf.game.session.SessionManager.clear();
         com.openggf.game.GameModuleRegistry.reset();
@@ -53,7 +53,7 @@ public class TestHTZRisingLavaDisassemblyParity {
     public void act1OscillationStartsAt1978NotBefore() throws Exception {
         levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 0);
         levelEvents.setEventRoutine(2);
-        GameServices.gameState().setHtzScreenShakeActive(true);
+        levelEvents.getHtzEvents().setEarthquakeActive(true);
 
         camera.setX((short) 0x1900); // < $1978, should not oscillate
         camera.setY((short) 0x410);
@@ -85,7 +85,7 @@ public class TestHTZRisingLavaDisassemblyParity {
         assertEquals(8, levelEvents.getEventRoutine());
         assertEquals(0x300, htzState().cameraBgYOffset());
         assertEquals(-0x680, htzState().cameraBgXOffset());
-        assertTrue(GameServices.gameState().isHtzScreenShakeActive());
+        assertTrue(htzState().earthquakeActive());
         assertEquals(0, htzState().bgVerticalShift());
 
         Object htzHandler = getHtzHandler(levelEvents);
@@ -96,7 +96,7 @@ public class TestHTZRisingLavaDisassemblyParity {
     @Test
     public void obj30Subtype6And8FollowRouteSplitAt380() {
         levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 0);
-        GameServices.gameState().setHtzScreenShakeActive(true);
+        levelEvents.getHtzEvents().setEarthquakeActive(true);
         // Wire in levelEvents so that update() can read HTZ runtime state for
         // enabled objects without hitting a NullPointerException.
         ObjectServices services = new TestObjectServices() {

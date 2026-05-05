@@ -1,7 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractMonitorObjectInstance;
@@ -22,7 +22,7 @@ class TestMonitorIconTiming {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

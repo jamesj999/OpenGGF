@@ -21,6 +21,7 @@ Each entry describes what the ROM does, what we do, and why — focusing on *why
 8. [Bonus Stage Game Mode](#bonus-stage-game-mode)
 9. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
 10. [S2 Logical-Input Latch Disabled During Control Lock](#s2-logical-input-latch-disabled-during-control-lock)
+11. [S2 CPZ Visual Water Surface Oscillation](#s2-cpz-visual-water-surface-oscillation)
 
 ---
 
@@ -150,9 +151,26 @@ We use **extended pattern ID ranges** with fixed bases that don't overlap:
 | `0x20000` | Objects | Monitors, springs, badniks, zone-specific objects |
 | `0x28000` | HUD | Score, time, rings display (fixed base) |
 | `0x30000` | Water surface | Underwater palette transition patterns |
+| `0x34000` | S3K Dust | Spindash/skid dust art (`Sonic3kDustArt.DUST_PATTERN_BASE`) |
 | `0x38000+` | Sidekick DPLC banks | Extra banks for duplicate-character sidekicks (global running offset) |
 | `0x39000+` | Sidekick tail appendages | Extra banks for duplicate Tails tail sprites (Obj05) |
-| `0x40000` | Title Card | Zone/act title card patterns |
+| `0x40000` | Title Card / S1 SS Results / S3K AIZ Intro | Shared base; mutually-exclusive game contexts (see below) |
+| `0x50000` | Level Select / S1 Title Card / S3K Title Card / S3K Data Select | Shared base; mutually-exclusive game contexts (see below) |
+
+**Shared-base contexts** (`0x40000`):
+- S2 Title Card (`TitleCardManager.PATTERN_BASE`) — gameplay scope, not active during cutscenes
+- S2 Special Stage Results (`SpecialStageResultsScreenObjectInstance.PATTERN_BASE`)
+- S1 Special Stage Results Screen (`Sonic1SpecialStageResultsScreen.PATTERN_BASE`)
+- S3K AIZ Intro Art Loader (`AizIntroArtLoader.INTRO_PATTERN_BASE`) — only active during AIZ1 intro
+- S2 Title Screen (`TitleScreenDataLoader`) — only active before any gameplay
+
+**Shared-base contexts** (`0x50000`):
+- S1 Title Card (`Sonic1TitleCardManager.PATTERN_BASE`)
+- S3K Title Card (`Sonic3kTitleCardManager.PATTERN_BASE`)
+- S1/S2/S3K Level Select (`Sonic1LevelSelectConstants`, `LevelSelectConstants`, `Sonic3kLevelSelectConstants`)
+- S3K Data Select (`S3kDataSelectRenderer.DATA_SELECT_PATTERN_BASE`)
+
+These bases are reused across game-context-mutually-exclusive subsystems (e.g., title card vs. level select vs. data select are never active in the same frame). `PatternAtlas.registerRange(...)` provides a diagnostic collision detector but is not yet enforced at every call site — adding bootstrap-time `registerRange` calls in each owning subsystem is a follow-up.
 
 ```java
 // LevelManager.java
@@ -496,3 +514,73 @@ S2's `Obj01_Control` ROM cite confirms the latch behaviour matches S3K, but S2's
 ### Removal Condition
 
 Remove this entry once the S2/S1 trace fixtures have been re-recorded against ROM-correct `Ctrl_1_logical` semantics, every existing `setControlLocked(true)` S2 call site has been audited to confirm post-lock animation correctness with the latch enabled, and the `controlLockLatchesLogicalInput` flag is flipped to `true` for `SONIC_2` and `SONIC_1`.
+
+---
+
+## S2 CPZ Visual Water Surface Oscillation
+
+**Location:** `Sonic2WaterDataProvider.getVisualWaterLevelOffset` (CPZ branch), `WaterSystem.getOscillatedWaterLevel`
+**ROM Reference:** `docs/s2disasm/s2.asm:5273-5282` (`MoveWater`)
+
+### Original Implementation
+
+For non-ARZ S2 water zones (CPZ Act 2, plus the unused HPZ), `MoveWater` reads the first word of `Oscillating_Data`, shifts it right by 1, and adds the result to `Water_Level_2` to produce the visible water surface position:
+
+```asm
+MoveWater:
+    clr.b   (Water_fullscreen_flag).w
+    moveq   #0,d0
+    cmpi.b  #aquatic_ruin_zone,(Current_Zone).w
+    beq.s   +
+    move.b  (Oscillating_Data).w,d0
+    lsr.w   #1,d0
++
+    add.w   (Water_Level_2).w,d0
+    move.w  d0,(Water_Level_1).w
+```
+
+`Oscillating_Data` is the value-word of oscillator 0 (initial value `$0080`, limit `$10`), so the high byte read by `move.b` ranges 0..16 and the resulting `lsr.w #1` offset is 0..8 — a one-sided positive bob added on top of `Water_Level_2`.
+
+### Engine Implementation
+
+`Sonic2WaterDataProvider.getVisualWaterLevelOffset(ZONE_CPZ, 1)` returns `OscillationManager.getByte(0) - 8`, producing a signed offset in the range `-8..+7` centred around zero. `WaterSystem.getOscillatedWaterLevel` then adds this to the base water level. The shift-by-1 from the ROM is replaced by a subtract-by-8 recentring.
+
+### Rationale
+
+The engine uses this offset purely as a *visual* bob applied on top of the gameplay water level (`baseLevel`) returned by the water system. Centring around zero (`oscillation - 8` in place of the ROM's `oscillation >> 1`) keeps the absolute water gameplay surface anchored at the value owned by `WaterSystem` / the dynamic water handler, while the visible surface oscillates symmetrically `±8` pixels rather than only ever sitting 0..8 pixels *below* its nominal level. The original 0..+8 one-sided bob would otherwise need every base water level returned from `WaterDataProvider.getStartingWaterLevel` (and every dynamic target written by event managers) to be biased down by 4 pixels to hit the same visible mean — an invasive change for a purely cosmetic axis.
+
+The `-8` recentring has been the engine's behaviour since `WaterSystem` was first authored; the `dfbc610c9` test commit / `7cad4c068` provider refactor only moved the existing logic out of `WaterSystem` and onto the per-game `WaterDataProvider`. No commit on this branch introduced the divergence.
+
+### Verification
+
+`TestSonic2WaterDataProvider.testCpz2VisualOffsetAtResetIsMinusEight` pins the post-`OscillationManager.reset()` value at literal `-8`, and `testCpz2VisualOffsetTracksOscillatorAfterStepping` asserts the formula `getByte(0) - 8` after stepping the oscillator (with an explicit `byte0 != 0` precondition so the test would fail if the oscillator never advanced). Trace replay fixtures are unaffected because the comparator covers camera/player position only, not water-level pixel offsets.
+
+### Removal Condition
+
+Remove this entry if the engine is ever re-aligned to the ROM's `lsr.w #1` formula. That would require either biasing every base water level returned from `WaterDataProvider.getStartingWaterLevel` (and every `DynamicWaterHandler` target write) down by 4 pixels, or changing the visual contract so callers expect a one-sided 0..+8 bob layered on top of a slightly higher mean.
+
+---
+
+## Sonic 1 credits demo trace replay divergences (post-frame-0-hydration removal)
+
+**Source:** Removed in commit following `6ea9554`. Prior commit `6ea9554` removed `TraceEvent.StateSnapshot` hydration from `AbstractCreditsDemoTraceReplayTest` so the replay tests now exercise the engine without per-frame trace correction. The follow-up commit additionally removed the trace-derived per-demo `STARTING_ANIMATION_ID` / `setDirection(RIGHT)` overrides from `Sonic1CreditsDemoBootstrap.applyStartingPose` (now deleted) and let the engine's natural `Sonic_Animate` pass and post-spawn defaults drive the frame-zero pose. Removing those overrides did not change which credits demos pass or fail.
+
+### Status
+
+Out of 8 S1 credits-demo trace replay tests, 3 currently pass (00 GHZ1, 06 SBZ2, 07 GHZ1b) and 5 fail with first-divergence frames well into the demo (frame 221+). These are pre-existing engine bugs that the prior hydration was masking; they are NOT regressions caused by removing the trace-derived overrides.
+
+| Test | First divergence frame | First divergence | Total errors |
+|------|------------------------|------------------|--------------|
+| `TestS1Credits01Mz2TraceReplay` | 341 | x mismatch (expected 0x0E1A, actual 0x0E19) — 1px X drift | 8 |
+| `TestS1Credits02Syz3TraceReplay` | 253 | rings mismatch (expected 20, actual 21) — extra ring pickup | 1 |
+| `TestS1Credits03Lz3TraceReplay` | 221 | y mismatch (expected 0x0655, actual 0x0653) — 2px Y drift | 6 |
+| `TestS1Credits04Slz3TraceReplay` | 500 | y mismatch (expected 0x01F0, actual 0x01F2) — 2px Y drift | 2 |
+| `TestS1Credits05Sbz1TraceReplay` | 285 | y mismatch (expected 0x01A9, actual 0x01A8) — 1px Y drift | 58 |
+
+### Rationale for not patching from traces
+
+Per CLAUDE.md "Trace Replay Tests" the comparison-only invariant forbids hydrating engine state from `TraceEvent.StateSnapshot` events; trace data is read-only diagnostic input. Any per-credit override to mask these failures would be a spec violation. The bugs need to be diagnosed and fixed in the engine (likely physics, ring/object collision, or zone-specific systems such as LZ water/SBZ junction objects) and the failing tests turned green by ROM-accurate code paths, not bootstrap papering.
+
+### Removal Condition
+
+Remove this entry once each listed test has been diagnosed (root-cause identified in the engine), fixed at the source, and is consistently green against the recorded ROM trace.

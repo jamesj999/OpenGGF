@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestRingManager {
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
@@ -265,7 +265,7 @@ public class TestRingManager {
                 spriteSheet,
                 levelManager,
                 null,
-                RuntimeManager.getCurrent().getEngineServices().audio());
+                GameServices.audio());
         ringManager.ensurePatternsCached(GraphicsManager.getInstance(), 0);
         return ringManager;
     }

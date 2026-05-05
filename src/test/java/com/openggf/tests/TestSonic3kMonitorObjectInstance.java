@@ -1,7 +1,7 @@
 package com.openggf.tests;
 
-import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.objects.Sonic3kMonitorObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -22,7 +22,7 @@ class TestSonic3kMonitorObjectInstance {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

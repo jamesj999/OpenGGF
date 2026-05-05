@@ -250,21 +250,23 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
 
         // Spawn LavaGeyser (0x4D)
         if (services().objectManager() != null) {
-            ObjectSpawn geyserSpawn = new ObjectSpawn(
-                    spawn.x(), spawn.y(),
-                    0x4D, subtype, 0, false, 0);
-            Sonic1LavaGeyserObjectInstance geyser = new Sonic1LavaGeyserObjectInstance(
-                    geyserSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
-                    null, this, false);
-            // ROM: FindNextFreeObj allocates slot after maker
-            int mySlot = getSlotIndex();
-            if (mySlot >= 0) {
-                int childSlot = services().objectManager().allocateSlotAfter(mySlot);
-                if (childSlot >= 0) {
-                    geyser.setSlotIndex(childSlot);
+            final int mySlot = getSlotIndex();
+            spawnFreeChild(() -> {
+                ObjectSpawn geyserSpawn = new ObjectSpawn(
+                        spawn.x(), spawn.y(),
+                        0x4D, subtype, 0, false, 0);
+                Sonic1LavaGeyserObjectInstance geyser = new Sonic1LavaGeyserObjectInstance(
+                        geyserSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
+                        null, this, false);
+                // ROM: FindNextFreeObj allocates slot after maker
+                if (mySlot >= 0) {
+                    int childSlot = services().objectManager().allocateSlotAfter(mySlot);
+                    if (childSlot >= 0) {
+                        geyser.setSlotIndex(childSlot);
+                    }
                 }
-            }
-            services().objectManager().addDynamicObject(geyser);
+                return geyser;
+            });
         }
 
         // Set maker animation

@@ -13,7 +13,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.Random;
 import java.util.logging.Logger;
 
 /**
@@ -35,9 +34,6 @@ import java.util.logging.Logger;
 public class HCZWaterWallObjectInstance extends AbstractObjectInstance {
 
     private static final Logger LOG = Logger.getLogger(HCZWaterWallObjectInstance.class.getName());
-
-    // Shared random for spray particle variation
-    private static final Random RANDOM = new Random();
 
     // ===== Subtype 0: Horizontal Geyser Constants =====
     private static final int HORZ_Y_GUARD = 0x500;
@@ -276,16 +272,18 @@ public class HCZWaterWallObjectInstance extends AbstractObjectInstance {
      * 75% main art, 25% bubble art.
      */
     private void spawnHorzSprayChild() {
-        int randVal = RANDOM.nextInt(16);
+        var rng = services().rng();
+        int randVal = rng.nextInt(16);
         int sprayXOff = randVal * 8 - 0x50;
         int sprayX = x + sprayXOff;
         int sprayY = y + 0x18;
-        boolean useBubbleArt = (RANDOM.nextInt(4) == 0); // 25% chance
-        int animId = RANDOM.nextInt(4);
+        boolean useBubbleArt = (rng.nextInt(4) == 0); // 25% chance
+        int animId = rng.nextInt(4);
+        int initialAnimTimer = 2 + rng.nextInt(4);
 
         WaterWallSprayChild spray = new WaterWallSprayChild(
                 sprayX, sprayY, 0x400, 0,
-                useBubbleArt, animId, artKey);
+                useBubbleArt, animId, artKey, initialAnimTimer);
         spawnDynamicObject(spray);
     }
 
@@ -486,17 +484,19 @@ public class HCZWaterWallObjectInstance extends AbstractObjectInstance {
      * ROM: sub_304DA - Random positioning, 75% main art / 25% bubble art.
      */
     private void spawnVertSprayPair() {
+        var rng = services().rng();
         for (int i = 0; i < 2; i++) {
-            int randX = RANDOM.nextInt(16) * 0x40;
-            if (RANDOM.nextBoolean()) randX = -randX;
+            int randX = rng.nextInt(16) * 0x40;
+            if (rng.nextBoolean()) randX = -randX;
             int sprayX = x + (randX >> 8);
             int sprayY = y;
-            boolean useBubbleArt = (RANDOM.nextInt(4) == 0);
-            int animId = RANDOM.nextInt(4);
+            boolean useBubbleArt = (rng.nextInt(4) == 0);
+            int animId = rng.nextInt(4);
+            int initialAnimTimer = 2 + rng.nextInt(4);
 
             WaterWallSprayChild spray = new WaterWallSprayChild(
                     sprayX, sprayY, randX >> 4, -0x700,
-                    useBubbleArt, animId, artKey);
+                    useBubbleArt, animId, artKey, initialAnimTimer);
             spawnDynamicObject(spray);
         }
     }
@@ -770,13 +770,13 @@ public class HCZWaterWallObjectInstance extends AbstractObjectInstance {
         private int surfaceFrameCount;
 
         WaterWallSprayChild(int x, int y, int xVel, int yVel,
-                boolean useBubbleArt, int animId, String parentArtKey) {
+                boolean useBubbleArt, int animId, String parentArtKey, int initialAnimTimer) {
             super(createChildSpawn(x, y), "WaterWallSpray");
             this.motion = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
             this.useBubbleArt = useBubbleArt;
             this.animId = animId;
             this.parentArtKey = parentArtKey;
-            this.animTimer = 2 + RANDOM.nextInt(4);
+            this.animTimer = initialAnimTimer;
         }
 
         @Override

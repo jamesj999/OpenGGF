@@ -9,7 +9,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
@@ -51,7 +51,7 @@ public class TestObjectServices implements ObjectServices {
     private List<PlayableEntity> sidekicks = List.of();
     private WorldSession worldSession;
     private GameModule gameModule;
-    private EngineServices engineServices;
+    private EngineContext engineServices;
     private SonicConfigurationService configuration;
     private DebugOverlayManager debugOverlay;
     private RomManager romManager;
@@ -135,7 +135,7 @@ public class TestObjectServices implements ObjectServices {
         return this;
     }
 
-    public TestObjectServices withEngineServices(EngineServices engineServices) {
+    public TestObjectServices withEngineServices(EngineContext engineServices) {
         this.engineServices = engineServices;
         return this;
     }
@@ -282,7 +282,7 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
-    public EngineServices engineServices() {
+    public EngineContext engineServices() {
         return engineServices;
     }
 

@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.tests.TestEnvironment;
@@ -30,8 +31,8 @@ class TestSpecialRenderEffectRegistry {
 
     @Test
     void registryDispatchesEffectsInRegistrationOrderWithinStage() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
-        SpecialRenderEffectRegistry registry = runtime.getSpecialRenderEffectRegistry();
+        RuntimeManager.createGameplay();
+        SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
         List<String> calls = new ArrayList<>();
         List<Integer> frameCounters = new ArrayList<>();
 
@@ -39,7 +40,7 @@ class TestSpecialRenderEffectRegistry {
         registry.register(new RecordingEffect("bg-2", SpecialRenderEffectStage.AFTER_BACKGROUND, calls, frameCounters));
         registry.register(new RecordingEffect("fg-1", SpecialRenderEffectStage.AFTER_FOREGROUND, calls, frameCounters));
 
-        SpecialRenderEffectContext context = contextFor(runtime);
+        SpecialRenderEffectContext context = contextForCurrent();
         registry.dispatch(SpecialRenderEffectStage.AFTER_BACKGROUND, context);
         registry.dispatch(SpecialRenderEffectStage.AFTER_FOREGROUND, context);
 
@@ -49,15 +50,15 @@ class TestSpecialRenderEffectRegistry {
 
     @Test
     void clearRemovesRegisteredEffects() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
-        SpecialRenderEffectRegistry registry = runtime.getSpecialRenderEffectRegistry();
+        RuntimeManager.createGameplay();
+        SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
         List<String> calls = new ArrayList<>();
 
         registry.register(new RecordingEffect("bg", SpecialRenderEffectStage.AFTER_BACKGROUND, calls, new ArrayList<>()));
         assertFalse(registry.isEmpty());
 
         registry.clear();
-        registry.dispatch(SpecialRenderEffectStage.AFTER_BACKGROUND, contextFor(runtime));
+        registry.dispatch(SpecialRenderEffectStage.AFTER_BACKGROUND, contextForCurrent());
 
         assertTrue(registry.isEmpty());
         assertTrue(calls.isEmpty());
@@ -78,6 +79,9 @@ class TestSpecialRenderEffectRegistry {
         assertFalse(runtime.getSpecialRenderEffectRegistry().isEmpty());
 
         RuntimeManager.destroyCurrent();
+        // Post-migration: GameServices accessors throw only when the gameplay
+        // mode is gone — destroyCurrent leaves cleared managers attached.
+        SessionManager.clear();
 
         assertNull(GameServices.specialRenderEffectRegistryOrNull());
         assertThrows(IllegalStateException.class, GameServices::specialRenderEffectRegistry);
@@ -86,8 +90,8 @@ class TestSpecialRenderEffectRegistry {
 
     @Test
     void contextCarriesFrameLocalRenderState() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
-        SpecialRenderEffectContext context = contextFor(runtime);
+        RuntimeManager.createGameplay();
+        SpecialRenderEffectContext context = contextForCurrent();
 
         assertSame(GameServices.camera(), context.camera());
         assertSame(GameServices.level(), context.levelManager());
@@ -95,9 +99,9 @@ class TestSpecialRenderEffectRegistry {
         assertEquals(42, context.frameCounter());
     }
 
-    private static SpecialRenderEffectContext contextFor(GameRuntime runtime) {
-        Camera camera = runtime.getCamera();
-        LevelManager levelManager = runtime.getLevelManager();
+    private static SpecialRenderEffectContext contextForCurrent() {
+        Camera camera = GameServices.camera();
+        LevelManager levelManager = GameServices.level();
         GraphicsManager graphicsManager = GameServices.graphics();
         return new SpecialRenderEffectContext(camera, 42, levelManager, graphicsManager);
     }

@@ -397,9 +397,10 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
         var objectManager = services().objectManager();
         var renderManager = services().renderManager();
         if (objectManager != null && renderManager != null) {
-            ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                    0x3F, bx, by, renderManager);
-            objectManager.addDynamicObject(explosion);
+            final int fbx = bx;
+            final int fby = by;
+            spawnFreeChild(() -> new ExplosionObjectInstance(
+                    0x3F, fbx, fby, renderManager));
             // ROM: sfx_Bomb ($C4)
             services().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
         }
@@ -589,15 +590,14 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
      * ROM: BossSpikeball_MakeFrag with BossSpikeball_FragSpeed velocities.
      */
     private void spawnFragments(int x, int y) {
-        var objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         for (int[] speed : FRAGMENT_SPEEDS) {
-            Sonic1SLZBossSpikeball fragment = new Sonic1SLZBossSpikeball(
-                    x, y, speed[0], speed[1]);
-            objectManager.addDynamicObject(fragment);
+            final int xv = speed[0];
+            final int yv = speed[1];
+            spawnFreeChild(() -> new Sonic1SLZBossSpikeball(x, y, xv, yv));
         }
     }
 

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.DebugModeProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
@@ -16,7 +17,7 @@ public class TestSonic2SpecialStageModuleGraph {
     @Test
     public void moduleOwnedSpecialStageGraphUsesSharedManagerAndDebugInstances() {
         Sonic2GameModule module = assertDoesNotThrow(Sonic2GameModule::new,
-                "Module graph construction should not require configured EngineServices");
+                "Module graph construction should not require configured EngineContext");
 
         SpecialStageProvider specialStageProvider = module.getSpecialStageProvider();
         DebugModeProvider debugModeProvider = module.getDebugModeProvider();

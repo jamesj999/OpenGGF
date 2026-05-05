@@ -298,7 +298,14 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Only solid when HTZ earthquake sequence is active.
         // Uses the HTZ-specific flag which stays on during delay periods,
         // unlike the general Screen_Shaking_Flag which gets cleared.
-        return services().gameState().isHtzScreenShakeActive();
+        return isHtzEarthquakeActive();
+    }
+
+    private boolean isHtzEarthquakeActive() {
+        return services().zoneRuntimeRegistry()
+                .currentAs(HtzRuntimeState.class)
+                .map(HtzRuntimeState::earthquakeActive)
+                .orElse(false);
     }
 
     @Override
@@ -363,7 +370,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         }
 
         // Only render when HTZ earthquake is active
-        if (!services().gameState().isHtzScreenShakeActive()) {
+        if (!isHtzEarthquakeActive()) {
             return;
         }
 

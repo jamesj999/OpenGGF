@@ -7,9 +7,7 @@ import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.game.sonic2.runtime.HtzRuntimeStateView;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameServices;
-import com.openggf.game.GameRuntime;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.RuntimeManager;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.zone.NoOpZoneRuntimeState;
@@ -113,11 +111,10 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         if (handler != null) {
             handler.init(act);
         }
-        GameRuntime runtime = RuntimeManager.getActiveRuntime();
-        if (runtime == null) {
+        if (GameServices.runtimeOrNull() == null) {
             return;
         }
-        ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+        ZoneRuntimeRegistry registry = GameServices.zoneRuntimeRegistry();
         if (zone == ZONE_HTZ) {
             installOwnedRuntimeState(registry, new HtzRuntimeStateView(zone, act, htzEvents));
         } else if (registry.currentAs(HtzRuntimeState.class).isPresent()) {
@@ -191,6 +188,15 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         if (handler != null) {
             handler.setEventRoutine(routine);
         }
+    }
+
+    /**
+     * Returns the HTZ event handler (test/diagnostic access).
+     * The handler owns the canonical {@code earthquakeActive} flag previously
+     * stored on {@code GameStateManager}.
+     */
+    public Sonic2HTZEvents getHtzEvents() {
+        return htzEvents;
     }
 
 }

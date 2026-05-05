@@ -10,6 +10,7 @@ import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
@@ -90,7 +91,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     private int currentX;
     private int currentY;
     private int yVelocity;
-    private int ySubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private boolean facingLeft;
     private boolean initialized;
     private boolean destroyed;
@@ -107,7 +109,6 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.yVelocity = 0;
-        this.ySubpixel = 0;
 
         // obRender bit 2 = use obStatus for flipping
         // obStatus bit 0 determines facing: 0 = facing right, 1 = facing left
@@ -147,12 +148,16 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
      * </pre>
      */
     private void initialize() {
-        // ObjectFall: VelY += gravity, then Y += VelY (gravity applied before Y movement)
+        // ObjectFall: VelY += gravity, then Y += VelY (gravity applied before Y movement).
+        // Note: this differs from ROM's "use old velocity, then add gravity" order; preserved
+        // here via manual pre-increment + moveSprite2 (no gravity inside the helper).
         yVelocity += GRAVITY;
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motion);
+        currentY = motion.y;
 
         // ObjFloorDist: find floor from feet (obY + obHeight)
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -251,8 +256,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
      */
     private void spawnCannonball() {
         ObjectServices svc = tryServices();
-        var objectManager = svc != null ? svc.objectManager() : null;
-        if (objectManager == null) {
+        if (svc == null || svc.objectManager() == null) {
             return;
         }
 
@@ -268,13 +272,13 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
             ballXVel = -ballXVel;   // neg.w obVelX(a1)
         }
 
-        int ballX = currentX + xOffset;
-        int ballY = currentY + CANNONBALL_Y_OFFSET;
-        int subtype = spawn.subtype();
+        final int ballX = currentX + xOffset;
+        final int ballY = currentY + CANNONBALL_Y_OFFSET;
+        final int subtype = spawn.subtype();
+        final int ballXVelFinal = ballXVel;
 
-        Sonic1CannonballInstance cannonball = new Sonic1CannonballInstance(
-                ballX, ballY, ballXVel, subtype);
-        objectManager.addDynamicObject(cannonball);
+        spawnFreeChild(() -> new Sonic1CannonballInstance(
+                ballX, ballY, ballXVelFinal, subtype));
     }
 
     /**
