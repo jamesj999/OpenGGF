@@ -34,11 +34,15 @@ All notable changes to the OpenGGF project are documented in this file.
   `AbstractObjectInstance.resetCameraBoundsForTests()` so the static
   `cameraBounds` field starts every test from `(0, 0, 320, 224)` rather
   than whatever the previous test left behind. Manager teardown moved
-  off `GameRuntime.destroy()` and onto `GameplayModeContext.destroy()`
-  (which was previously a stub); `GameRuntime.destroy()` now delegates.
-  Both teardown paths (`RuntimeManager.destroyCurrent()` and
-  `SessionManager.destroyCurrentMode()`) now share one implementation.
-  No behavioral change for production code paths.
+  off `GameRuntime.destroy()` and onto a new
+  `GameplayModeContext.tearDownManagers()` helper called by
+  `GameRuntime.destroy()`. `GameplayModeContext.destroy()` (the
+  ModeContext interface override) remains a documented stub: the editor
+  flow's `SessionManager.destroyCurrentMode()` must NOT trigger manager
+  teardown while a parked runtime expects its managers to be alive on
+  resume. Once parking is replaced with a proper world-preserving
+  teardown, `tearDownManagers` can become `destroy()` directly. No
+  behavioral change for production code paths.
 - **G2: fixed Y-coord mix in `DebugRenderer.renderPlayerPlaneState` and
   expanded the pattern atlas range table.** The plane-state debug label
   was computing `screenY` from `playable.getY()` (top-left) while every
