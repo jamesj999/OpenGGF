@@ -1,7 +1,10 @@
 package com.openggf.game.rewind;
 
 import com.openggf.debug.playback.Bk2FrameInput;
+import com.openggf.debug.playback.Bk2Movie;
+import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.game.RuntimeManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.rewind.snapshot.LevelSnapshot;
 import com.openggf.game.rewind.snapshot.ObjectManagerSnapshot;
 import com.openggf.game.session.GameplayModeContext;
@@ -42,6 +45,9 @@ public class RewindBenchmark {
     /** Aggregate phase results, dumped to JSON at end of test. */
     private final Map<String, BenchmarkResults> results = new LinkedHashMap<>();
 
+    /** BK2 movie loaded once per benchmark run for random-access input replay. */
+    private Bk2Movie movie;
+
     @AfterEach
     void cleanup() {
         TestEnvironment.resetAll();
@@ -51,6 +57,9 @@ public class RewindBenchmark {
     public void runBenchmark() throws IOException {
         Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR),
                 "Trace directory not found: " + TRACE_DIR);
+
+        // Load BK2 once for random-access input replay across phases.
+        movie = loadMovie();
 
         // Phase 1: forward overhead (framework off + framework on)
         runPhase1ForwardOverhead();
@@ -115,7 +124,7 @@ public class RewindBenchmark {
         HeadlessTestFixture fixture2 = buildFixture();
         try {
             GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
-            var inputs = new TraceFixtureInputSource(fixture2);
+            var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture2);
             gameplayMode.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
             int frameCount = Math.min(2000, fixture2.runner().getRecordingFramesRemaining());
@@ -207,7 +216,7 @@ public class RewindBenchmark {
         HeadlessTestFixture fixture = buildFixture();
         try {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
-            var inputs = new TraceFixtureInputSource(fixture);
+            var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
             gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
             var rc = gm.getRewindController();
@@ -246,7 +255,7 @@ public class RewindBenchmark {
         HeadlessTestFixture fixture = buildFixture();
         try {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
-            var inputs = new TraceFixtureInputSource(fixture);
+            var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
             gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
             var rc = gm.getRewindController();
@@ -299,7 +308,7 @@ public class RewindBenchmark {
         HeadlessTestFixture fixture = buildFixture();
         try {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
-            var inputs = new TraceFixtureInputSource(fixture);
+            var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
             gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
             var rc = gm.getRewindController();
@@ -377,7 +386,7 @@ public class RewindBenchmark {
         HeadlessTestFixture fixture = buildFixture();
         try {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
-            var inputs = new TraceFixtureInputSource(fixture);
+            var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
             gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
             var rc = gm.getRewindController();
@@ -399,9 +408,26 @@ public class RewindBenchmark {
                 int origin = rc.currentFrame();
                 int back = Math.max(0, origin - n);
                 rc.seekTo(back);
-                // Replay forward to origin
+                // Replay forward to origin, checking for divergence at EACH replay step.
+                int firstDivergeFrame = -1;
+                String firstDivergeKeyPerFrame = null;
                 while (rc.currentFrame() < origin) {
                     rc.step();
+                    if (firstDivergeFrame < 0) {
+                        CompositeSnapshot midSnap = registry.capture();
+                        String mid = compareForCoveredKeys(
+                                baseline.get(rc.currentFrame()), midSnap);
+                        if (mid != null) {
+                            firstDivergeFrame = rc.currentFrame();
+                            firstDivergeKeyPerFrame = mid;
+                        }
+                    }
+                }
+                if (firstDivergeFrame >= 0) {
+                    System.out.printf(
+                            "  per-frame: first diverge at frame %d (offset +%d from seek-target %d), key='%s'%n",
+                            firstDivergeFrame, firstDivergeFrame - back, back,
+                            firstDivergeKeyPerFrame);
                 }
                 CompositeSnapshot afterReplay = registry.capture();
                 String mismatch = compareForCoveredKeys(baseline.get(origin), afterReplay);
@@ -450,14 +476,31 @@ public class RewindBenchmark {
                 "mutation-pipeline", "solid-execution",
                 "level-event", "rings", "s2-plc-art"
         };
+        // Diagnostic: collect ALL divergent keys, not just the first.
+        java.util.List<String> divergent = new java.util.ArrayList<>();
         for (String key : coveredKeys) {
             Object av = a.get(key);
             Object bv = b.get(key);
             if (av == null && bv == null) continue;
-            if (av == null || bv == null) return key + " (one-side-null)";
-            if (!keyEquals(key, av, bv)) return key;
+            if (av == null || bv == null) {
+                divergent.add(key + "(one-side-null)");
+                continue;
+            }
+            if (!keyEquals(key, av, bv)) {
+                divergent.add(key);
+                // Print details for camera so we can see which exact field differs.
+                if (key.equals("camera")) {
+                    System.out.println("  Camera diff:");
+                    System.out.println("    A: " + av);
+                    System.out.println("    B: " + bv);
+                }
+            }
         }
-        return null;
+        if (divergent.isEmpty()) return null;
+        if (divergent.size() > 1) {
+            System.out.println("  Divergent keys (all): " + divergent);
+        }
+        return divergent.get(0);
     }
 
     /**
@@ -580,9 +623,11 @@ public class RewindBenchmark {
     // -------------------------------------------------------------------------
 
     /**
-     * EngineStepper that drives the fixture's recording cursor.
-     * Ignores the supplied Bk2FrameInput and uses fixture.stepFrameFromRecording()
-     * which advances the BK2 cursor in the same order as the trace.
+     * EngineStepper that applies a Bk2FrameInput's recorded button state to the
+     * underlying HeadlessTestRunner via stepFrame(...). Bypasses the fixture's
+     * one-way BK2 cursor so seek-and-replay paths (e.g. RewindController.seekTo
+     * followed by step()) drive the engine with the inputs corresponding to
+     * the InputSource's reported frame, not the cursor's current position.
      */
     private static final class TraceFixtureEngineStepper implements EngineStepper {
         private final HeadlessTestFixture fixture;
@@ -593,20 +638,30 @@ public class RewindBenchmark {
 
         @Override
         public void step(Bk2FrameInput inputs) {
-            fixture.stepFrameFromRecording();
+            int p1 = inputs.p1InputMask();
+            boolean up    = (p1 & AbstractPlayableSprite.INPUT_UP)    != 0;
+            boolean down  = (p1 & AbstractPlayableSprite.INPUT_DOWN)  != 0;
+            boolean left  = (p1 & AbstractPlayableSprite.INPUT_LEFT)  != 0;
+            boolean right = (p1 & AbstractPlayableSprite.INPUT_RIGHT) != 0;
+            boolean jump  = (p1 & AbstractPlayableSprite.INPUT_JUMP)  != 0;
+            fixture.runner().stepFrame(up, down, left, right, jump,
+                    inputs.p2InputMask(), inputs.p2StartPressed());
         }
     }
 
     /**
-     * InputSource backed by the recording's total frame count.
-     * The read() method returns a zero-input sentinel because the TraceFixtureEngineStepper
-     * drives the recording cursor directly via stepFrameFromRecording().
+     * Random-access InputSource backed by a loaded Bk2Movie. read(frame) returns
+     * the recorded inputs for that exact frame, so seek-and-replay paths feed
+     * the engine the original recorded inputs rather than relying on the
+     * fixture's one-way BK2 cursor.
      */
     private static final class TraceFixtureInputSource implements InputSource {
+        private final Bk2Movie movie;
         private final int frameCount;
 
-        TraceFixtureInputSource(HeadlessTestFixture fixture) {
-            this.frameCount = fixture.runner().getRecordingFramesRemaining();
+        TraceFixtureInputSource(Bk2Movie movie) {
+            this.movie = movie;
+            this.frameCount = movie.getFrames().size();
         }
 
         @Override
@@ -616,8 +671,17 @@ public class RewindBenchmark {
 
         @Override
         public Bk2FrameInput read(int frame) {
-            // Zero-input sentinel. The stepper ignores this and advances via BK2 directly.
-            return new Bk2FrameInput(frame, 0, 0, false, "benchmark:" + frame);
+            if (frame < 0 || frame >= frameCount) {
+                return new Bk2FrameInput(frame, 0, 0, false, "benchmark:oor:" + frame);
+            }
+            return movie.getFrame(frame);
         }
     }
+
+    /** Loads the BK2 movie for this benchmark's trace once. */
+    private Bk2Movie loadMovie() throws IOException {
+        Path bk2 = findBk2(TRACE_DIR);
+        return new Bk2MovieLoader().load(bk2);
+    }
+
 }
