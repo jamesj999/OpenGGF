@@ -1598,6 +1598,11 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load animated patterns.", e);
             animatedPatternManager = null;
         }
+        com.openggf.game.session.GameplayModeContext gameplayMode =
+                com.openggf.game.session.SessionManager.getCurrentGameplayMode();
+        if (gameplayMode != null) {
+            gameplayMode.registerPatternAnimatorAdapter(animatedPatternManager);
+        }
     }
 
     private void initAnimatedPalettes() {

@@ -336,6 +336,23 @@ public final class GameplayModeContext implements ModeContext {
     }
 
     /**
+     * Registers a {@link com.openggf.level.animation.AnimatedPatternManager} that also
+     * implements {@link com.openggf.game.rewind.RewindSnapshottable} with the rewind
+     * registry. Called from {@link com.openggf.level.LevelManager#initAnimatedContent()}.
+     * Safe to call with a null argument — it is silently ignored.
+     */
+    public void registerPatternAnimatorAdapter(
+            com.openggf.level.animation.AnimatedPatternManager mgr) {
+        if (rewindRegistry == null || mgr == null) {
+            return;
+        }
+        if (mgr instanceof com.openggf.game.rewind.RewindSnapshottable<?> snap) {
+            rewindRegistry.deregister("pattern-animator");
+            rewindRegistry.register(snap);
+        }
+    }
+
+    /**
      * Constructs and installs a {@link RewindController} and
      * {@link PlaybackController} backed by this context's registry. Replaces
      * any previously installed controllers.
