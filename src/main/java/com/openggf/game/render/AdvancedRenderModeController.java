@@ -1,5 +1,8 @@
 package com.openggf.game.render;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.AdvancedRenderModeSnapshot;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -10,7 +13,8 @@ import java.util.Objects;
  * <p>The controller collects active contributors for the current zone/runtime
  * and resolves them into one {@link AdvancedRenderFrameState} per frame.
  */
-public final class AdvancedRenderModeController {
+public final class AdvancedRenderModeController
+        implements RewindSnapshottable<AdvancedRenderModeSnapshot> {
 
     private final List<AdvancedRenderMode> modes = new ArrayList<>();
 
@@ -44,5 +48,23 @@ public final class AdvancedRenderModeController {
             mode.contribute(context, builder);
         }
         return builder.build();
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    @Override
+    public String key() {
+        return "advanced-render-mode";
+    }
+
+    @Override
+    public AdvancedRenderModeSnapshot capture() {
+        return new AdvancedRenderModeSnapshot(modes);
+    }
+
+    @Override
+    public void restore(AdvancedRenderModeSnapshot s) {
+        modes.clear();
+        modes.addAll(s.modes());
     }
 }
