@@ -6,6 +6,20 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **F2 phase 2: migrated trivial scroll handlers to `ScrollEffectComposer`.**
+  The architectural review found `ScrollEffectComposer` was used by only 3 of
+  8 S3K scroll handlers, and 0 of the 11 S2 + 7 S1 handlers. This commit
+  migrates the seven handlers whose `update()` is a uniform/constant FG/BG
+  parallax fill (no per-line VScroll, no waterline, no deform): S3K
+  `SwScrlS3kDefault` and `SwScrlPachinko`; S2 `SwScrlMtz` and `SwScrlScz`; S1
+  `SwScrlLz`, `SwScrlSbz`, and `SwScrlFz`. Each handler now drives a
+  per-instance `ScrollEffectComposer` with `fillPackedScrollWords` /
+  `setVscrollFactorBG`, and copies the composed buffer back into the caller's
+  `horizScrollBuf` via `copyPackedScrollWordsTo`. Min/max scroll-offset
+  tracking now flows through the composer's bounds rather than the legacy
+  `trackOffset()` calls. Output bytes are byte-identical to the prior loops.
+  Remaining S1/S2 banded handlers, S2/S3K complex handlers (HTZ, Slots,
+  Gumball), and the S3K CNZ handler will follow in later phases.
 - **S2 badnik child spawn safety: migrated direct `objectManager.addDynamicObject()`
   calls to `spawnFreeChild()` for `BalkiryBadnikInstance`, `AsteronBadnikInstance`,
   and `AquisBadnikInstance`.** Follow-up to the prior S1 badnik migration covering
