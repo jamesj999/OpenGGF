@@ -442,14 +442,12 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
         }
 
         // ROM: move.w obY(a0),obY(a1) / addi.w #$20,obY(a1) — spawn +$20 below boss
-        Sonic1SLZBossSpikeball spikeball = new Sonic1SLZBossSpikeball(
-                this,
-                targetSeesaw,
-                state.x,
-                state.y + 0x20);
-
         if (services().objectManager() != null) {
-            services().objectManager().addDynamicObject(spikeball);
+            spawnFreeChild(() -> new Sonic1SLZBossSpikeball(
+                    this,
+                    targetSeesaw,
+                    state.x,
+                    state.y + 0x20));
         }
     }
 

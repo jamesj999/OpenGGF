@@ -324,7 +324,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
         ObjectSpawn fireSpawn = new ObjectSpawn(
                 lavaX, LAVA_LEVEL_Y,
                 Sonic1ObjectIds.LAVA_BALL, 0xFF, 0, false, 0);
-        services().objectManager().addDynamicObject(new Sonic1LavaBallObjectInstance(fireSpawn));
+        spawnFreeChild(() -> new Sonic1LavaBallObjectInstance(fireSpawn));
     }
 
     /**
@@ -341,8 +341,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
         ObjectSpawn fireSpawn = new ObjectSpawn(
                 fireX, fireY,
                 Sonic1ObjectIds.BOSS_FIRE, 1, 0, false, 0);
-        Sonic1BossFireInstance fire = new Sonic1BossFireInstance(fireSpawn);
-        services().objectManager().addDynamicObject(fire);
+        spawnFreeChild(() -> new Sonic1BossFireInstance(fireSpawn));
     }
 
     // === State 4: DEFEAT_WAIT ===

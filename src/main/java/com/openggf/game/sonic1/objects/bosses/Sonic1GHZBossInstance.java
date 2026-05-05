@@ -338,11 +338,12 @@ public class Sonic1GHZBossInstance extends AbstractS1EggmanBossInstance {
         if (wreckingBall != null) {
             return; // Already spawned
         }
-        wreckingBall = new GHZBossWreckingBall(this);
-        childComponents.add(wreckingBall);
         if (services().objectManager() != null) {
-            services().objectManager().addDynamicObject(wreckingBall);
+            wreckingBall = spawnFreeChild(() -> new GHZBossWreckingBall(this));
+        } else {
+            wreckingBall = new GHZBossWreckingBall(this);
         }
+        childComponents.add(wreckingBall);
     }
 
     @Override

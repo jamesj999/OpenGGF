@@ -134,9 +134,13 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
         if (objectManager == null) {
             return;
         }
+        // Called from Sonic1SYZEvents (LevelEventManager), not from inside an
+        // AbstractObjectInstance — spawnFreeChild() is unreachable here, so use
+        // ObjectManager.createDynamicObject which sets CONSTRUCTION_CONTEXT
+        // before invoking the factory.
         for (int col = 0; col < BLOCK_COUNT; col++) {
-            Sonic1BossBlockInstance block = new Sonic1BossBlockInstance(col);
-            objectManager.addDynamicObject(block);
+            final int colIndex = col;
+            objectManager.createDynamicObject(() -> new Sonic1BossBlockInstance(colIndex));
         }
     }
 
@@ -239,18 +243,16 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
      * ROM: BossBlock_Break — Create 4 quarter fragments with velocities.
      */
     private void doBreak() {
-        var objectManager = services().objectManager();
-        if (objectManager != null) {
+        if (services().objectManager() != null) {
             for (int i = 0; i < 4; i++) {
-                int fragX = x + FRAG_POSITIONS[i][0];
-                int fragY = y + FRAG_POSITIONS[i][1];
-                int fragXVel = FRAG_VELOCITIES[i][0];
-                int fragYVel = FRAG_VELOCITIES[i][1];
-                int fragFrame = i + 1; // frames 1-4 for quarter pieces
+                final int fragX = x + FRAG_POSITIONS[i][0];
+                final int fragY = y + FRAG_POSITIONS[i][1];
+                final int fragXVel = FRAG_VELOCITIES[i][0];
+                final int fragYVel = FRAG_VELOCITIES[i][1];
+                final int fragFrame = i + 1; // frames 1-4 for quarter pieces
 
-                Sonic1BossBlockInstance frag = new Sonic1BossBlockInstance(
-                        fragX, fragY, fragXVel, fragYVel, fragFrame);
-                objectManager.addDynamicObject(frag);
+                spawnFreeChild(() -> new Sonic1BossBlockInstance(
+                        fragX, fragY, fragXVel, fragYVel, fragFrame));
             }
         }
 
