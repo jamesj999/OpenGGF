@@ -6,6 +6,28 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **F3: extracted `LevelManager` rendering pipeline into `LevelRenderer`.**
+  Moved the per-frame rendering pass off `LevelManager`. The new
+  `LevelRenderer` (in `com.openggf.level`) owns the pre-allocated
+  `GLCommand` lambdas (water shader setup, BG ensure-capacity / tile pass /
+  scroll, FG low+high priority passes, high-priority FBO pass, shimmer
+  enable/disable), their mutable backing fields, the `viewportBuffer`, the
+  resolved `AdvancedRenderFrameState`, the `currentShimmerStyle` tracker,
+  and the bodies of `drawWithRenderOptions / renderSpriteObjectPass /
+  renderEndingBackground / renderBackgroundShader / updateWaterShaderState
+  / enqueueForegroundTilemapPass / renderHighPriorityTilesToFBO`.
+  `LevelManager` keeps the public `draw / drawWithSpritePriority /
+  drawWithRenderOptions / renderSpriteObjectPass / renderEndingBackground`
+  entry points as one-line delegators so existing callers (`Engine.draw*`,
+  `S1/S2DataSelectImageCacheManager`, visual regression tests) are
+  unchanged. The render output is byte-identical: GL command registration
+  order and shader uniform values are preserved. `LevelManager` shrinks
+  from 4812 to 3768 lines (~22% reduction) and now imports only
+  `glClearColor` from LWJGL (down from four `org.lwjgl.opengl.GL*.*`
+  wildcard imports). The water shader state block is part of the
+  extraction (`waterShaderSetupCommand`, `disableShimmerCommand`,
+  `disableWaterShaderCommand`). Test profile matches the baseline at
+  4216 passed / 44 failed / 0 errors.
 - **F2 phase 4: completed `ScrollEffectComposer` adoption across all scroll
   handlers.** Migrated the remaining eight handlers from inline buffer
   bookkeeping to the shared composer: S2 `SwScrlOoz`, `SwScrlArz`,
