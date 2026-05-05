@@ -26,6 +26,7 @@ import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
 import com.openggf.game.solid.ObjectSolidExecutionContext;
 import com.openggf.game.solid.SolidExecutionRegistry;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.graphics.FadeManager;
@@ -89,6 +90,10 @@ public interface ObjectServices {
 
     default PaletteOwnershipRegistry paletteOwnershipRegistryOrNull() {
         return GameServices.paletteOwnershipRegistryOrNull();
+    }
+
+    default ZoneLayoutMutationPipeline zoneLayoutMutationPipeline() {
+        return GameServices.zoneLayoutMutationPipeline();
     }
 
     default SolidExecutionRegistry solidExecutionRegistry() {

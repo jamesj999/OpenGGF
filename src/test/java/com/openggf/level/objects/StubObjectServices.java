@@ -19,6 +19,7 @@ import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
@@ -99,6 +100,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public int getCurrentLevelMusicId() { return 0; }
     @Override public int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius) { return null; }
     @Override public void saveBigRingReturn(com.openggf.level.BigRingReturnState state) {}
+    @Override public ZoneLayoutMutationPipeline zoneLayoutMutationPipeline() { return null; }
 }
 
 
