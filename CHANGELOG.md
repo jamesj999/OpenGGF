@@ -6,6 +6,26 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **G1: removed render-path allocation and scan hotspots in `PatternAtlas`
+  and `GraphicsManager`.** `PatternAtlas.isSlotShared()` previously walked
+  all 8192 fast entries plus the sparse map every time `removeEntry()` was
+  called — the CNZ slot machine `uncachePattern` loop turned that into
+  ~393K array reads per frame. Replaced the scan with a per-`(atlasIndex,
+  slot)` reference count maintained by `putEntry`/`removeEntry`/`cleanupCommon`,
+  so the alias-safety check is now O(1). Behaviour is preserved: the
+  existing `TestPatternAtlasSlotReclamation` cases (slot reuse,
+  alias-doesn't-free, free-slot capacity) all pass. In
+  `GraphicsManager.endSpriteSatCollectionAndReplay()` and
+  `buildSpriteSatReplayCommands()` the per-frame defensive copy of
+  `spriteSatEntries`, the `new ArrayList<PatternRenderCommand>()` in the
+  replay builder, and the per-piece `new PatternDesc()` in
+  `appendDirectReplayCommands()` were eliminated. `process(...)` is the
+  only consumer of the live entry list and either returns a fresh list or
+  `List.of()` so the input can be drained directly; `reusableReplayCommands`
+  and `reusableReplayDesc` are now reusable instance fields cleared at
+  start of each replay (mirroring `PlayerSpriteRenderer.reusableDesc`).
+  Net effect on the SAT replay hot path: 0 `ArrayList` allocations and 0
+  `PatternDesc` allocations per call (was 2 + N).
 - **F3: extracted `LevelManager` rendering pipeline into `LevelRenderer`.**
   Moved the per-frame rendering pass off `LevelManager`. The new
   `LevelRenderer` (in `com.openggf.level`) owns the pre-allocated

@@ -84,6 +84,10 @@ public class GraphicsManager {
 	private boolean spriteSatCollectionActive = false;
 	private boolean spriteMaskRequested = false;
 	private final List<SpriteSatEntry> spriteSatEntries = new ArrayList<>();
+	// Reusable buffers/scratch for endSpriteSatCollectionAndReplay() — avoids per-frame
+	// ArrayList and PatternDesc allocations on the SAT replay hot path.
+	private final ArrayList<PatternRenderCommand> reusableReplayCommands = new ArrayList<>();
+	private final PatternDesc reusableReplayDesc = new PatternDesc();
 	private String currentSpriteSatDebugSource = null;
 	private int currentSpriteSatBucket = RenderPriority.MIN;
 	// Background renderer for per-scanline parallax scrolling
@@ -1346,8 +1350,13 @@ public class GraphicsManager {
 			return;
 		}
 
-		List<SpriteSatEntry> collectedEntries = new ArrayList<>(spriteSatEntries);
 		boolean applyMask = spriteMaskRequested;
+
+		// SpriteSatMaskPostProcessor.process(...) is the only consumer of `spriteSatEntries`
+		// and either returns a fresh ArrayList or List.of(); it never retains the input
+		// reference. So we can pass the live list directly and clear it after, eliminating
+		// the per-frame defensive copy that the old implementation made into `collectedEntries`.
+		List<SpriteSatEntry> processedEntries = SpriteSatMaskPostProcessor.process(spriteSatEntries, applyMask);
 
 		spriteSatCollectionActive = false;
 		spriteMaskRequested = false;
@@ -1355,7 +1364,6 @@ public class GraphicsManager {
 		currentSpriteSatDebugSource = null;
 		currentSpriteSatBucket = RenderPriority.MIN;
 
-		List<SpriteSatEntry> processedEntries = SpriteSatMaskPostProcessor.process(collectedEntries, applyMask);
 		if (processedEntries.isEmpty()) {
 			return;
 		}
@@ -1365,29 +1373,37 @@ public class GraphicsManager {
 		// flatten or reorder the final SAT sequence again.
 		flushPatternBatch();
 		setCurrentSpriteHighPriority(false);
-		for (PatternRenderCommand command : buildSpriteSatReplayCommands(processedEntries)) {
-			registerCommand(command);
+		List<PatternRenderCommand> commands = buildSpriteSatReplayCommands(processedEntries);
+		// `commands` is a reused buffer (`reusableReplayCommands`); copy via index iteration
+		// without releasing the reference, then clear the buffer once registerCommand has
+		// consumed each entry.
+		for (int i = 0, n = commands.size(); i < n; i++) {
+			registerCommand(commands.get(i));
 		}
+		reusableReplayCommands.clear();
 	}
 
 	List<PatternRenderCommand> buildSpriteSatReplayCommands(List<SpriteSatEntry> processedEntries) {
-		List<PatternRenderCommand> replayCommands = new ArrayList<>();
+		// Reuse a single ArrayList across calls instead of allocating one per replay frame.
+		// Callers must consume the contents before the next invocation; the only caller is
+		// endSpriteSatCollectionAndReplay() which drains-then-clears in the same statement.
+		reusableReplayCommands.clear();
 		if (processedEntries == null || processedEntries.isEmpty()) {
-			return replayCommands;
+			return reusableReplayCommands;
 		}
 		ensurePatternAtlas();
 		Integer paletteTextureId = resolveSpriteSatReplayPaletteTextureId();
 		if (paletteTextureId == null) {
-			return replayCommands;
+			return reusableReplayCommands;
 		}
 		for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
 			for (SpriteSatEntry processedEntry : processedEntries) {
 				if (processedEntry.priorityBucket() == bucket) {
-					appendDirectReplayCommands(processedEntry, paletteTextureId, replayCommands);
+					appendDirectReplayCommands(processedEntry, paletteTextureId, reusableReplayCommands);
 				}
 			}
 		}
-		return replayCommands;
+		return reusableReplayCommands;
 	}
 
 	private Integer resolveSpriteSatReplayPaletteTextureId() {
@@ -1424,10 +1440,13 @@ public class GraphicsManager {
 						descIndex |= 0x1000;
 					}
 					descIndex |= (paletteIndex & 0x3) << 13;
-					PatternDesc desc = new PatternDesc();
-					desc.set(descIndex);
-					desc.setPaletteIndex(paletteIndex);
-					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY, this));
+					// Reuse a single PatternDesc across the entire SAT replay batch.
+					// PatternRenderCommand.init() copies all needed fields out of the desc and
+					// does not retain a reference, so mutating it before the next obtain() is
+					// safe. PatternDesc.set() resets every derived field via updateFields().
+					reusableReplayDesc.set(descIndex);
+					reusableReplayDesc.setPaletteIndex(paletteIndex);
+					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, reusableReplayDesc, drawX, drawY, this));
 				});
 	}
 
