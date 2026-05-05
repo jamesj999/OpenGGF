@@ -320,6 +320,34 @@ class TestSidekickCpuDespawnParity {
     }
 
     @Test
+    void s3kHurtRoutineDoesNotAdvanceNormalDespawnTimer() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.usePhysicsFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        tails.setCpuControlled(true);
+        tails.setCentreX((short) 0x0B04);
+        tails.setCentreY((short) 0x0DF2);
+        tails.setAir(true);
+        tails.setHurt(true);
+        tails.setRenderFlagOnScreen(false);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.hydrateFromRomCpuState(6, 0, 299, 0, false);
+        tails.setHurt(true);
+        tails.setRenderFlagOnScreen(false);
+
+        controller.update(1910);
+
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState(),
+                "S3K Tails_Index routine 4 dispatches the hurt/object path, not Tails_Control");
+        assertEquals((short) 0x0B04, tails.getCentreX());
+        assertEquals((short) 0x0DF2, tails.getCentreY());
+        assertTrue(tails.getAir());
+        assertEquals("sidekick_hurt_object_routine",
+                controller.getLatestNormalStepDiagnostics().followBranch());
+    }
+
+    @Test
     void despawnTimerUsesCachedRenderFlagInsteadOfCurrentCameraGeometry() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");

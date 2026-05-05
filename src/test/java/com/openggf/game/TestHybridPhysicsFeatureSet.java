@@ -44,6 +44,7 @@ public class TestHybridPhysicsFeatureSet {
                 true,   // inputAlwaysCapsGroundSpeed - S1
                 false,  // elementalShieldsEnabled - S1
                 false,  // instaShieldEnabled - S1 (test uses S1 base, no donor context)
+                false,  // jumpRepressClearsRollJumpBeforeAbility - S1 has no S3K shield-move branch
                 false,  // angleDiffCardinalSnap - S1
                 false,  // extendedEdgeBalance - S1
                 PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1,  // ringFloorCheckMask - S1
@@ -56,12 +57,14 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // groundWallPushRequiresFacingIntoWall - S1
                 false,  // animationChangeClearsPush - S1 original build does not clear pushing on anim change
                 false,  // airSuperspeedPreserved - S1
+                false,  // slopeResistStartsFromRest - S1
                 false,  // slopeRepelChecksOnObject - S1
                 false,  // slopeRepelUsesS3kSlipKick - S1
                 false,  // pinballLandingPreservesRoll - S1
                 true,   // topSolidLandingAllowsZeroDist - S1
                 false,  // airBottomSolidHitClearsGroundSpeed - S1
                 false,  // airRightWallHitContinuesIntoCeilingSeparation - S1
+                false,  // airLeftWallHitContinuesIntoCeilingSeparation - S1
                 true,   // fullSolidBottomOverlapUsesCurrentYRadiusOnly - S1
                 PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
                 false,  // bossHitNegatesGroundSpeed - S1
@@ -75,13 +78,17 @@ public class TestHybridPhysicsFeatureSet {
                 PhysicsFeatureSet.SIDEKICK_FLY_LAND_BLOCKERS_NONE,  // sidekickFlyLandStatusBlockerMask - S1 has no CPU sidekick
                 false,  // sidekickFlyLandRequiresLeaderAlive - S1 has no CPU sidekick
                 false,  // solidObjectOffscreenGate - S1 keeps current behaviour (gate is S3K-only for now)
+                false,  // solidObjectRequiresSidekickOnScreen - S1 has no CPU sidekick
                 false,  // sidekickDespawnUsesRidingInstanceLoss - S1 has no CPU sidekick
                 false,  // sidekickRespawnEntersCatchUpFlight - S1 has no CPU sidekick
                 false,  // sidekickClearsStalePushVelocityBeforeGroundMove - S1 has no CPU sidekick
                 false,  // sidekickCpuUsesLevelFrameCounter - S1 has no CPU sidekick
+                false,  // landingRollClearUsesCurrentYRadiusDelta - S1 uses fixed roll-clear lift
                 false,  // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
                 false,  // levelBoundaryUsesCentreY - S1 ROM uses centre-Y but trace baselines defer flip
                 false,  // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity - S1 Solid_Landed bails on y_vel<0 (s1disasm/_incObj/sub SolidObject.asm:278)
+                false,  // sidekickPushBypassUsesGraceStatus - S1 has no Tails CPU
+                false,  // sidekickNormalCpuSkipsHurtRoutine - S1 has no Tails CPU
                 false,  // controlLockLatchesLogicalInput - S1 baseline (uses separate Ctrl_Lock_byte)
                 false   // waterExitBoostSkipsFastUpwardVelocity - S1 exits water with unconditional asl.w obVelY(a0)
         );
@@ -105,6 +112,8 @@ public class TestHybridPhysicsFeatureSet {
                 "airBottomSolidHitClearsGroundSpeed should be false (S1)");
         assertFalse(expected.airRightWallHitContinuesIntoCeilingSeparation(),
                 "airRightWallHitContinuesIntoCeilingSeparation should be false (S1)");
+        assertFalse(expected.airLeftWallHitContinuesIntoCeilingSeparation(),
+                "airLeftWallHitContinuesIntoCeilingSeparation should be false (S1)");
         assertTrue(expected.fullSolidBottomOverlapUsesCurrentYRadiusOnly(),
                 "fullSolidBottomOverlapUsesCurrentYRadiusOnly should be true (S1)");
     }

@@ -39,6 +39,7 @@ public final class BubblesBadnikInstance extends AbstractS3kBadnikInstance {
     private static final int COLLISION_FLAGS_NORMAL = 0x12;
     private static final int COLLISION_FLAGS_HURT = 0x86;
     private static final int HURT_MAPPING_FRAME = 4;
+    private static final int WAIT_OFFSCREEN_MARGIN = 0x20;
 
     // ObjSlot_BubblesBadnik: dc.w $280 → priority bucket 5
     private static final int PRIORITY_BUCKET = 5;
@@ -74,6 +75,7 @@ public final class BubblesBadnikInstance extends AbstractS3kBadnikInstance {
     private int animIndex;
     // ROM: anim_frame_timer.
     private int animTimer;
+    private boolean waitingForOnscreen = true;
 
     public BubblesBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "Bubbles Badnik",
@@ -83,6 +85,17 @@ public final class BubblesBadnikInstance extends AbstractS3kBadnikInstance {
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         if (destroyed) return;
+
+        // Obj_BubblesBadnik starts with Obj_WaitOffscreen (sonic3k.asm:184598,
+        // helper at 180266-180298). Its own routine does not run, and
+        // collision_flags is not written, until Render_Sprites marks it visible.
+        if (waitingForOnscreen) {
+            if (!isOnScreen(WAIT_OFFSCREEN_MARGIN)) {
+                updateDynamicSpawn(currentX, currentY);
+                return;
+            }
+            waitingForOnscreen = false;
+        }
 
         switch (state) {
             case INIT -> initialize();
@@ -247,6 +260,9 @@ public final class BubblesBadnikInstance extends AbstractS3kBadnikInstance {
 
     @Override
     public int getCollisionFlags() {
+        if (waitingForOnscreen) {
+            return 0;
+        }
         if (mappingFrame == HURT_MAPPING_FRAME) {
             return COLLISION_FLAGS_HURT;
         }

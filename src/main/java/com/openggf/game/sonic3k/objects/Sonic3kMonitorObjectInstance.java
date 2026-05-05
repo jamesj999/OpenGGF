@@ -73,6 +73,17 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     // Y radius for floor collision (from solid params d2)
     private static final int Y_RADIUS = 0x10;
 
+    // docs/skdisasm/sonic3k.constants.asm:131-148 define object status bits 3-6
+    // as p1/p2 standing and pushing. Obj_MonitorBreak consumes these at
+    // docs/skdisasm/sonic3k.asm:40624-40638 to release touching players.
+    private static final int P1_STANDING = 1 << 3;
+    private static final int P2_STANDING = 1 << 4;
+    private static final int P1_PUSHING = 1 << 5;
+    private static final int P2_PUSHING = 1 << 6;
+    private static final int P1_CONTACT_MASK = P1_STANDING | P1_PUSHING;
+    private static final int P2_CONTACT_MASK = P2_STANDING | P2_PUSHING;
+    private static final int PLAYER_CONTACT_MASK = P1_CONTACT_MASK | P2_CONTACT_MASK;
+
     private final MonitorType type;
     private ObjectAnimationState animationState;
     private boolean broken;
@@ -82,6 +93,9 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     // "Revealed from hidden monitor" mode: pop up with velocity, fall with gravity
     private boolean revealed;
     private final SubpixelMotion.State motion;
+    private int solidStatusBits;
+    private PlayableEntity p1SolidContact;
+    private PlayableEntity p2SolidContact;
 
     // (Icon rising state is managed by AbstractMonitorObjectInstance)
 
@@ -233,6 +247,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
      */
     private void breakMonitor(AbstractPlayableSprite player) {
         broken = true;
+
+        releaseTouchingPlayersOnBreak(player);
 
         // Mark as broken in persistence table
         ObjectManager objectManager = services().objectManager();
@@ -434,6 +450,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
+    public int getMonitorSolidObjectVerticalOffset() {
+        // ROM: SolidObject_Monitor_SonicKnux falls through to SolidObject_cont
+        // (docs/skdisasm/sonic3k.asm:40559-40576), whose normal-gravity path
+        // adds +4 before the d2/y_radius overlap check (lines 41429-41432).
+        return 4;
+    }
+
+    @Override
     public boolean usesStickyContactBuffer() {
         // Monitors are static objects — the sticky buffer is only needed for
         // moving platforms to compensate for execution-order jitter. Using it
@@ -442,14 +466,92 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
+    public void setPlayerPushing(PlayableEntity player, boolean pushing) {
+        if (player == null) {
+            return;
+        }
+        int bit = player.isCpuControlled() ? P2_PUSHING : P1_PUSHING;
+        if (pushing) {
+            solidStatusBits |= bit;
+            rememberSolidContactPlayer(player);
+        } else {
+            solidStatusBits &= ~bit;
+        }
+    }
+
+    @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Solid contact for standing/edge checks; no additional behavior needed.
+        if (playerEntity == null || contact == null) {
+            return;
+        }
+        int standingBit = playerEntity.isCpuControlled() ? P2_STANDING : P1_STANDING;
+        if (contact.standing()) {
+            solidStatusBits |= standingBit;
+            rememberSolidContactPlayer(playerEntity);
+        } else {
+            solidStatusBits &= ~standingBit;
+        }
+    }
+
+    @Override
+    public void onSolidContactCleared(PlayableEntity playerEntity, int frameCounter) {
+        if (playerEntity == null) {
+            return;
+        }
+        if (!playerEntity.isCpuControlled()) {
+            return;
+        }
+
+        // ROM: the sidekick monitor path uses p2_standing_bit (sonic3k.asm:
+        // 40492-40494), and Obj_MonitorBreak releases P2 only if p2_standing or
+        // p2_pushing is still set (40624-40638). MGZ aux at F342 has the monitor
+        // status clear while Tails remains grounded, so clear stale engine-side P2
+        // bookkeeping on no-contact without disturbing the P1 break-release path.
+        solidStatusBits &= ~P2_CONTACT_MASK;
+        if (p2SolidContact == playerEntity) {
+            p2SolidContact = null;
+        }
     }
 
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(3);
+    }
+
+    private void rememberSolidContactPlayer(PlayableEntity player) {
+        if (player.isCpuControlled()) {
+            p2SolidContact = player;
+        } else {
+            p1SolidContact = player;
+        }
+    }
+
+    private void releaseTouchingPlayersOnBreak(AbstractPlayableSprite breaker) {
+        int contactBits = solidStatusBits & PLAYER_CONTACT_MASK;
+        if (contactBits == 0) {
+            return;
+        }
+
+        // ROM: Obj_MonitorBreak checks standing_mask|pushing_mask, then applies
+        // andi.b #$D7 plus Status_InAir for P1/P2 before spawning the icon/explosion
+        // (docs/skdisasm/sonic3k.asm:40624-40638). This covers MGZ F239 where
+        // Touch_Monitor sets routine=4 while the monitor still has p1_pushing set.
+        if ((contactBits & P1_CONTACT_MASK) != 0) {
+            releasePlayerFromBrokenMonitor(p1SolidContact != null ? p1SolidContact : breaker);
+        }
+        if ((contactBits & P2_CONTACT_MASK) != 0 && p2SolidContact != null) {
+            releasePlayerFromBrokenMonitor(p2SolidContact);
+        }
+        solidStatusBits &= ~PLAYER_CONTACT_MASK;
+    }
+
+    private void releasePlayerFromBrokenMonitor(PlayableEntity player) {
+        if (player == null) {
+            return;
+        }
+        player.setOnObject(false);
+        player.setPushing(false);
+        player.setAir(true);
     }
 
     /**

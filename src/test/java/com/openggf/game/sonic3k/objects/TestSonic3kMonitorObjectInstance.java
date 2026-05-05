@@ -7,6 +7,7 @@ import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseResult;
@@ -15,6 +16,8 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,6 +75,53 @@ class TestSonic3kMonitorObjectInstance {
         assertEquals(0xFA60, player.getYSpeed() & 0xFFFF,
                 "Breaking the monitor should negate the player's downward Y speed");
         assertFalse(monitor.isSolidFor(player));
+    }
+
+    @Test
+    void breakWithPriorPushingContactReleasesPlayerIntoAir() {
+        Sonic3kMonitorObjectInstance monitor = monitor();
+        DummyPlayer player = new DummyPlayer();
+        player.setRolling(true);
+        player.setAnimationId(Sonic3kAnimationIds.ROLL);
+        player.setYSpeed((short) 0);
+        player.setAir(false);
+        player.setPushing(true);
+
+        monitor.setPlayerPushing(player, true);
+        monitor.onTouchResponse(player, TOUCH_RESULT, 1);
+
+        assertTrue(player.getAir(),
+                "Obj_MonitorBreak sets Status_InAir when the monitor still has p1_pushing set");
+        assertFalse(player.getPushing(),
+                "Obj_MonitorBreak clears the player's pushing status via andi.b #$D7");
+    }
+
+    @Test
+    void solidContactLandsAtZeroDistanceUsingS3kSolidObjectVerticalOffset() {
+        TestObjectServices services = new TestObjectServices();
+        ObjectManager objectManager = new ObjectManager(
+                List.of(), null, 0, null, null, null, null, services);
+        Sonic3kMonitorObjectInstance monitor = new Sonic3kMonitorObjectInstance(
+                new ObjectSpawn(0x0840, 0x06E9, 0x01, 0x03, 0, false, 0));
+        objectManager.addDynamicObject(monitor);
+        monitor.snapshotPreUpdatePosition();
+
+        DummyPlayer player = new DummyPlayer();
+        player.setWidth(18);
+        player.setHeight(38);
+        player.setCentreX((short) 0x0842);
+        player.setCentreY((short) 0x06C2);
+        player.setXSpeed((short) 0x06B6);
+        player.setGSpeed((short) 0x06B6);
+        player.setYSpeed((short) 0x01C0);
+        player.setAir(true);
+
+        objectManager.updateSolidContacts(player);
+
+        assertEquals(0x06C5, player.getCentreY() & 0xFFFF);
+        assertEquals(0, player.getYSpeed());
+        assertFalse(player.getAir());
+        assertTrue(player.isOnObject());
     }
 
     private static Sonic3kMonitorObjectInstance monitor() {

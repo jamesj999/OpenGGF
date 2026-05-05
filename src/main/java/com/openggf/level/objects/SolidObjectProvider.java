@@ -99,6 +99,17 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Vertical offset used by monitor-style solid overlap checks.
+     * <p>
+     * Defaults to zero to preserve existing monitor behavior. S3K monitors opt
+     * into the generic {@code SolidObject_cont} offset because their monitor
+     * gate branches directly there.
+     */
+    default int getMonitorSolidObjectVerticalOffset() {
+        return 0;
+    }
+
+    /**
      * Whether this object should use the generic sticky contact buffer while being ridden.
      * <p>
      * The buffer reduces edge jitter for moving platforms, but some hazards should not
