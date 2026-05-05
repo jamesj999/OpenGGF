@@ -985,6 +985,31 @@ public class Camera implements RewindSnapshottable<CameraSnapshot> {
 		wrapDeltaY = snapshot.wrapDeltaY();
 		yPosBias = snapshot.yPosBias();
 		fastScrollCap = snapshot.fastScrollCap();
+		// Re-resolve focused sprite via SpriteManager after restore. Object instances
+		// are rebuilt during rewind; this ensures Camera tracks the live main player
+		// sprite rather than a stale or null reference (Track C / H.1).
+		rebindFocusedSprite();
+	}
+
+	/**
+	 * Re-resolves the focused sprite from the active SpriteManager using the
+	 * configured main character code. Called from {@link #restore} to ensure the
+	 * camera target is up-to-date after a rewind snapshot restore.
+	 */
+	private void rebindFocusedSprite() {
+		com.openggf.sprites.managers.SpriteManager sm = GameServices.spritesOrNull();
+		if (sm == null) {
+			return;
+		}
+		String mainCode = SonicConfigurationService.getInstance()
+				.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+		if (mainCode == null || mainCode.isBlank()) {
+			mainCode = "sonic";
+		}
+		Sprite candidate = sm.getSprite(mainCode);
+		if (candidate instanceof AbstractPlayableSprite aps) {
+			focusedSprite = aps;
+		}
 	}
 
 }
