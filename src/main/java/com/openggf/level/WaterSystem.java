@@ -5,10 +5,13 @@ import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.WaterDataProvider;
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.WaterSystemSnapshot;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.ObjectSpawn;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -26,7 +29,7 @@ import java.util.logging.Logger;
  * {@link #loadForLevelS1(Rom, int, int)} (S1) are deprecated and retained only for
  * backward compatibility with existing tests.
  */
-public class WaterSystem {
+public class WaterSystem implements RewindSnapshottable<WaterSystemSnapshot> {
     private static final Logger LOGGER = Logger.getLogger(WaterSystem.class.getName());
     private static final int WATER_SURFACE_OBJECT_ID = 0x04;
 
@@ -777,5 +780,50 @@ public class WaterSystem {
     public int getShakeTimer(int zoneId, int actId) {
         DynamicWaterState state = dynamicWaterStates.get(makeKey(zoneId, actId));
         return state != null ? state.getShakeTimer() : 0;
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    @Override
+    public String key() {
+        return "water";
+    }
+
+    @Override
+    public WaterSystemSnapshot capture() {
+        Map<String, WaterSystemSnapshot.DynamicWaterEntry> entries = new LinkedHashMap<>();
+        for (Map.Entry<String, DynamicWaterState> e : dynamicWaterStates.entrySet()) {
+            DynamicWaterState s = e.getValue();
+            entries.put(e.getKey(), new WaterSystemSnapshot.DynamicWaterEntry(
+                    s.getCurrentLevel(),
+                    s.getTargetLevel(),
+                    s.getMeanLevel(),
+                    s.rising,
+                    s.speed,
+                    s.isLocked(),
+                    s.getShakeTimer()
+            ));
+        }
+        return new WaterSystemSnapshot(waterEnteredCounter, entries);
+    }
+
+    @Override
+    public void restore(WaterSystemSnapshot snap) {
+        waterEnteredCounter = snap.waterEnteredCounter();
+        for (Map.Entry<String, WaterSystemSnapshot.DynamicWaterEntry> e
+                : snap.dynamicStates().entrySet()) {
+            DynamicWaterState state = dynamicWaterStates.get(e.getKey());
+            if (state == null) {
+                continue;
+            }
+            WaterSystemSnapshot.DynamicWaterEntry entry = e.getValue();
+            state.currentLevel = entry.currentLevel();
+            state.targetLevel = entry.targetLevel();
+            state.meanLevel = entry.meanLevel();
+            state.rising = entry.rising();
+            state.speed = entry.speed();
+            state.setLocked(entry.locked());
+            state.setShakeTimer(entry.shakeTimer());
+        }
     }
 }
