@@ -304,6 +304,16 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
   physics differences, configuration UX, debug rendering, and performance hot paths continue to be
   tightened across Sonic 1, Sonic 2, and Sonic 3 & Knuckles.
+- **Architectural follow-ups:** Routed all remaining direct `objectManager.addDynamicObject(...)`
+  call sites in S1 object instance code through the inherited `spawnChild` / `spawnFreeChild`
+  helpers (~50 sites across 40 files: badniks, bosses, level objects), so child constructors
+  consistently get `CONSTRUCTION_CONTEXT` set and can safely call `services()`. Boss spawn paths
+  invoked from outside `AbstractObjectInstance` route through a new `ObjectManager.createDynamicObject(Supplier)`
+  helper. Investigation also concluded that the deferred S2 SMPS music ROM-resolution priority
+  inversion is not implementable on the current architecture — the relevant tables live inside
+  the Saxman-compressed Z80 driver blob and engine `Sonic2Music` IDs are systematically shifted
+  relative to the disassembly's `zMasterPlaylist`; the misleading `resolveMusicOffsetFromRom`
+  resolver and its dead-pointing constants were removed and the prerequisites documented.
 - **Architectural fixes sweep:** review-driven cleanup eliminated remaining game-id branches
   (`LevelManager` respawn-table latch and inline-object-execution gate, `WaterSystem` visual-water
   oscillation, `DefaultPowerUpSpawner` invincibility-stars factory and S1 fixed shield slot — now
