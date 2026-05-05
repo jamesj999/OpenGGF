@@ -84,20 +84,10 @@ public final class TraceEventFormatter {
                     summariseVelocityWrite(write);
             case TraceEvent.PositionWrite write ->
                     summarisePositionWrite(write);
+            case TraceEvent.AizShipLoop shipLoop ->
+                    summariseAizShipLoop(shipLoop);
             case TraceEvent.TailsCpuNormalStep step ->
-                    String.format("tailsCpu status=%02X obj=%02X gv=%04X xv=%04X stat=%02X input=%04X branch=%s ctrl2=%04X/%02X post=%04X,%04X,%02X",
-                            step.status() & 0xFF,
-                            step.objectControl() & 0xFF,
-                            step.groundVel() & 0xFFFF,
-                            step.xVel() & 0xFFFF,
-                            step.delayedStat() & 0xFF,
-                            step.delayedInput() & 0xFFFF,
-                            step.loc13dd0Branch(),
-                            step.ctrl2Logical() & 0xFFFF,
-                            step.ctrl2HeldLogical() & 0xFF,
-                            step.pathPostGroundVel() & 0xFFFF,
-                            step.pathPostXVel() & 0xFFFF,
-                            step.pathPostStatus() & 0xFF);
+                    summariseTailsCpuNormalStep(step);
             case TraceEvent.SidekickInteractObjectState state ->
                     String.format("%sInteract slot=%d ptr=%04X obj=%08X rtn=%02X st=%02X @%04X,%04X sub=%02X %s rf=%02X obj=%02X onObj=%s objP2=%s active=%s destroyed=%s",
                             state.character() == null || state.character().isBlank()
@@ -273,12 +263,68 @@ public final class TraceEventFormatter {
         return "cnzCylExec " + String.join("; ", parts) + suffix;
     }
 
+    private static String summariseTailsCpuNormalStep(TraceEvent.TailsCpuNormalStep step) {
+        String base = String.format("tailsCpu status=%02X obj=%02X gv=%04X xv=%04X stat=%02X input=%04X",
+                step.status() & 0xFF,
+                step.objectControl() & 0xFF,
+                step.groundVel() & 0xFFFF,
+                step.xVel() & 0xFFFF,
+                step.delayedStat() & 0xFF,
+                step.delayedInput() & 0xFFFF);
+        String target = (step.delayedTargetX() != 0 || step.delayedTargetY() != 0
+                || step.followDx() != 0 || step.followDy() != 0)
+                ? String.format(" target=%04X,%04X dx=%04X dy=%04X",
+                        step.delayedTargetX() & 0xFFFF,
+                        step.delayedTargetY() & 0xFFFF,
+                        step.followDx() & 0xFFFF,
+                        step.followDy() & 0xFFFF)
+                : "";
+        return String.format("%s%s branch=%s ctrl2=%04X/%02X post=%04X,%04X,%02X",
+                base,
+                target,
+                step.loc13dd0Branch(),
+                step.ctrl2Logical() & 0xFFFF,
+                step.ctrl2HeldLogical() & 0xFF,
+                step.pathPostGroundVel() & 0xFFFF,
+                step.pathPostXVel() & 0xFFFF,
+                step.pathPostStatus() & 0xFF);
+    }
+
     private static String summariseVelocityWrite(TraceEvent.VelocityWrite write) {
         return summariseWriteHits("tailsVelWrite", write.xVelWrites(), write.yVelWrites());
     }
 
     private static String summarisePositionWrite(TraceEvent.PositionWrite write) {
-        return summariseWriteHits("tailsPosWrite", write.xPosWrites(), write.yPosWrites());
+        return summariseWriteHits(write.character() + "PosWrite", write.xPosWrites(), write.yPosWrites());
+    }
+
+    private static String summariseAizShipLoop(TraceEvent.AizShipLoop shipLoop) {
+        List<String> parts = new ArrayList<>();
+        int limit = Math.min(6, shipLoop.hits().size());
+        for (int i = 0; i < limit; i++) {
+            TraceEvent.AizShipLoop.Hit hit = shipLoop.hits().get(i);
+            parts.add(String.format(
+                    "%s@%05X %s d=%04X/%04X cam=%04X minmax=%04X/%04X bg=%04X p=%04X,%04X gv=%04X xv=%04X anim=%02X st=%02X",
+                    hit.label(),
+                    hit.pc(),
+                    hit.character(),
+                    hit.d0() & 0xFFFF,
+                    hit.d1() & 0xFFFF,
+                    hit.cameraX() & 0xFFFF,
+                    hit.cameraMinX() & 0xFFFF,
+                    hit.cameraMaxX() & 0xFFFF,
+                    hit.eventsBg2() & 0xFFFF,
+                    hit.playerX() & 0xFFFF,
+                    hit.playerY() & 0xFFFF,
+                    hit.playerGvel() & 0xFFFF,
+                    hit.playerXvel() & 0xFFFF,
+                    hit.playerAnim() & 0xFF,
+                    hit.playerStatus() & 0xFF));
+        }
+        if (shipLoop.hits().size() > limit) {
+            parts.add(String.format("+%d", shipLoop.hits().size() - limit));
+        }
+        return parts.isEmpty() ? "aizShipLoop empty" : "aizShipLoop " + String.join(" | ", parts);
     }
 
     private static String summariseWriteHits(String label,

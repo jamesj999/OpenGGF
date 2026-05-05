@@ -223,8 +223,6 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
 
         if (mode == Mode.BREAK_FROM_BELOW && result.kind() == ContactKind.BOTTOM) {
             player.setYSpeed((short) savedPreContactYSpeed);
-            player.setAir(true);
-            player.setOnObject(false);
             performBreak(player);
         }
     }

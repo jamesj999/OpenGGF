@@ -179,6 +179,17 @@
 -- ("<start>-<end>" or semicolon-separated multi-window).
 -- Diagnostic-only; the comparator must NEVER hydrate engine state
 -- from these events.
+-- v6.16-s3k extends tails_cpu_normal_step with Pos_table_index,
+-- delayed target x/y, and target-minus-Tails dx/dy at loc_13DD0
+-- (sonic3k.asm:26683-26705). Targets AIZ F4580 where ROM appears to
+-- apply FollowRight's whole-pixel x_pos nudge but the existing trace
+-- lacks the d2/d3 target registers needed to prove the branch input.
+-- Diagnostic-only; no CSV schema change.
+-- v6.17-s3k extends position_write_per_frame to emit Sonic as well as
+-- Tails in a narrow AIZ F16320-F16335 battleship handoff window.
+-- v6.18-s3k adds aiz_ship_loop_per_frame execution diagnostics for
+-- AIZ2_DoShipLoop/sub_50318 in the same window.
+-- Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -504,6 +515,8 @@ local prev_cage_status = -1
 local WRITE_DIAG = {
     tails_xvel_writes = {},
     tails_yvel_writes = {},
+    sonic_xpos_writes = {},
+    sonic_ypos_writes = {},
     tails_xpos_writes = {},
     tails_ypos_writes = {},
     velocity_hooks_registered = false,
@@ -779,6 +792,8 @@ local function reset_recording_state()
     CAGE_DIAG.hits = {}
     WRITE_DIAG.tails_xvel_writes = {}
     WRITE_DIAG.tails_yvel_writes = {}
+    WRITE_DIAG.sonic_xpos_writes = {}
+    WRITE_DIAG.sonic_ypos_writes = {}
     WRITE_DIAG.tails_xpos_writes = {}
     WRITE_DIAG.tails_ypos_writes = {}
     V65.normal_step = nil
@@ -826,7 +841,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.15-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.18-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -869,12 +884,19 @@ local function write_metadata()
     -- clamp moment (sonic3k.asm:28407-28451). The new env var
     -- OGGF_S3K_AIZ_BOUNDARY_RANGE accepts either single-window
     -- ("<start>-<end>") or semicolon-separated multi-window form.
+    -- v6.17 extends position_write_per_frame to emit Sonic as well as
+    -- Tails and adds a narrow AIZ F16320-F16335 default window for the
+    -- battleship autoscroll handoff at AIZ2_DoShipLoop/sub_50318
+    -- (sonic3k.asm:105200-105253). Diagnostic-only.
+    -- v6.18 adds aiz_ship_loop_per_frame execution diagnostics for the
+    -- same AIZ battleship handoff, capturing AIZ2_DoShipLoop/sub_50318
+    -- register/camera/player context. Diagnostic-only.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame", "aiz_ship_loop_per_frame"]'
     else
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame", "control_lock_state_per_frame", "collision_response_list_per_frame", "collision_response_list_end_of_frame"]'
     end
@@ -930,10 +952,11 @@ local function write_oscillation_per_frame()
         table.concat(parts)))
 end
 
--- Per-frame CPU state event. Emitted once per recorded trace frame so engine
--- replay can hydrate SidekickCpuController state at known ROM-checkpoint
+-- Per-frame CPU state event. Emitted once per recorded trace frame so replay
+-- reports can compare SidekickCpuController state at known ROM-checkpoint
 -- instants. Captures the full Tails CPU global block plus Ctrl_2_logical
 -- (held + pressed) which together determine the AI's per-frame decisions.
+-- Diagnostic-only: replay must never hydrate engine state from this event.
 local function write_tails_cpu_per_frame()
     if not aux_file then return end
 
@@ -942,7 +965,8 @@ local function write_tails_cpu_per_frame()
             .. '"interact":"0x%04X","idle_timer":%d,"flight_timer":%d,'
             .. '"cpu_routine":%d,"target_x":"0x%04X","target_y":"0x%04X",'
             .. '"auto_fly_timer":%d,"auto_jump_flag":%d,'
-            .. '"ctrl2_held":"0x%02X","ctrl2_pressed":"0x%02X"}',
+            .. '"ctrl2_held":"0x%02X","ctrl2_pressed":"0x%02X",'
+            .. '"pos_table_index":"0x%04X"}',
         trace_frame,
         mainmemory.read_u16_be(ADDR_FRAMECOUNT),
         mainmemory.read_u16_be(ADDR_TAILS_CPU_INTERACT),
@@ -954,7 +978,8 @@ local function write_tails_cpu_per_frame()
         mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_FLY_TIMER),
         mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_JUMP_FLAG),
         mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
-        mainmemory.read_u8(ADDR_CTRL2_PRESSED_LOGICAL)))
+        mainmemory.read_u8(ADDR_CTRL2_PRESSED_LOGICAL),
+        mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX)))
 end
 
 local function snapshot_object_id_for_code(obj_code)
@@ -1708,7 +1733,7 @@ function WRITE_DIAG.flush_tails_velocity_writes()
 end
 
 -- =====================================================================
--- Tails position-write hooks (v6.8-s3k)
+-- Player position-write hooks (v6.8-s3k, Sonic added in v6.17-s3k)
 -- =====================================================================
 -- Hooks every byte/word write to Tails's x_pos ($FFB05A-$FFB05B) and
 -- y_pos ($FFB05E-$FFB05F) RAM words. Each hit captures the writing M68K
@@ -1718,6 +1743,10 @@ end
 -- captured CNZ cylinder sub_324C0 inactive path does not itself write
 -- x_pos (sonic3k.asm:26800-26809, 67985-68012).
 
+WRITE_DIAG.SONIC_XPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_X_POS        -- 0xFFB010
+WRITE_DIAG.SONIC_XPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_X_POS + 1    -- 0xFFB011
+WRITE_DIAG.SONIC_YPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_Y_POS        -- 0xFFB014
+WRITE_DIAG.SONIC_YPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_Y_POS + 1    -- 0xFFB015
 WRITE_DIAG.TAILS_XPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS       -- 0xFFB05A
 WRITE_DIAG.TAILS_XPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS + 1   -- 0xFFB05B
 WRITE_DIAG.TAILS_YPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS       -- 0xFFB05E
@@ -1740,6 +1769,7 @@ WRITE_DIAG.POSITION_WRITE_RANGES = {
     {4788, 4792},
     {7549, 7560},
     {7600, 7625},
+    {16320, 16335},
 }
 
 WRITE_DIAG.apply_frame_range(
@@ -1760,12 +1790,30 @@ function WRITE_DIAG.pw_in_window()
         WRITE_DIAG.POSITION_WRITE_FRAME_END)
 end
 
-function WRITE_DIAG.tails_xpos_record_hit()
+function WRITE_DIAG.record_position_hit(base, x_writes, y_writes, axis)
     if not aux_file then return end
     if not started then return end
     if not WRITE_DIAG.pw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
-    local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
+    local offset = axis == "x" and OFF_X_POS or OFF_Y_POS
+    local val = mainmemory.read_u16_be(base + offset)
+    local a1 = emu.getregister("M68K A1") or 0
+    local a0 = emu.getregister("M68K A0") or 0
+    table.insert(axis == "x" and x_writes or y_writes,
+        {pc = pc, val = val, a1 = a1, a0 = a0})
+end
+
+function WRITE_DIAG.sonic_xpos_record_hit()
+    WRITE_DIAG.record_position_hit(PLAYER_BASE,
+        WRITE_DIAG.sonic_xpos_writes, WRITE_DIAG.sonic_ypos_writes, "x")
+end
+
+function WRITE_DIAG.sonic_ypos_record_hit()
+    WRITE_DIAG.record_position_hit(PLAYER_BASE,
+        WRITE_DIAG.sonic_xpos_writes, WRITE_DIAG.sonic_ypos_writes, "y")
+end
+
+function WRITE_DIAG.tails_xpos_record_hit()
     -- v6.11-s3k: capture (a1) and (a0) at the moment of the write so we can
     -- disambiguate Tails (Player_2 base $FFB04A) vs Sonic (Player_1 base
     -- $FFB000) targeting in routines like SolidObjectFull2_1P that loop
@@ -1773,67 +1821,220 @@ function WRITE_DIAG.tails_xpos_record_hit()
     -- be Tails when this fires for an `<op> y_pos(a1)` instruction; capturing
     -- it explicitly resolves whether the captured PC belongs to a path that
     -- writes via (a1), via (a0), or via a different addressing mode entirely.
-    local a1 = emu.getregister("M68K A1") or 0
-    local a0 = emu.getregister("M68K A0") or 0
-    table.insert(WRITE_DIAG.tails_xpos_writes, {pc = pc, val = val, a1 = a1, a0 = a0})
+    WRITE_DIAG.record_position_hit(SIDEKICK_BASE,
+        WRITE_DIAG.tails_xpos_writes, WRITE_DIAG.tails_ypos_writes, "x")
 end
 
 function WRITE_DIAG.tails_ypos_record_hit()
-    if not aux_file then return end
-    if not started then return end
-    if not WRITE_DIAG.pw_in_window() then return end
-    local pc = emu.getregister("M68K PC") or 0
-    local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
     -- v6.11-s3k: capture (a1) and (a0) at the moment of the write. See
     -- tails_xpos_record_hit for rationale; specifically used to confirm
     -- whether 0x1E172/0x1E182 captured for CNZ F7614 fired with (a1)=Tails
     -- (Player_2 = $FFB04A) or (a1)=Sonic (Player_1 = $FFB000).
-    local a1 = emu.getregister("M68K A1") or 0
-    local a0 = emu.getregister("M68K A0") or 0
-    table.insert(WRITE_DIAG.tails_ypos_writes, {pc = pc, val = val, a1 = a1, a0 = a0})
+    WRITE_DIAG.record_position_hit(SIDEKICK_BASE,
+        WRITE_DIAG.tails_xpos_writes, WRITE_DIAG.tails_ypos_writes, "y")
 end
 
 function WRITE_DIAG.register_position_hooks()
     if WRITE_DIAG.position_hooks_registered then return end
     WRITE_DIAG.position_hooks_registered = true
 
+    event.onmemorywrite(WRITE_DIAG.sonic_xpos_record_hit, WRITE_DIAG.SONIC_XPOS_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.sonic_xpos_record_hit, WRITE_DIAG.SONIC_XPOS_HI_ADDR)
+    event.onmemorywrite(WRITE_DIAG.sonic_ypos_record_hit, WRITE_DIAG.SONIC_YPOS_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.sonic_ypos_record_hit, WRITE_DIAG.SONIC_YPOS_HI_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_xpos_record_hit, WRITE_DIAG.TAILS_XPOS_LO_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_xpos_record_hit, WRITE_DIAG.TAILS_XPOS_HI_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_ypos_record_hit, WRITE_DIAG.TAILS_YPOS_LO_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_ypos_record_hit, WRITE_DIAG.TAILS_YPOS_HI_ADDR)
 
     print(string.format(
-        "Tails position-write hooks registered: x_pos=0x%04X-0x%04X, y_pos=0x%04X-0x%04X, frame_window=[%d,%d]",
+        "Player position-write hooks registered: Sonic x_pos=0x%04X-0x%04X y_pos=0x%04X-0x%04X; Tails x_pos=0x%04X-0x%04X y_pos=0x%04X-0x%04X; frame_window=[%d,%d]",
+        WRITE_DIAG.SONIC_XPOS_LO_ADDR, WRITE_DIAG.SONIC_XPOS_HI_ADDR,
+        WRITE_DIAG.SONIC_YPOS_LO_ADDR, WRITE_DIAG.SONIC_YPOS_HI_ADDR,
         WRITE_DIAG.TAILS_XPOS_LO_ADDR, WRITE_DIAG.TAILS_XPOS_HI_ADDR,
         WRITE_DIAG.TAILS_YPOS_LO_ADDR, WRITE_DIAG.TAILS_YPOS_HI_ADDR,
         WRITE_DIAG.POSITION_WRITE_FRAME_START, WRITE_DIAG.POSITION_WRITE_FRAME_END))
 end
 
-function WRITE_DIAG.flush_tails_position_writes()
+function WRITE_DIAG.format_position_parts(writes)
+    local parts = {}
+    for _, hit in ipairs(writes) do
+        parts[#parts + 1] = string.format(
+            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
+            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
+    end
+    return table.concat(parts, ",")
+end
+
+function WRITE_DIAG.flush_position_writes_for(character, x_writes, y_writes)
     if not aux_file then return end
-    if #WRITE_DIAG.tails_xpos_writes == 0 and #WRITE_DIAG.tails_ypos_writes == 0 then return end
+    if #x_writes == 0 and #y_writes == 0 then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     -- v6.11-s3k: include captured (a1)/(a0) per hit so consumers can
     -- distinguish Player_1 vs Player_2 targeting (e.g. for CNZ F7614).
-    local x_parts = {}
-    for _, hit in ipairs(WRITE_DIAG.tails_xpos_writes) do
-        x_parts[#x_parts + 1] = string.format(
-            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
-            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
-    end
-    local y_parts = {}
-    for _, hit in ipairs(WRITE_DIAG.tails_ypos_writes) do
-        y_parts[#y_parts + 1] = string.format(
-            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
-            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
-    end
     write_aux(string.format(
-        '{"frame":%d,"vfc":%d,"event":"position_write","character":"tails",'
+        '{"frame":%d,"vfc":%d,"event":"position_write","character":"%s",'
             .. '"x_pos_writes":[%s],"y_pos_writes":[%s]}',
-        trace_frame, vfc,
-        table.concat(x_parts, ","), table.concat(y_parts, ",")))
+        trace_frame, vfc, character,
+        WRITE_DIAG.format_position_parts(x_writes),
+        WRITE_DIAG.format_position_parts(y_writes)))
+end
+
+function WRITE_DIAG.flush_tails_position_writes()
+    WRITE_DIAG.flush_position_writes_for("sonic",
+        WRITE_DIAG.sonic_xpos_writes, WRITE_DIAG.sonic_ypos_writes)
+    WRITE_DIAG.flush_position_writes_for("tails",
+        WRITE_DIAG.tails_xpos_writes, WRITE_DIAG.tails_ypos_writes)
+    WRITE_DIAG.sonic_xpos_writes = {}
+    WRITE_DIAG.sonic_ypos_writes = {}
     WRITE_DIAG.tails_xpos_writes = {}
     WRITE_DIAG.tails_ypos_writes = {}
+end
+
+-- =====================================================================
+-- AIZ battleship ship-loop execution diagnostics (v6.18-s3k)
+-- =====================================================================
+-- Diagnostic-only capture for the AIZ2_DoShipLoop / sub_50318 handoff
+-- window (sonic3k.asm:105200-105253). ROM SpecialEvents selects this
+-- routine before Process_Sprites; the hook records the camera/player
+-- register context at key labels so engine-side ordering can be compared
+-- without hydrating trace data back into replay state.
+local V618_AIZ_SHIP = {
+    FRAME_START = 16320,
+    FRAME_END = 16335,
+    RANGES = {
+        {16320, 16335},
+    },
+    AIZ2_DO_SHIP_LOOP = 0x502CA,
+    AIZ2_CAMERA_STORE = 0x502FA,
+    AIZ2_SUB_50318 = 0x50318,
+    AIZ2_LOC_50324 = 0x50324,
+    AIZ2_LOC_5033A = 0x5033A,
+    AIZ2_RET_50348 = 0x50348,
+    hits = {},
+}
+
+local aiz_ship_range = os.getenv("OGGF_S3K_AIZ_SHIP_LOOP_RANGE")
+if aiz_ship_range and aiz_ship_range ~= "" then
+    local ranges = {}
+    for piece in string.gmatch(aiz_ship_range, "[^;]+") do
+        local s, e = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if s and e then
+            ranges[#ranges + 1] = {tonumber(s), tonumber(e)}
+        end
+    end
+    if #ranges > 0 then
+        V618_AIZ_SHIP.RANGES = ranges
+        V618_AIZ_SHIP.FRAME_START = ranges[1][1]
+        V618_AIZ_SHIP.FRAME_END = ranges[1][2]
+    else
+        print("WARN: invalid OGGF_S3K_AIZ_SHIP_LOOP_RANGE, expected <start>-<end>[;<start>-<end>]: "
+            .. aiz_ship_range)
+    end
+end
+
+function V618_AIZ_SHIP.in_window()
+    for _, pair in ipairs(V618_AIZ_SHIP.RANGES) do
+        if trace_frame >= pair[1] and trace_frame <= pair[2] then
+            return true
+        end
+    end
+    return false
+end
+
+function V618_AIZ_SHIP.character_for_a1(a1)
+    local addr = a1 % 0x10000
+    if addr == PLAYER_BASE then return "sonic" end
+    if addr == SIDEKICK_BASE then return "tails" end
+    return string.format("0x%04X", addr)
+end
+
+function V618_AIZ_SHIP.record_hit(label)
+    if not aux_file then return end
+    if not started then return end
+    if not V618_AIZ_SHIP.in_window() then return end
+
+    local pc = emu.getregister("M68K PC") or 0
+    local a1 = emu.getregister("M68K A1") or 0
+    local d0 = emu.getregister("M68K D0") or 0
+    local d1 = emu.getregister("M68K D1") or 0
+    local player_base = a1 % 0x10000
+    if player_base ~= PLAYER_BASE and player_base ~= SIDEKICK_BASE then
+        player_base = PLAYER_BASE
+    end
+
+    V618_AIZ_SHIP.hits[#V618_AIZ_SHIP.hits + 1] = {
+        label = label,
+        pc = pc,
+        a1 = a1,
+        character = V618_AIZ_SHIP.character_for_a1(a1),
+        d0 = d0 & 0xFFFF,
+        d1 = d1 & 0xFFFF,
+        camera_x = mainmemory.read_u16_be(ADDR_CAMERA_X),
+        camera_min_x = mainmemory.read_u16_be(0xEE14),
+        camera_max_x = mainmemory.read_u16_be(0xEE16),
+        events_bg_2 = mainmemory.read_u16_be(0xEED4),
+        player_x = mainmemory.read_u16_be(player_base + OFF_X_POS),
+        player_y = mainmemory.read_u16_be(player_base + OFF_Y_POS),
+        player_gvel = mainmemory.read_u16_be(player_base + OFF_INERTIA),
+        player_xvel = mainmemory.read_u16_be(player_base + OFF_X_VEL),
+        player_anim = mainmemory.read_u8(player_base + OFF_ANIM_ID),
+        player_status = mainmemory.read_u8(player_base + OFF_STATUS),
+    }
+end
+
+function V618_AIZ_SHIP.format_hits()
+    local parts = {}
+    for _, hit in ipairs(V618_AIZ_SHIP.hits) do
+        parts[#parts + 1] = string.format(
+            '{"label":"%s","pc":"0x%05X","character":"%s","a1":"0x%08X",'
+                .. '"d0":"0x%04X","d1":"0x%04X","camera_x":"0x%04X",'
+                .. '"camera_min_x":"0x%04X","camera_max_x":"0x%04X",'
+                .. '"events_bg_2":"0x%04X","player_x":"0x%04X",'
+                .. '"player_y":"0x%04X","player_gvel":"0x%04X",'
+                .. '"player_xvel":"0x%04X","player_anim":"0x%02X",'
+                .. '"player_status":"0x%02X"}',
+            hit.label, hit.pc, hit.character, hit.a1,
+            hit.d0, hit.d1, hit.camera_x, hit.camera_min_x,
+            hit.camera_max_x, hit.events_bg_2, hit.player_x,
+            hit.player_y, hit.player_gvel, hit.player_xvel,
+            hit.player_anim, hit.player_status)
+    end
+    return table.concat(parts, ",")
+end
+
+function V618_AIZ_SHIP.flush()
+    if not aux_file then return end
+    if #V618_AIZ_SHIP.hits == 0 then return end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"aiz_ship_loop","hits":[%s]}',
+        trace_frame,
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        V618_AIZ_SHIP.format_hits()))
+    V618_AIZ_SHIP.hits = {}
+end
+
+function V618_AIZ_SHIP.register_hooks()
+    if V618_AIZ_SHIP.hooks_registered then return end
+    V618_AIZ_SHIP.hooks_registered = true
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("entry") end,
+        V618_AIZ_SHIP.AIZ2_DO_SHIP_LOOP)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("camera_store") end,
+        V618_AIZ_SHIP.AIZ2_CAMERA_STORE)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("sub_50318") end,
+        V618_AIZ_SHIP.AIZ2_SUB_50318)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("loc_50324") end,
+        V618_AIZ_SHIP.AIZ2_LOC_50324)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("loc_5033A") end,
+        V618_AIZ_SHIP.AIZ2_LOC_5033A)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("ret_50348") end,
+        V618_AIZ_SHIP.AIZ2_RET_50348)
+    print(string.format(
+        "AIZ ship-loop hooks registered: entry=0x%05X sub=0x%05X frame_window=[%d,%d]",
+        V618_AIZ_SHIP.AIZ2_DO_SHIP_LOOP,
+        V618_AIZ_SHIP.AIZ2_SUB_50318,
+        V618_AIZ_SHIP.FRAME_START,
+        V618_AIZ_SHIP.FRAME_END))
 end
 
 -- =====================================================================
@@ -2051,6 +2252,11 @@ function V65.tails_cpu_step()
             x_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)),
             delayed_stat = 0,
             delayed_input = 0,
+            pos_table_index = 0,
+            delayed_target_x = 0,
+            delayed_target_y = 0,
+            follow_dx = 0,
+            follow_dy = 0,
             loc_13dd0_branch = "not_seen",
             ctrl2_logical = mainmemory.read_u16_be(ADDR_CTRL2_HELD_LOGICAL),
             ctrl2_held_logical = mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
@@ -2070,9 +2276,19 @@ function V65.tails_cpu_record_loc_13dd0()
     if not started then return end
     if not V65.hook_a0_is_tails() then return end
     local step = V65.tails_cpu_step()
-    local delayed_index = (mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX) - 0x44) & 0xFF
+    local pos_table_index = mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX) & 0xFF
+    local delayed_index = (pos_table_index - 0x44) & 0xFF
+    local delayed_target_x = emu.getregister("M68K D2") or mainmemory.read_u16_be(ADDR_POS_TABLE + delayed_index)
+    local delayed_target_y = mainmemory.read_u16_be(ADDR_POS_TABLE + delayed_index + 2)
+    local sidekick_x = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
+    local sidekick_y = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
     step.delayed_input = mainmemory.read_u16_be(ADDR_STAT_TABLE + delayed_index)
     step.delayed_stat = mainmemory.read_u8(ADDR_STAT_TABLE + delayed_index + 2)
+    step.pos_table_index = pos_table_index
+    step.delayed_target_x = delayed_target_x & 0xFFFF
+    step.delayed_target_y = delayed_target_y & 0xFFFF
+    step.follow_dx = (delayed_target_x - sidekick_x) & 0xFFFF
+    step.follow_dy = (delayed_target_y - sidekick_y) & 0xFFFF
     local leader_status = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS)
     local leader_ground_vel = mainmemory.read_s16_be(PLAYER_BASE + OFF_INERTIA)
     if (leader_status & STATUS_ON_OBJECT) ~= 0 then
@@ -2146,6 +2362,9 @@ function V65.flush_tails_cpu_normal_step()
             .. '"status":"0x%02X","object_control":"0x%02X",'
             .. '"ground_vel":"0x%04X","x_vel":"0x%04X",'
             .. '"delayed_stat":"0x%02X","delayed_input":"0x%04X",'
+            .. '"pos_table_index":"0x%02X","delayed_target_x":"0x%04X",'
+            .. '"delayed_target_y":"0x%04X","follow_dx":"0x%04X",'
+            .. '"follow_dy":"0x%04X",'
             .. '"loc_13dd0_branch":"%s","ctrl2_logical":"0x%04X",'
             .. '"ctrl2_held_logical":"0x%02X",'
             .. '"path_pre_ground_vel":"0x%04X","path_pre_x_vel":"0x%04X",'
@@ -2156,6 +2375,9 @@ function V65.flush_tails_cpu_normal_step()
         step.status, step.object_control,
         step.ground_vel, step.x_vel,
         step.delayed_stat, step.delayed_input,
+        step.pos_table_index, step.delayed_target_x,
+        step.delayed_target_y, step.follow_dx,
+        step.follow_dy,
         step.loc_13dd0_branch, step.ctrl2_logical,
         step.ctrl2_held_logical,
         step.path_pre_ground_vel, step.path_pre_x_vel,
@@ -3848,6 +4070,12 @@ function on_frame_end()
     -- Sonic player base register.
     WRITE_DIAG.flush_tails_position_writes()
 
+    -- Focused AIZ battleship ship-loop execution hits (v6.18-s3k).
+    -- Hooks AIZ2_DoShipLoop/sub_50318 branch labels and emits only
+    -- diagnostic register/camera/player context for the narrow frontier
+    -- window. Never feeds replay state.
+    V618_AIZ_SHIP.flush()
+
     -- SolidObject_cont entry hits (v6.11-s3k). Hooks 0x1DF90 and captures
     -- (a0)/(a1)/d1/d2 plus the player's y_radius and default_y_radius so
     -- the d3/d4 conditional in loc_1DFD6+/loc_1E154 can be reconstructed
@@ -3903,7 +4131,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.15-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
+print(string.format("S3K Trace Recorder v6.18-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -3916,6 +4144,9 @@ WRITE_DIAG.register_velocity_hooks()
 
 -- Register Tails position-write hooks. Same lifetime model as cage hooks.
 WRITE_DIAG.register_position_hooks()
+
+-- Register focused AIZ ship-loop hooks. Same lifetime model as cage hooks.
+V618_AIZ_SHIP.register_hooks()
 
 -- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
 V65.register_tails_cpu_normal_step_hooks()

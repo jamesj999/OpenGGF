@@ -54,6 +54,7 @@ public class TestHybridPhysicsFeatureSet {
                 null,  // superSpindashSpeedTable - not donated
                 (short) 0,  // movingCrouchThreshold - not donated
                 false,  // groundWallCollisionEnabled - S1
+                false,  // groundWallPushRequiresFacingIntoWall - S1
                 false,  // animationChangeClearsPush - S1 original build does not clear pushing on anim change
                 false,  // airSuperspeedPreserved - S1
                 false,  // slopeResistStartsFromRest - S1
@@ -80,15 +81,16 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // solidObjectRequiresSidekickOnScreen - S1 has no CPU sidekick
                 false,  // sidekickDespawnUsesRidingInstanceLoss - S1 has no CPU sidekick
                 false,  // sidekickRespawnEntersCatchUpFlight - S1 has no CPU sidekick
-                false,  // sidekickPushBypassUsesGraceStatus - S1 has no CPU sidekick
                 false,  // sidekickClearsStalePushVelocityBeforeGroundMove - S1 has no CPU sidekick
                 false,  // sidekickCpuUsesLevelFrameCounter - S1 has no CPU sidekick
                 false,  // landingRollClearUsesCurrentYRadiusDelta - S1 uses fixed roll-clear lift
                 false,  // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
                 false,  // levelBoundaryUsesCentreY - S1 ROM uses centre-Y but trace baselines defer flip
                 false,  // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity - S1 Solid_Landed bails on y_vel<0 (s1disasm/_incObj/sub SolidObject.asm:278)
+                false,  // sidekickPushBypassUsesGraceStatus - S1 has no Tails CPU
                 false,  // sidekickNormalCpuSkipsHurtRoutine - S1 has no Tails CPU
-                false   // controlLockLatchesLogicalInput - S1 baseline (uses separate Ctrl_Lock_byte)
+                false,  // controlLockLatchesLogicalInput - S1 baseline (uses separate Ctrl_Lock_byte)
+                false   // waterExitBoostSkipsFastUpwardVelocity - S1 exits water with unconditional asl.w obVelY(a0)
         );
 
         // Verify spindash is enabled (donor contribution)

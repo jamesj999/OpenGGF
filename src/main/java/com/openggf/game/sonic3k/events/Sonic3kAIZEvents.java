@@ -176,11 +176,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     /** Wrap boundary during bombing: camera X wraps back at $4440. ROM: Events_bg+$02 initial. */
     private static final int BATTLESHIP_WRAP_X_BOMBING = 0x4440;
     /**
-     * Wrap boundary after bombing. ROM uses $46C0 with $200 distance, landing at $44C0
-     * (before the forest). The ROM hides this seam via HInt screen-split. Without HInt,
-     * we use a tight $80 wrap within the uniform forest blocks (cols 140-143 are all
-     * E9/E8). Boundary $46C0 keeps the screen right edge at col 144.0 (last forest col
-     * is 143); wraps to $4640 (col 140.5, still forest). Small boss trigger $4670 fits.
+     * Wrap boundary after bombing. ROM AIZ2_DoShipLoop compares against Events_bg+$02
+     * and always subtracts $200 from camera and both players on wrap.
      */
     private static final int BATTLESHIP_WRAP_X_POST_BOMBING = 0x46C0;
     /** Forest mask becomes visible once the bombship redraw reaches this camera X. */
@@ -192,8 +189,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int AIZ_END_BOSS_KNUX_LOCK_X = 0x4100;
     private static final int AIZ_END_BOSS_KNUX_LAYOUT_X = 0x4120;
     private static final int AIZ_END_BOSS_KNUX_LAYOUT_Y = 0x0640;
-    private static final int BATTLESHIP_WRAP_DIST_POST_BOMBING = 0x80;
-    /** Wrap distance during bombing: subtract $200 from all positions on wrap. */
+    /** Wrap distance: ROM subtracts $200 from all positions on ship-loop wrap. */
     private static final int BATTLESHIP_WRAP_DIST = 0x200;
     /** Left clamp: player X must be >= camera X + $18 during auto-scroll. */
     private static final int PLAYER_LEFT_MARGIN = 0x18;
@@ -232,6 +228,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // --- Battleship bombing sequence state ---
     /** True while the battleship auto-scroll loop is active. */
     private boolean battleshipAutoScrollActive;
+    /** True once AIZ2_DoShipLoop has run in this frame's pre-physics phase. */
+    private boolean battleshipAutoScrollRanPrePhysics;
+    /** True when this event temporarily froze camera following for Scroll_lock. */
+    private boolean battleshipCameraFrozenForScrollLock;
+    /** Camera frozen state before applying the temporary Scroll_lock freeze. */
+    private boolean battleshipCameraWasFrozen;
     /** True once the battleship object has been spawned (one-shot guard). */
     private boolean battleshipSpawned;
     /** True once the AIZ2 end boss has been handed off to the object system. */
@@ -428,6 +430,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         eventsFg5 = false;
         bossFlag = false;
         battleshipAutoScrollActive = false;
+        battleshipAutoScrollRanPrePhysics = false;
+        battleshipCameraFrozenForScrollLock = false;
+        battleshipCameraWasFrozen = false;
         battleshipSpawned = false;
         endBossSpawned = false;
         battleshipTerrainLoaded = false;
@@ -484,6 +489,29 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         } else {
             updateAct2Continuation(frameCounter);
         }
+    }
+
+    /**
+     * ROM: {@code SpecialEvents} runs before {@code Process_Sprites}
+     * (docs/skdisasm/sonic3k.asm:7888-7894). During the AIZ2 battleship
+     * sequence it dispatches {@code AIZ2_DoShipLoop}, which advances camera X
+     * by 4 and clamps {@code x_pos(a1)} for Player_1 then Player_2 before
+     * {@code MoveSprite2} applies velocity
+     * (docs/skdisasm/sonic3k.asm:104082-104091, 105200-105253).
+     */
+    public void updatePrePhysics(int act) {
+        if (act != 1 || !battleshipAutoScrollActive) {
+            battleshipAutoScrollRanPrePhysics = false;
+            return;
+        }
+        updateBattleshipAutoScroll(true);
+        Camera cam = camera();
+        if (!battleshipCameraFrozenForScrollLock) {
+            battleshipCameraWasFrozen = cam.getFrozen();
+            battleshipCameraFrozenForScrollLock = true;
+        }
+        cam.setFrozen(true);
+        battleshipAutoScrollRanPrePhysics = true;
     }
 
     /**
@@ -1031,6 +1059,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void updateAct2Continuation(int frameCounter) {
+        // ROM order inside LevelLoop is DeformBgLayer -> Do_ResizeEvents,
+        // then ScreenEvents. The AIZ2 resize stage at camera X >= $4160 sets
+        // Events_fg_4, and AIZ2_ScreenEvent consumes it in the same frame to
+        // begin the battleship scroll. Run the resize state machine before the
+        // screen-event handoff so the trigger is not delayed by one engine tick.
+        updateAiz2Resize();
+
         // ROM: AIZ2_ScreenEvent consumes Events_fg_4 and starts the battleship
         // refresh/draw chain. Keep this separate from AIZ2_Resize so the trigger
         // remains observable and follows the same event handoff as the ROM.
@@ -1075,9 +1110,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
 
         // Battleship auto-scroll loop
-        if (battleshipAutoScrollActive) {
-            updateBattleshipAutoScroll();
+        if (battleshipAutoScrollActive && !battleshipAutoScrollRanPrePhysics) {
+            updateBattleshipAutoScroll(false);
         }
+        battleshipAutoScrollRanPrePhysics = false;
 
         // ROM: Adjust_BGDuringLoop runs every frame unconditionally at the top of
         // AIZ2_BackgroundEvent, accumulating camera deltas into Events_fg_1 even
@@ -1098,8 +1134,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         tickScreenShake(frameCounter);
 
         // ROM: AIZ2_Resize — dynamic boundary state machine (sonic3k.asm:39012)
-        updateAiz2Resize();
-
         updateAiz2EndBossSpawn();
     }
 
@@ -1477,7 +1511,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * and wraps everything back by {@link #BATTLESHIP_WRAP_DIST} when the camera
      * reaches the wrap boundary.
      */
-    private void updateBattleshipAutoScroll() {
+    private void updateBattleshipAutoScroll(boolean useCentreCoordinates) {
         Camera cam = camera();
         int cameraX = cam.getX();
 
@@ -1497,9 +1531,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // Wrap-back: when camera reaches the wrap boundary, subtract $200 from
         // ALL positions (camera, player, active objects) for seamless looping.
         if (newCameraX >= battleshipWrapX) {
-            // Use shorter wrap distance in the post-bombing forest phase
-            int wrapDelta = (battleshipWrapX == BATTLESHIP_WRAP_X_BOMBING)
-                    ? BATTLESHIP_WRAP_DIST : BATTLESHIP_WRAP_DIST_POST_BOMBING;
+            int wrapDelta = BATTLESHIP_WRAP_DIST;
             levelRepeatOffset = wrapDelta;
 
             cam.setX((short) (newCameraX - wrapDelta));
@@ -1508,11 +1540,19 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
             // Wrap the player position
             if (cam.getFocusedSprite() instanceof AbstractPlayableSprite player) {
-                player.setX((short) (player.getX() - wrapDelta));
+                if (useCentreCoordinates) {
+                    player.setCentreXPreserveSubpixel((short) (player.getCentreX() - wrapDelta));
+                } else {
+                    player.setX((short) (player.getX() - wrapDelta));
+                }
             }
             // Wrap sidekick positions
             for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
-                sidekick.setX((short) (sidekick.getX() - wrapDelta));
+                if (useCentreCoordinates) {
+                    sidekick.setCentreXPreserveSubpixel((short) (sidekick.getCentreX() - wrapDelta));
+                } else {
+                    sidekick.setX((short) (sidekick.getX() - wrapDelta));
+                }
             }
 
             // Wrap all active bombing-sequence objects (ROM: Level_repeat_offset)
@@ -1525,12 +1565,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         explosion.applyWrapOffset(wrapDelta);
                     }
                 }
-                // ROM: ObjPosLoad adjusts cursor boundaries when Level_repeat_offset
-                // is non-zero. Without this, the placement system sees a negative
-                // camera delta on the next frame and calls refreshWindow(), which
-                // can re-spawn layout objects (e.g., the AIZ2 end boss) that are
-                // already alive.
-                objManager.adjustPlacementTrackingForWrap(wrapDelta);
+                // ObjPosLoad has no Level_repeat_offset special case; after
+                // AIZ2_DoShipLoop lowers Camera_X_pos, the normal backward
+                // cursor path retreats Object_load_addr_front (sonic3k.asm:
+                // loc_1B8D2 -> loc_1B8F2). Do not hide the wrap from placement,
+                // or offscreen-cleared entries cannot be reprocessed on the
+                // next loop through the same screen section.
             }
 
             LOG.fine("AIZ2 battleship: wrap-back at cameraX=0x"
@@ -1541,10 +1581,27 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // Called for Player_1 then Player_2 in AIZ2_DoShipLoop.
         int camX = cam.getX();
         if (cam.getFocusedSprite() instanceof AbstractPlayableSprite player) {
-            clampPlayerDuringAutoScroll(player, camX);
+            clampPlayerDuringAutoScroll(player, camX, useCentreCoordinates);
         }
         for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
-            clampPlayerDuringAutoScroll(sidekick, camX);
+            clampPlayerDuringAutoScroll(sidekick, camX, useCentreCoordinates);
+        }
+        syncSidekickBoundsToLiveCamera(cam);
+    }
+
+    private void syncSidekickBoundsToLiveCamera(Camera cam) {
+        int minX = cam.getMinX();
+        int maxX = cam.getMaxX();
+        int maxY = Math.max(cam.getMaxY(), cam.getMaxYTarget());
+        for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
+            if (sidekick.getCpuController() != null) {
+                // ROM Tails_Check_Screen_Boundaries reads Camera_min/max directly
+                // during Process_Sprites (sonic3k.asm:28407-28452). The engine's
+                // sidekick CPU carries a mirrored bound override, so refresh it
+                // when AIZ2_DoShipLoop rewrites camera bounds before physics
+                // (sonic3k.asm:105200-105253).
+                sidekick.getCpuController().setLevelBounds(minX, maxX, maxY);
+            }
         }
     }
 
@@ -1552,16 +1609,25 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * ROM: sub_50318 — clamp a player's X position within the auto-scroll camera margins.
      * If pushed rightward from the left edge, ground velocity is set to $400.
      */
-    private static void clampPlayerDuringAutoScroll(AbstractPlayableSprite sprite, int camX) {
+    private static void clampPlayerDuringAutoScroll(AbstractPlayableSprite sprite, int camX,
+                                                   boolean useCentreCoordinates) {
         int minPlayerX = camX + PLAYER_LEFT_MARGIN;
         int maxPlayerX = camX + PLAYER_RIGHT_MARGIN;
-        short playerX = sprite.getX();
+        short playerX = useCentreCoordinates ? sprite.getCentreX() : sprite.getX();
         if (playerX < minPlayerX) {
-            sprite.setX((short) minPlayerX);
+            if (useCentreCoordinates) {
+                sprite.setCentreXPreserveSubpixel((short) minPlayerX);
+            } else {
+                sprite.setX((short) minPlayerX);
+            }
             // ROM: move.w #$400,ground_vel(a1) — push player rightward with the scroll
             sprite.setGSpeed((short) 0x400);
-        } else if (playerX > maxPlayerX) {
-            sprite.setX((short) maxPlayerX);
+        } else if (playerX >= maxPlayerX) {
+            if (useCentreCoordinates) {
+                sprite.setCentreXPreserveSubpixel((short) maxPlayerX);
+            } else {
+                sprite.setX((short) maxPlayerX);
+            }
         }
     }
 
@@ -1573,6 +1639,19 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     /** True when the battleship auto-scroll loop is active. */
     public boolean isBattleshipAutoScrollActive() {
         return battleshipAutoScrollActive;
+    }
+
+    /**
+     * Releases the temporary camera freeze used to mirror ROM {@code Scroll_lock}
+     * after the frame's normal camera step has had a chance to skip scrolling.
+     */
+    public void releaseBattleshipScrollLockCamera() {
+        if (!battleshipCameraFrozenForScrollLock) {
+            return;
+        }
+        camera().setFrozen(battleshipCameraWasFrozen);
+        battleshipCameraFrozenForScrollLock = false;
+        battleshipCameraWasFrozen = false;
     }
 
     /**
@@ -1701,6 +1780,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      */
     public void onBossSmallComplete() {
         battleshipAutoScrollActive = false;
+        levelRepeatOffset = 0;
+
+        // ROM Obj_AIZ2BossSmall loc_5071A clears Scroll_lock before
+        // loc_50720 writes Camera_max_X_pos=$6000 (docs/skdisasm/sonic3k.asm:105607-105619).
+        releaseBattleshipScrollLockCamera();
 
         // ROM: Adjust_BGDuringLoop continues to track camera deltas into Events_fg_1
         // after the auto-scroll loop ends, so parallax trees scroll off naturally.

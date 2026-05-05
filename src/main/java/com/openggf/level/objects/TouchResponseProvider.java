@@ -27,6 +27,14 @@ public interface TouchResponseProvider {
     }
 
     /**
+     * Returns whether touch response should be gated by the engine's render-flag
+     * equivalent before testing this object.
+     */
+    default boolean requiresRenderFlagForTouch() {
+        return true;
+    }
+
+    /**
      * Optional multi-region touch collision for objects with multiple independent
      * collision areas (e.g., spiked pole helix where each spike has its own hitbox).
      * <p>

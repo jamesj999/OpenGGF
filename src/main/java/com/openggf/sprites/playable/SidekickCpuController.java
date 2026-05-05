@@ -127,6 +127,7 @@ public class SidekickCpuController {
     private boolean aizIntroDormantMarkerPrimed;
     private boolean suppressNextAizIntroNormalMovement;
     private boolean skipPhysicsThisFrame;
+    private boolean cpuFrameCounterFromStoredLevelFrame;
     private NormalStepDiagnostics latestNormalStepDiagnostics;
 
     // =====================================================================
@@ -218,8 +219,10 @@ public class SidekickCpuController {
             // (sonic3k.asm:7884-7894), while some engine inline sidekick calls
             // receive a caller fallback that is one tick ahead of the stored
             // counter. Use the stored counter for the ROM-visible S3K gates.
+            cpuFrameCounterFromStoredLevelFrame = true;
             return levelManager.getFrameCounter();
         }
+        cpuFrameCounterFromStoredLevelFrame = false;
         if (fallbackFrameCount > 0) {
             // ROM increments Level_frame_counter before object/player CPU slots
             // (s2.asm:5092, sonic3k.asm:7889). SpriteManager passes that
@@ -237,6 +240,10 @@ public class SidekickCpuController {
             return levelManager.getObjectManager().getFrameCounter();
         }
         return fallbackFrameCount;
+    }
+
+    private int resolvePanicPhaseCounter() {
+        return cpuFrameCounterFromStoredLevelFrame ? frameCounter : frameCounter + 1;
     }
 
     public void setController2Input(int held, int logical) {
@@ -1125,6 +1132,7 @@ public class SidekickCpuController {
                 || !sidekick.getAir()
                 || !sidekick.getRolling()
                 || effectiveLeader.getOnObjectAtFrameStart()
+                || effectiveLeader.getGSpeed() >= 0x400
                 || !isAizHollowTreeFollowSteeringContext(effectiveLeader)) {
             return dx;
         }
@@ -1139,6 +1147,10 @@ public class SidekickCpuController {
         // the adjacent newer sample only when it keeps the same follow side but
         // falls back below S3K's $30 steering override, preserving the delayed
         // Ctrl_2 RIGHT/jump bits instead of manufacturing a LEFT pulse.
+        // Do not apply this bridge to the fast-leader branch: ROM loc_13DA6 only
+        // skips the S3K lead bias when leader ground_vel >= $400, then still runs
+        // FollowLeft/FollowRight from the original delayed Pos_table sample
+        // (sonic3k.asm:26692-26694,26707-26732).
         int objectOrderTargetX = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES - 1);
         if (leadOffset > 0
                 && !leaderStatusOnObject
@@ -1156,6 +1168,15 @@ public class SidekickCpuController {
         if (dx <= 0
                 && sidekick.getPhysicsFeatureSet() != null
                 && sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset() > 0
+                // ROM loc_13DA6 branches at Status_OnObj before applying the
+                // S3K follow bias (sonic3k.asm:26690-26694). While that bit is
+                // set, keep the same delayed position sample for the +/-1 nudge
+                // instead of substituting an adjacent AIZ object-order sample.
+                && !effectiveLeader.getOnObjectAtFrameStart()
+                // The fast-leader branch uses the same unadjusted delayed d2 for
+                // both steering and the loc_13E0A/loc_13E34 +/-1 x_pos nudge
+                // (sonic3k.asm:26692-26694,26707-26741).
+                && effectiveLeader.getGSpeed() < 0x400
                 && isAizHollowTreeFollowSteeringContext(effectiveLeader)) {
             // S3K reads Pos_table_index-$44 for the positional follow target
             // (sonic3k.asm:26683-26689), then applies the +1 x_pos nudge in
@@ -1277,13 +1298,16 @@ public class SidekickCpuController {
             return;
         }
 
-        if (!sidekick.getSpindash()) {
+        // ROM: tst.b spin_dash_flag(a0) (sonic3k.asm:26858). Player spindash
+        // and S3K AutoSpin both write that byte; the engine stores AutoSpin's
+        // value in pinballMode because it also preserves rolling on landing.
+        if (!sidekick.getSpindash() && !sidekick.getPinballMode()) {
             if (sidekick.getGSpeed() != 0) {
                 return;
             }
             sidekick.setDirection(leader.getCentreX() < sidekick.getCentreX() ? Direction.LEFT : Direction.RIGHT);
             inputDown = true;
-            int phase = frameCounter & 0x7F;
+            int phase = resolvePanicPhaseCounter() & 0x7F;
             if (phase == 0) {
                 clearInputs();
                 state = State.NORMAL;
@@ -1298,7 +1322,7 @@ public class SidekickCpuController {
         }
 
         inputDown = true;
-        int phase = frameCounter & 0x7F;
+        int phase = resolvePanicPhaseCounter() & 0x7F;
         if (phase == 0) {
             clearInputs();
             state = State.NORMAL;
@@ -2248,7 +2272,12 @@ public class SidekickCpuController {
         normalFrameCount = 0;
         jumpingFlag = false;
         sidekick.setHurt(false);
-        sidekick.setRolling(false);
+        // ROM sub_13ECA writes status=Status_InAir directly
+        // (sonic3k.asm:26804-26808). It clears Status_Roll and
+        // Status_Underwater, but does not restore x_radius/y_radius or water
+        // speed constants, so preserve those separate ROM fields.
+        sidekick.clearRollingFlagPreserveRadii();
+        sidekick.clearUnderwaterStatusPreserveWaterPhysics();
         sidekick.setRollingJump(false);
         sidekick.setOnObject(false);
         sidekick.setPushing(false);

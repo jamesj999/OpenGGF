@@ -212,7 +212,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   desyncs, using isolated sidekick-style DPLC banks and the same sprite layering priorities as the
   live characters while drawing behind them. The live trace visualizer now pauses on first desync,
   shows the configured resume key in the HUD, and keeps the trace picker open when a relaunch is
-  attempted during the return-to-menu fade.
+  attempted during the return-to-menu fade. Pause during a trace session also exposes a camera
+  focus cycler: P1 LEFT/RIGHT cycle the viewpoint between Default, the engine and ROM-trace
+  sidekick, and the engine and ROM-trace main player, with the active selection shown in the
+  top-right HUD; the original camera is restored on unpause and gameplay determinism is preserved
+  across frame-step.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;
@@ -270,18 +274,23 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), and Fire Shield
   Dash now mirrors ROM `Reset_Player_Position_Array` at `sonic3k.asm:22166-22193` by zeroing
   the input/status replay buffers alongside the position refill — fixing the F7381 stale
-  Stat_table read and advancing the AIZ replay frontier to F7552. F7552 itself is documented
-  as a likely missing `Solid_Object_Detach` engine path on the AIZ Miniboss Napalm projectile
-  (rider receives +1 px and `x_vel` zero on the projectile's self-destruct frame).
+  Stat_table read and advancing the AIZ replay frontier to F7552. F7552 was resolved by the
+  hurt-airborne MoveSprite-then-boundary ordering fix (matching ROM `Sonic_Hurt`/`Tails_Hurt`
+  at `sonic3k.asm:24449-24467`/`29194-29209`, S2 `s2.asm:37820-37834`, S1
+  `_incObj/01 Sonic.asm:1791-1804`); the AIZ Miniboss `Swing_UpAndDown` peak bounce-back
+  (matching `sonic3k.asm:177851-177879`) further advanced AIZ to F8927; F8927 is documented as
+  a likely airborne wall-sensor x_radius probe-offset gap (engine probes `centreX + xRadius`
+  while ROM `CheckRightWallDist` uses a fixed `+10` offset at `sonic3k.asm:20195`).
   `ClamerObjectInstance` now hosts the ROM `Clamer_Index` parent state machine
   (`sonic3k.asm:185866-185998`), including the `loc_88FEC` auto-close gate driven by a
   `Find_SonicTails`-equivalent closer-player lookup, mirroring ROM behaviour across routines
   0x02 (idle) / 0x04 (snap-shut) / 0x06 (auto-close) — foundation for further CNZ Clamer
-  parity work. Diagnostic localisation has further identified that the F7918 fire originates
-  from an engine-only `SPRING_RELATCH_COLLISION_FLAGS = $40|$12` widening with no ROM cite
-  (ROM `loc_890AA`/`loc_890C8`/`loc_890D0` at `sonic3k.asm:185953-185973` never modify
-  `collision_flags` after spawn) — the relatch correction is staged behind a deeper F=621
-  ROM-fire dispatch divergence still under investigation.
+  parity work. The F7918 spring fire's relatch widening was reverted in favour of a ROM-correct
+  three-state spring routine (LIVE / COOLDOWN_DRAIN / COOLDOWN_DONE) mirroring
+  `sonic3k.asm:185953-185973` and a player-identity-aware `collision_property` byte mirroring
+  ROM `Touch_Special.loc_103FA`'s +1/+2 cprop accumulation (`sonic3k.asm:21186-21194`) so the
+  Clamer launches the correct player (Sonic vs Tails) per ROM's `Check_PlayerCollision`
+  `cprop & 3` indexing — advancing the CNZ replay frontier from F7919 to F8123.
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K trace replay fixes:** Marble Garden frame-zero replay timing now treats traces whose

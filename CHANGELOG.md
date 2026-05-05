@@ -6,6 +6,172 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Trace Test Mode — pause-time camera focus visualiser.** While
+  paused during a live trace session, the user can now cycle the
+  camera between up to five focus targets using the configured P1
+  LEFT/RIGHT keys: `Default` (the camera position at pause entry),
+  `Sidekick (Eng)` / `Sidekick (Trace)` (centred on the engine's
+  first sidekick or the recorded ROM-trace sidekick position), and
+  `Main (Eng)` / `Main (Trace)` (centred on the engine's main
+  playable sprite or the trace's recorded position). Trace variants
+  are skipped when their position equals the engine's; sidekick
+  options are skipped when no engine sidekick is spawned; main
+  options are skipped when the main player is despawned. The active
+  focus is shown in the top-right HUD as `Camera: <Mode>` with a
+  `<- -> Cycle Cameras` hint. On unpause, the camera snaps back to
+  its pre-pause position; gameplay determinism is preserved across
+  frame-step (camera is restored before the step runs and re-applied
+  after). The controller mutates only `Camera.setX/setY` — it never
+  calls `updatePosition` or any other manager update path, so no
+  object placement, parallax, or trace-recording state is disturbed.
+- **CNZ Trace F8123 — CNZ bumper misses sidekick Tails touch at
+  pixel-edge overlap (diagnosis only).** After the F7923 Clamer cprop
+  fix landed, the next CNZ first error is at F8123 (2683 errors). Tails
+  is following Sonic in `Tails_CPU_routine=6` (`loc_13D4A`,
+  sonic3k.asm:26656), airborne+rolling (`status=0x07`) at
+  `(x_pos=0x0F05, y_pos=0x0472)` with `(x_vel=0x00D7, y_vel=0x0268)`.
+  The CNZ stationary bumper at slot 14 (`object_code=0x00032EAA =
+  loc_32EAA`, sonic3k.asm:68850-68886) sits at `(0x0F00, 0x0488)` with
+  `width_pixels=$10, height_pixels=$10`, so its top edge is exactly at
+  Tails' bottom edge (`y=0x0480`). ROM treats this exact-edge contact
+  as a hit, runs `sub_32F56` (sonic3k.asm:68950-68992):
+  `x_vel = sin(arctan(bumper-player)+frame&3) × -$700 / 256` and
+  `y_vel = cos(...) × -$700 / 256`, plus `bset Status_InAir`,
+  `bclr Status_RollJump`, `bclr Status_Push`, `clr.b jumping`, then
+  spawns `Obj_EnemyScore` (`loc_2CD0C`, sonic3k.asm:61375). Three
+  evidence lines from `aux_state.jsonl` confirm this is the path:
+  (1) an `object_appeared` event at F8123 for slot 7 with
+  `object_type=0x0002CCE0` (`Obj_EnemyScore`) at the bumper's
+  `(0x0F00, 0x0488)`; (2) the next `Obj_EnemyScore` spawn at F8150 (27
+  frames later, the orbit-period gap) confirming the bumper as the
+  spawn source; (3) ROM `tails_x_speed` jumps `0x00D7 → 0x0230`,
+  `tails_y_speed` jumps `0x0268 → -0x06A5` -- discontinuous changes
+  incompatible with `Tails_InputAcceleration_Freespace` drag plus
+  `MoveSprite_TestGravity` air physics, but consistent with the bumper
+  full sin/cos/-$700 reseed. Engine `tails_x_speed` ends at `0x00BF`
+  (`= 0x00D7 - 0x18` air drag) and `tails_y_speed` at `0x02A0`
+  (`= 0x0268 + 0x38` gravity), i.e. the sidekick's frame-end state is
+  just the airborne-roll physics with no bumper bounce applied. The
+  divergence is upstream of `applyBounce` (which is sin/cos/-$700
+  correct) -- the engine's per-frame near-object scan window for the
+  sidekick appears to drop the stationary CNZ bumper before the touch
+  test runs (Sonic at `(0x0DE5, 0x0309)` is >600px from the bumper
+  while Tails' AABB edge overlaps it). Documented in
+  `docs/S3K_KNOWN_BUGS.md` with three engine-side fix candidates.
+  CNZ first-error stable at F8123 this round. AIZ first-error at
+  F8927 unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
+- **AIZ Trace F8927 — diagnosis-only entry for the next first
+  trace error after the F7660 swing-bounce fix landed.** Trace
+  shows Sonic rolling+airborne (`status=0x06`,
+  `status_secondary=0x11` Fire Shield) descending into the AIZ2
+  boss-arena entrance with `x_speed` capped at `0x0179` from F8923
+  through F8926; at F8927 the ROM zeroes `x_speed` and freezes
+  `x_pos` at `0x1208`, while the engine retains `0x0179` and drifts
+  ahead, producing 896 cascading errors over the next ~340 frames
+  including a phantom land at F8942. ROM frames F8931 onward show
+  the canonical "rolling-air sliding into a flush right-side wall"
+  signature: `x_speed` cycles 0 → 0x18 → 0x30 → 0x48 → 0x60 → 0
+  every 5 frames with a sub-x snap pushback, matching
+  `SonicKnux_DoLevelCollision`'s `CheckRightWallDist` arm
+  (sonic3k.asm:24061-24065 -- "stop Sonic since he hit a wall"
+  `move.w #0,x_vel(a0)`). The engine never observes that wall
+  hit. Three candidate root causes (missing terrain solid bit at
+  the boss-arena right wall, quadrant-routing skip in our
+  `DoLevelCollision` equivalent, or an x_radius-vs-fixed-`+10`
+  probe-offset mismatch matching the player path's
+  `addi.w #$A,d3` at sonic3k.asm:20195) are documented; the most
+  testable is the probe-offset hypothesis since rolling drops
+  `x_radius` from 9 to 7. No engine change in this round; only a
+  documented diagnosis. AIZ first-error stays at F8927 (errors
+  896). CNZ first-error at F7923 unchanged. S1 GHZ / S1 MZ1 / S2
+  EHZ trace replays remain GREEN.
+- **CNZ1 Trace F7923 — Clamer latched-cprop fired on wrong player
+  (FIXED).** ROM `Touch_Special.loc_103FA` (sonic3k.asm:21186-21194)
+  accumulates per-touch into the spring-child's
+  `collision_property(a1)` byte with a player-identity-dependent
+  increment: `+1` for Player_1 (Sonic), `+2` for Player_2 (sidekick
+  Tails). `Check_PlayerCollision` (sonic3k.asm:179904-179924) then
+  masks `& 3` and indexes `word_85890 = [P1, P1, P2, P2]` to pick the
+  launch target before clearing the byte. The engine's
+  `ClamerObjectInstance` was collapsing this to a single boolean
+  `springCprop`, so when the post-cooldown latch fired the engine
+  always launched the primary `playerEntity` passed into `update()`
+  (Sonic) instead of resolving the byte to the actual toucher. At
+  F7923 the engine launched Sonic into the air with the spring's
+  triplicate `-0x0800` write while ROM had Sonic still on the ground
+  and was re-firing the same spring on Tails. Replaced the boolean
+  with the ROM cprop byte; `onTouchResponse` increments by `+1` for
+  primary, `+2` for `playerEntity.isCpuControlled()` (Tails), and the
+  two latch-fire branches in `advanceSpringRoutine` resolve the
+  target via `cprop & 3` (`1 → primary`, `2 or 3 → first sidekick
+  from services().sidekicks()`). Cprop is cleared on consumption to
+  mirror `clr.b collision_property(a0)`. CNZ first-error advances
+  F7923 -> F8123 (2767 -> 2683 errors); AIZ first-error stable at
+  F8927; S1/S2 trace replays unaffected; `TestClamerObjectInstance`
+  GREEN.
+- **AIZ Mini-boss F7660 — `Swing_UpAndDown` peak bounce-back ROM
+  parity restored.** ROM `Swing_UpAndDown` (sonic3k.asm:177851-177879)
+  applies a bounce-back at the swing apex: when the velocity reaches
+  `±maxSpeed`, the routine flips direction (`bset/bclr #0,$38(a0)`),
+  negates `d0`, and falls into `loc_84812` which adds the now-opposite
+  `d0` back to `d1` in the same frame, so the stored peak velocity is
+  `±maxSpeed ∓ accel`, not the clamped extreme. The engine's
+  `AizMinibossSwingMotion.update()` was clamping the peak to
+  `±maxSpeed` (skipping the `loc_84812` step), so the swing apex held
+  the extreme velocity for one extra frame each half-cycle and the
+  swing drifted ~6 frames out of phase with ROM by trace F7660.
+  With the drifted swing the engine's miniboss y was 3 units low
+  vs ROM at F7660, which let the engine see the boss/Sonic AABB
+  overlap one frame ahead of ROM. ROM boss `Touch_ChkHurt`
+  (sonic3k.asm:20911-20915) negates `x_vel`, `y_vel`, and
+  `ground_vel` on a boss hit, so the ahead-by-one-frame detection
+  flipped Sonic's `g_speed`/`x_speed`/`y_speed` signs at F7660 in
+  the engine while ROM still showed them positive (ROM bounced at
+  F7661). Engine now applies the ROM bounce-back step
+  (`vel += accel` at the up peak, `vel -= accel` at the down peak)
+  so the swing apex matches ROM cycle-for-cycle. AIZ first-error
+  advances 7660 → 8927 (errors 975 → 896). CNZ first-error at F7923
+  unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
+- **AIZ Mini-boss F7552 — sidekick hurt-airborne boundary clamp now
+  matches ROM order (MOVE before BOUNDARY).** ROM `Obj01_Hurt`
+  (s2.asm:37820-37834), `Sonic_Hurt` (s1disasm/_incObj/01
+  Sonic.asm:1791-1804), and S3K `loc_122D8`/`loc_156D6`
+  (sonic3k.asm:24449-24467, 29194-29209) all run
+  `MoveSprite_TestGravity2`/`ObjectMove`/`SpeedToPos` BEFORE
+  `Sonic_LevelBound`/`Tails_Check_Screen_Boundaries` for routine 4
+  (hurt). The engine's `PlayableSpriteMovement.modeAirborne` ran the
+  boundary check pre-move for both normal and hurt airborne paths,
+  which lost one frame of lateral motion against
+  `Camera_max_X_pos+$128` during hurt knockback. AIZ Mini-boss F7552
+  trace expected `tails_x=0x1208, tails_x_speed=0x0000` and engine
+  produced `tails_x=0x1207, tails_x_speed=0x0200` (off-by-one px,
+  one frame behind on the right-edge clamp). Engine now reorders
+  the hurt airborne path: `doObjectMoveAndFall` → underwater
+  gravity reduction → `updateSensors` → `doLevelCollision`
+  (Sonic_HurtStop equivalent) → `doLevelBoundary`. AIZ first-error
+  advances 7552 → 7660 (errors 977 → 975). CNZ first-error at F7919
+  unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
+- **CNZ F=621 Clamer re-fire — Touch_Special cprop latch landed (round 4).**
+  `ClamerObjectInstance` now models the ROM spring child's `(a0) =
+  loc_890AA -> loc_890C8 -> loc_890D0 -> loc_890AA` cycle (sonic3k.asm:185953-185973)
+  with a three-state machine (LIVE / COOLDOWN_DRAIN / COOLDOWN_DONE)
+  plus a `springCprop` boolean mirroring `collision_property(a0)`
+  (sonic3k.asm:21162-21194). Touch on a cooldown frame latches the
+  cprop byte; the next non-cooldown spring update consumes it and
+  fires (matches the ROM F=619/F=621 fire schedule recorded in the
+  v6.15-s3k CNZ aux events). Spring rect uses ROM-correct cflags
+  `$D7` (`$40 | $17`, 8x8) at all times -- the engine-only
+  `SPRING_RELATCH_COLLISION_FLAGS = $40 | $12` widening and the
+  `springReenableFrame` mechanism are removed. Adds
+  `usesS3kTouchSpecialPropertyResponse()` override so the engine
+  decoder routes `cflags=$D7` through SPECIAL via the
+  Touch_Special property index list (sonic3k.asm:21165-21194),
+  consistent with `CnzBalloonInstance`. `TestS3kCnzTraceReplay`
+  first error advances F7919 -> F7923; F=619-625 zero errors.
+  `TestS3kAizTraceReplay` first error stable at F7552. S1 GHZ /
+  S1 MZ1 / S2 EHZ trace replays GREEN. `TestClamerObjectInstance`
+  6/6 GREEN.
+
 - **Trace visualizer ghost characters.** Test-mode visual trace sessions now
   render grayscale, distance-faded ghost copies of the traced main character
   and first sidekick during desyncs. Ghosts hydrate only render state from the

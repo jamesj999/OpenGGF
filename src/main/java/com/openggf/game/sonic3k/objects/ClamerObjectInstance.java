@@ -36,21 +36,20 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseListener, TouchResponseAttackable {
 
     /*
-     * The ROM child uses collision_flags $D7. In the engine, $C0 category bits
-     * are still decoded as BOSS globally, so this object supplies SPECIAL bits
-     * directly. The initial touch uses the ROM size index $17. Re-hits after
-     * the child returns from loc_890C8 need to cover the previous-frame touch
-     * latch window used by Check_PlayerCollision; S3K Touch_Sizes[$12] is 8x16,
-     * which matches the observed Clamer spring re-hit in the CNZ trace.
+     * ROM Clamer spring child collision_flags = $D7 ($C0 | $17), set once at
+     * spawn by word_89136 (sonic3k.asm:185986+) and never modified. Size index
+     * $17 = 8x8 collision rect. The high $C0 bits would normally decode to
+     * BOSS in engine, but $17 is one of the Touch_Special property indices
+     * (sonic3k.asm:21165-21194), so usesS3kTouchSpecialPropertyResponse() = true
+     * routes the rect through SPECIAL with a cprop-style latch. This object
+     * exposes the rect with the ROM-correct $D7 flags every frame the spring
+     * is "in the response list" -- never widening to $12 (engine-only hack).
      */
     private static final int PARENT_COLLISION_FLAGS = 0x0A;
     private static final int SPRING_COLLISION_FLAGS = 0x40 | 0x17;
-    private static final int SPRING_RELATCH_COLLISION_FLAGS = 0x40 | 0x12;
     private static final int SPRING_OFFSET_Y = -8;
     private static final int LAUNCH_SPEED = 0x800;
     private static final int CLOSE_FRAMES = 10;
-    private static final int CHILD_REENABLE_DELAY_FRAMES = 1;
-    private static final int NO_REENABLE_FRAME = Integer.MIN_VALUE;
 
     /** ROM loc_88FEC: cmpi.w #$60, d2; bhs loc_8900C. */
     private static final int AUTO_CLOSE_DX_THRESHOLD = 0x60;
@@ -67,13 +66,46 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
             null
     );
 
+    /**
+     * Spring-child routine state, mirroring the ROM (a0) pointer cycle at
+     * sonic3k.asm:185953-185973. LIVE = loc_890AA (in list, can fire).
+     * COOLDOWN_DRAIN = loc_890C8 cooldown frame (NOT added to list).
+     * COOLDOWN_DONE = engine-only intermediate; (a0)=loc_890AA but slot was
+     * NOT in last frame list, so Sonic touch walk skips this slot and any
+     * latched collision_property survives across the frame boundary.
+     */
+    private enum SpringRoutine { LIVE, COOLDOWN_DRAIN, COOLDOWN_DONE }
+
     private final int currentX;
     private final int currentY;
     private final boolean facingRight;
 
     private int routine = ROUTINE_IDLE;
     private int mappingFrame;
-    private int springReenableFrame = NO_REENABLE_FRAME;
+    private SpringRoutine springRoutine = SpringRoutine.LIVE;
+    /**
+     * Mirrors ROM {@code collision_property(a0)} byte for the spring child
+     * (sonic3k.asm:21162-21194 + 179904-179924). Each in-range overlap during
+     * {@code Touch_Special} adds:
+     * <ul>
+     *   <li>+1 when the toucher is Player_1 (Sonic / primary character)
+     *   <li>+2 when the toucher is Player_2 (sidekick / Tails CPU)
+     * </ul>
+     * Then {@code Check_PlayerCollision} masks {@code & 3} and indexes into
+     * {@code word_85890} = [P1, P1, P2, P2]. So both players touching in the
+     * same frame (cprop=3) launches Player_2.
+     */
+    private int springCprop;
+    private boolean springInListLastFrame = true;
+    /**
+     * True when {@link #onTouchResponse} fired the spring during this engine
+     * frame touch phase. Recorded so the subsequent
+     * {@link #advanceSpringRoutine} call still simulates ROM
+     * {@code loc_890C4: jmp Child_DrawTouch_Sprite} (sonic3k.asm:185961-185962)
+     * which adds the slot to the response list AFTER the fire branch sets
+     * {@code (a0) = loc_890C8}.
+     */
+    private boolean firedDuringThisFramesTouch;
     private int lastObservedFrameCounter;
     private int closeTimer;
     private boolean destroyed;
@@ -92,10 +124,7 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
         }
         lastObservedFrameCounter = frameCounter;
 
-        // ROM Clamer_Index dispatch (sonic3k.asm:185860):
-        //     move.b routine(a0), d0
-        //     move.w Clamer_Index(pc, d0.w), d1
-        //     jsr    Clamer_Index(pc, d1.w)
+        // ROM Clamer_Index dispatch (sonic3k.asm:185860).
         switch (routine) {
             case ROUTINE_IDLE -> updateIdle(playerEntity);
             case ROUTINE_SNAP_SHUT -> updateSnapShut();
@@ -104,6 +133,139 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
                 // No-op for routine 0 (init runs once; we treat construction as init).
             }
         }
+
+        // Spring-child update mirrors ROM (a0)=loc_890AA / loc_890C8 / loc_890D0.
+        // ROM slot order runs Sonic (slot 0) BEFORE the spring child (slot 5),
+        // so this update sees collision_property already latched by the
+        // current frame Touch_Special walk. The engine mirrors that order by
+        // running player touch responses inside the per-player physics tick
+        // (LevelFrameStep step 2: physics) BEFORE this object update
+        // (LevelFrameStep step 3: objects).
+        advanceSpringRoutine(playerEntity);
+    }
+
+    /**
+     * Advances the ROM (a0) cycle and the Add_SpriteToCollisionResponseList
+     * timing (sonic3k.asm:185953-185973). Only loc_890AA reaches loc_890C4
+     * which jumps to Child_DrawTouch_Sprite (sonic3k.asm:178048-178053) --
+     * the only path that calls Add_SpriteToCollisionResponseList. The
+     * cooldown frame and its tail-call into loc_890D0 both return via plain
+     * rts, leaving the slot absent from the list for one frame. This is the
+     * exact mechanism that delays Sonic next overlap test by one frame,
+     * allowing the collision_property latch set during the cooldown frame to
+     * fire on the frame after the cooldown.
+     */
+    private void advanceSpringRoutine(PlayableEntity playerEntity) {
+        boolean addToList;
+        switch (springRoutine) {
+            case LIVE -> {
+                if (firedDuringThisFramesTouch) {
+                    // onTouchResponse already fired the spring this frame
+                    // (engine-side touch-phase handling). ROM loc_890AA still
+                    // jumps through loc_890C4 to Child_DrawTouch_Sprite after
+                    // the fire branch, so the slot remains in this frame list.
+                    // Transition to COOLDOWN_DRAIN to mirror the ROM
+                    // (a0)=loc_890C8 store.
+                    springRoutine = SpringRoutine.COOLDOWN_DRAIN;
+                } else if (springCprop != 0) {
+                    // ROM loc_890AA (sonic3k.asm:185953-185962): bsr.w
+                    // Check_PlayerCollision; beq.s loc_890C4 (no fire branch).
+                    // Non-zero collision_property -> Check_PlayerCollision
+                    // (sonic3k.asm:179904-179924) masks bits 0-1, indexes
+                    // word_85890 = [P1, P1, P2, P2] to pick the launch target,
+                    // then clears the byte. Reached when a latch survived
+                    // through cooldown into the post-cooldown LIVE state
+                    // without a touch-phase fire.
+                    AbstractPlayableSprite target = resolveCpropTarget(playerEntity);
+                    springCprop = 0;
+                    if (target != null) {
+                        fireSpring(target);
+                    }
+                    springRoutine = SpringRoutine.COOLDOWN_DRAIN;
+                }
+                // ROM loc_890C4: jmp Child_DrawTouch_Sprite is reached on
+                // both fire and no-fire branches.
+                addToList = true;
+            }
+            case COOLDOWN_DRAIN -> {
+                // ROM loc_890C8 (sonic3k.asm:185965-185968): subq.w #1, $2E(a0);
+                // bmi.s loc_890D0; rts. Both paths skip Child_DrawTouch_Sprite,
+                // so the slot is NOT added to the list this frame.
+                springRoutine = SpringRoutine.COOLDOWN_DONE;
+                addToList = false;
+            }
+            case COOLDOWN_DONE -> {
+                // Engine-only intermediate state. Sonic touch walk this frame
+                // did NOT see the spring slot (springInListLastFrame was
+                // false going into touch), so collision_property survives.
+                // If the latch is set from the prior cooldown frame touch
+                // walk, fire now -- this is the F=621 fire in the trace.
+                if (springCprop != 0) {
+                    AbstractPlayableSprite target = resolveCpropTarget(playerEntity);
+                    springCprop = 0;
+                    if (target != null) {
+                        fireSpring(target);
+                    }
+                    springRoutine = SpringRoutine.COOLDOWN_DRAIN;
+                } else {
+                    springRoutine = SpringRoutine.LIVE;
+                }
+                addToList = true;
+            }
+            default -> addToList = false;
+        }
+        springInListLastFrame = addToList && !destroyed;
+        firedDuringThisFramesTouch = false;
+    }
+
+    /**
+     * ROM Check_PlayerCollision (sonic3k.asm:179904-179924):
+     * <pre>
+     *     move.b  collision_property(a0),d0
+     *     beq.s   locret_8588E
+     *     clr.b   collision_property(a0)
+     *     andi.w  #3,d0
+     *     add.w   d0,d0
+     *     lea     word_85890(pc),a1   ; [P1, P1, P2, P2]
+     *     movea.w (a1,d0.w),a1
+     * </pre>
+     * cprop bit pattern (& 3):
+     * <ul>
+     *   <li>1 -> P1 (Sonic touched alone)
+     *   <li>2 -> P2 (Tails touched alone)
+     *   <li>3 -> P2 (both touched same frame; sidekick wins)
+     *   <li>0 -> caller already returned no-fire
+     * </ul>
+     * The engine resolves "P2" via {@link ObjectServices#sidekicks()};
+     * "P1" is the {@code playerEntity} passed into {@code update()}.
+     */
+    private AbstractPlayableSprite resolveCpropTarget(PlayableEntity primary) {
+        int sel = springCprop & 3;
+        if (sel == 1) {
+            return (primary instanceof AbstractPlayableSprite p) ? p : null;
+        }
+        if (sel == 2 || sel == 3) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
+                if (sidekick instanceof AbstractPlayableSprite p) {
+                    return p;
+                }
+            }
+            // No sidekick available: fall back to the primary so the launch
+            // still happens (mirrors solo-mode where ROM never reaches d0=2).
+            return (primary instanceof AbstractPlayableSprite p) ? p : null;
+        }
+        return null;
+    }
+
+    private void fireSpring(AbstractPlayableSprite player) {
+        // ROM loc_890AA fire branch (sonic3k.asm:185955-185959):
+        //     move.l #loc_890C8, (a0)
+        //     bsr.w  sub_890D8           (apply launch velocities)
+        //     movea.w parent3(a0), a1
+        //     bset   #0, $38(a1)         (signal parent snap-shut)
+        applySpringLaunch(player);
+        closeTimer = CLOSE_FRAMES;
+        routine = ROUTINE_SNAP_SHUT;
     }
 
     /**
@@ -216,39 +378,82 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean usesS3kTouchSpecialPropertyResponse() {
+        // ROM Touch_ChkValue (sonic3k.asm:20773-20778) routes objects with
+        // collision_flags high bits = $C0 to Touch_Special. The spring child
+        // uses cflags = $D7 (size $17), which is one of the Touch_Special
+        // property indices (sonic3k.asm:21165-21194). Without this hook the
+        // engine decoder maps $C0 to BOSS, blocking SPECIAL dispatch.
+        return true;
+    }
+
+    @Override
     public TouchRegion[] getMultiTouchRegions() {
         if (destroyed) {
             return new TouchRegion[0];
         }
 
         TouchRegion parent = new TouchRegion(currentX, currentY, getCollisionFlags());
-        // ROM loc_890AA (the spring child) runs independently of the parent's
-        // routine, so the child's collision box stays active across routines
-        // 0x02 / 0x04 / 0x06. Only the local post-fire cooldown disables it.
-        if (!isSpringCollisionActive(currentFrameCounter())) {
+        // The spring rect is exposed only when the spring slot was in the
+        // ROM Collision_response_list at the end of the previous frame.
+        // ROM Process_Sprites (sonic3k.asm:35965+) runs slot 3
+        // (Reserved_object_3 / Obj_ResetCollisionResponseList,
+        // sonic3k.asm:8467) which clears the list before slots 4+ repopulate
+        // it, but slot 0 (Sonic) reads the list before the clear. So Sonic
+        // touch walk at frame F sees slot 5 last-frame list state -- only
+        // present when loc_890AA ran during F-1.
+        if (!springInListLastFrame) {
             return new TouchRegion[] { parent };
         }
 
-        TouchRegion spring = new TouchRegion(currentX, currentY + SPRING_OFFSET_Y, currentSpringCollisionFlags());
+        TouchRegion spring = new TouchRegion(currentX, currentY + SPRING_OFFSET_Y, SPRING_COLLISION_FLAGS);
         return new TouchRegion[] { parent, spring };
     }
 
     @Override
     public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
         lastObservedFrameCounter = frameCounter;
-        if (!isSpringCollisionActive(frameCounter)
-                || result.category() != TouchCategory.SPECIAL
+        if (result.category() != TouchCategory.SPECIAL
                 || !(playerEntity instanceof AbstractPlayableSprite player)) {
             return;
         }
 
-        // ROM loc_890AA (sonic3k.asm:185953-185962): spring child fires on
-        // player collision, then sets bit 0 of $38 on parent. Parent's
-        // loc_88FEC then transitions to routine 0x04 on next tick.
-        springReenableFrame = frameCounter + CHILD_REENABLE_DELAY_FRAMES;
-        closeTimer = CLOSE_FRAMES;
-        routine = ROUTINE_SNAP_SHUT; // loc_89014
-        applySpringLaunch(player);
+        // ROM Touch_Special (sonic3k.asm:21162-21194) increments
+        // collision_property(a1) for size index $17 on every overlap. The
+        // increment is +1 for Player_1 (main character) and +2 for Player_2
+        // (sidekick), so the byte encodes which character(s) touched this
+        // frame. Check_PlayerCollision inside loc_890AA later masks bits 0-1
+        // and indexes word_85890 = [P1, P1, P2, P2] to pick the launch target.
+        int incr = player.isCpuControlled() ? 2 : 1;
+        if (springRoutine == SpringRoutine.LIVE && !firedDuringThisFramesTouch) {
+            // Engine ordering: this touch response runs inside the player
+            // physics tick (LevelFrameStep step 2), one phase BEFORE the
+            // spring update (step 3). To match the same-frame fire seen in
+            // ROM at loc_890AA, fire here directly. The state transition to
+            // COOLDOWN_DRAIN happens during this frame advanceSpringRoutine
+            // call, which also sets springInListLastFrame=true to mirror the
+            // ROM loc_890C4 -> Child_DrawTouch_Sprite tail call after the
+            // fire branch.
+            //
+            // ROM Check_PlayerCollision clears the cprop byte before applying
+            // the launch (sonic3k.asm:179907), so we mirror that: a same-frame
+            // immediate fire CONSUMES the byte rather than latching it. A
+            // subsequent same-frame Touch_Special hit (e.g. the OTHER player
+            // also touching) will then re-set the byte for the NEXT
+            // post-cooldown frame fire. The actual launch is applied to the
+            // toucher (matching ROM word_85890[d0] resolution when only one
+            // character has touched so far this frame).
+            springCprop = 0;
+            fireSpring(player);
+            firedDuringThisFramesTouch = true;
+            return;
+        }
+        // Cooldown frames (COOLDOWN_DRAIN / COOLDOWN_DONE), or a same-frame
+        // touch that came in after the immediate fire, latch the cprop byte
+        // without firing. The fire happens during the next non-cooldown
+        // update phase, mirroring the ROM Touch_Special -> next-frame
+        // loc_890AA -> Check_PlayerCollision sequence.
+        springCprop = (springCprop + incr) & 0xFF;
     }
 
     @Override
@@ -262,24 +467,6 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
         setDestroyed(true);
         DestructionEffects.destroyBadnik(
                 currentX, currentY, spawn, mySlot, playerEntity, services(), S3K_DESTRUCTION_CONFIG);
-    }
-
-    private boolean isSpringCollisionActive(int frameCounter) {
-        return springReenableFrame == NO_REENABLE_FRAME || frameCounter >= springReenableFrame;
-    }
-
-    private int currentSpringCollisionFlags() {
-        return springReenableFrame == NO_REENABLE_FRAME
-                ? SPRING_COLLISION_FLAGS
-                : SPRING_RELATCH_COLLISION_FLAGS;
-    }
-
-    private int currentFrameCounter() {
-        ObjectServices svc = tryServices();
-        if (svc != null && svc.levelManager() != null) {
-            return svc.levelManager().getFrameCounter();
-        }
-        return lastObservedFrameCounter;
     }
 
     private void applySpringLaunch(AbstractPlayableSprite player) {

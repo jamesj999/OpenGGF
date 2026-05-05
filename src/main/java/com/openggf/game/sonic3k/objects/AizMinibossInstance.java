@@ -10,6 +10,7 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
 import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
+import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
@@ -59,6 +60,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int HOLD_TIME = 0x10;
     private static final int HORIZONTAL_CYCLE_COUNT = 4;    // ROM: move.b #4,$39(a0)
     private static final int INVULN_TIME = 0x20;
+    private static final int FATAL_HIT_DEFEAT_DELAY = 13;
+    private static final int TITLE_EXIT_CAMERA_RELEASE_FRAME = 8;
 
     private static final int FLAG_PARENT_BITS = 0x38;
     private static final int FLAG_PARENT_COUNTER = 0x39;
@@ -86,6 +89,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     /** Callback for when the current horizontal swing count expires. */
     private Runnable horizontalCallback;
     private boolean defeatRenderComplete;
+    private int pendingDefeatTimer = -1;
+    private boolean levelEndUnlockStarted;
 
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
     private S3kBossExplosionController defeatExplosionController;
@@ -102,6 +107,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         waitCallback = null;
         horizontalCallback = null;
         defeatRenderComplete = false;
+        pendingDefeatTimer = -1;
+        levelEndUnlockStarted = false;
         defeatExplosionController = null;
     }
 
@@ -137,7 +144,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     @Override
     public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (state.invulnerable || state.defeated) {
             return;
         }
@@ -151,10 +157,20 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
         if (state.hitCount <= 0) {
             state.hitCount = 0;
-            state.defeated = true;
-            services().gameState().addScore(1000);
-            onDefeatStarted();
+            // ROM loc_68F62 enters the defeat branch from the boss object's
+            // own collision_property poll after the fatal touch response has
+            // cleared collision_flags. The parent remains live for the
+            // intervening frames, which preserves the AIZ arena-edge contact
+            // seen in the trace before Wait_FadeToLevelMusic starts.
+            pendingDefeatTimer = FATAL_HIT_DEFEAT_DELAY;
         }
+    }
+
+    private void triggerPendingDefeat() {
+        pendingDefeatTimer = -1;
+        state.defeated = true;
+        services().gameState().addScore(1000);
+        onDefeatStarted();
     }
 
     @Override
@@ -193,6 +209,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
     @Override
     protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        maintainArenaCameraLock();
+        if (pendingDefeatTimer >= 0) {
+            pendingDefeatTimer--;
+            if (pendingDefeatTimer < 0) {
+                triggerPendingDefeat();
+            }
+            updateCustomFlash();
+        }
         switch (state.routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_WAIT_TRIGGER -> updateWaitTrigger();
@@ -254,12 +278,70 @@ public class AizMinibossInstance extends AbstractBossInstance {
             return;
         }
 
-        camera.setMinX((short) triggerX);
-        camera.setMaxX((short) triggerX);
+        lockArenaCamera(triggerX);
         services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
         setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
+    }
+
+    private void maintainArenaCameraLock() {
+        if (state.routine < ROUTINE_WAIT) {
+            return;
+        }
+        int triggerX = currentPlayerCharacter() == PlayerCharacter.KNUCKLES
+                ? TRIGGER_X_KNUCKLES
+                : TRIGGER_X;
+        if (levelEndUnlockStarted || shouldReleaseArenaForAct2TitleExit()) {
+            levelEndUnlockStarted = true;
+            updateLevelEndCameraUnlock(triggerX);
+            return;
+        }
+        lockArenaCamera(triggerX);
+    }
+
+    private boolean shouldReleaseArenaForAct2TitleExit() {
+        if (!state.defeated || !defeatRenderComplete) {
+            return false;
+        }
+        if (services().titleCardProvider() instanceof Sonic3kTitleCardManager titleCard) {
+            return titleCard.isInLevelExitPhaseFor(0, 1)
+                    && titleCard.getExitPhaseCounter() >= TITLE_EXIT_CAMERA_RELEASE_FRAME;
+        }
+        return false;
+    }
+
+    private void updateLevelEndCameraUnlock(int triggerX) {
+        var camera = services().camera();
+        int storedMax = services().currentLevel() != null
+                ? services().currentLevel().getMaxX()
+                : triggerX;
+
+        // ROM Obj_IncLevEndXGradual (sonic3k.asm:178154-178169) widens
+        // Camera_max_X_pos during the post-results title-card exit. Keep the
+        // AIZ left wall fixed, but stop clamping the right side once that
+        // control object begins advancing the max boundary.
+        camera.setMinX((short) triggerX);
+        if ((camera.getMaxX() & 0xFFFF) > storedMax) {
+            // ROM loc_84A6A stores Camera_stored_max_X_pos, then deletes the
+            // gradual level-end object (docs/skdisasm/sonic3k.asm:178165-178169).
+            // If a later AIZ event has already widened the camera farther
+            // (Obj_AIZ2BossSmall writes $6000 at sonic3k.asm:105602), this
+            // stale controller must not clamp it back to the old stored max.
+            setDestroyed(true);
+            return;
+        }
+        camera.setMaxX((short) storedMax);
+    }
+
+    private void lockArenaCamera(int triggerX) {
+        var camera = services().camera();
+        // ROM loc_68556 (sonic3k.asm:136774-136780) writes both
+        // Camera_min_X_pos and Camera_max_X_pos to d5 before the miniboss wait
+        // and fight routines. Reasserting preserves that lock across the
+        // engine's seamless AIZ1->AIZ2 reload bookkeeping.
+        camera.setMinX((short) triggerX);
+        camera.setMaxX((short) triggerX);
     }
 
     private void onInitialDelayComplete() {
@@ -608,6 +690,28 @@ public class AizMinibossInstance extends AbstractBossInstance {
     public boolean isHighPriority() {
         // ROM: make_art_tile(ArtTile_AIZMiniboss,1,1) — priority bit = 1
         return true;
+    }
+
+    @Override
+    public String traceDebugDetails() {
+        var camera = services().camera();
+        var gameState = services().gameState();
+        return String.format("r=%02X hp=%d inv=%s it=%d wait=%d pend=%d def=%s done=%s exp=%s boss=%04X end=%s flag=%s cam=%04X min=%04X max=%04X",
+                state.routine & 0xFF,
+                state.hitCount,
+                state.invulnerable,
+                state.invulnerabilityTimer,
+                waitTimer,
+                pendingDefeatTimer,
+                state.defeated,
+                defeatRenderComplete,
+                defeatExplosionController == null || defeatExplosionController.isFinished(),
+                gameState.getCurrentBossId(),
+                gameState.isEndOfLevelActive(),
+                gameState.isEndOfLevelFlag(),
+                camera.getX() & 0xFFFF,
+                camera.getMinX() & 0xFFFF,
+                camera.getMaxX() & 0xFFFF);
     }
 
     @Override

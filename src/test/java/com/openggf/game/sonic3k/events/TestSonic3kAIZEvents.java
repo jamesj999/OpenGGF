@@ -16,6 +16,7 @@ import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
+import com.openggf.game.sonic3k.objects.AizCollapsingLogBridgeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizEndBossInstance;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.io.IOException;
@@ -174,6 +176,28 @@ public class TestSonic3kAIZEvents {
 
         assertEquals(0x2D80, camera.getMinX() & 0xFFFF,
                 "AIZ1_Resize loc_1C594 writes Camera_min_X_pos=$2D80 at the fire palette gate");
+    }
+
+    @Test
+    public void bossSmallCompletionReleasesBattleshipScrollLockFreeze() throws Exception {
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x4640);
+        camera.setMinX((short) 0x4640);
+        camera.setMaxX((short) 0x4640);
+        camera.setFrozen(false);
+
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        setPrivateBoolean(events, "battleshipAutoScrollActive", true);
+
+        events.updatePrePhysics(1);
+        assertTrue(camera.getFrozen(), "AIZ2_DoShipLoop Scroll_lock should suppress the normal camera follow step");
+
+        events.onBossSmallComplete();
+
+        assertFalse(camera.getFrozen(),
+                "Obj_AIZ2BossSmall clears Scroll_lock before writing Camera_max_X_pos=$6000");
+        assertEquals(0x6000, camera.getMaxX() & 0xFFFF,
+                "Obj_AIZ2BossSmall loc_50720 writes Camera_max_X_pos=$6000 on exit");
     }
 
     @Test
@@ -767,6 +791,32 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void aiz2PostBombingShipLoopWrapsCameraAndPlayersByRomDistance() throws Exception {
+        Camera camera = GameServices.camera();
+        Sonic3kAIZEvents.resetGlobalState();
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(1);
+        setPrivateBoolean(events, "battleshipAutoScrollActive", true);
+        events.onBattleshipComplete();
+
+        AbstractPlayableSprite sonic = fixture.sprite();
+        camera.setFocusedSprite(sonic);
+        camera.setX((short) 0x46BC);
+        camera.setMinX((short) 0x46BC);
+        camera.setMaxX((short) 0x46BC);
+        sonic.setCentreXPreserveSubpixel((short) 0x4762);
+
+        events.updatePrePhysics(1);
+
+        assertEquals(0x44C0, camera.getX() & 0xFFFF,
+                "AIZ2_DoShipLoop subtracts $200 from Camera_X_pos when Events_bg+$02=$46C0");
+        assertEquals(0x4560, sonic.getCentreX() & 0xFFFF,
+                "sub_50318 clamps the $200-wrapped player to Camera_X_pos+$A0 before movement");
+        assertEquals(0x200, events.getLevelRepeatOffset(),
+                "ROM Level_repeat_offset remains $200 on post-bombing AIZ2 ship-loop wraps");
+    }
+
+    @Test
     public void aiz2EndBossSpawnsFromEventsAtSonicWaterfallLock() {
         HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
                 .withZoneAndAct(0, 1)
@@ -787,6 +837,73 @@ public class TestSonic3kAIZEvents {
         assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
                         .anyMatch(AizEndBossInstance.class::isInstance),
                 "AIZ2 end-boss handoff should create the live Robotnik boss object at the waterfall");
+    }
+
+    @Test
+    public void aiz2EndBossLockKeepsFireLogBridgeLiveForArenaEntry() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4860, (short) 0x015A)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1, false);
+
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(object -> object instanceof AizCollapsingLogBridgeObjectInstance
+                                && object.getX() == 0x48E0
+                                && object.getY() == 0x0218),
+                "ROM Obj_AIZCollapsingLogBridge loc_2AEE2 stays live at $48E0,$0218 and calls SolidObjectTop");
+    }
+
+    @Test
+    public void aiz2FireLogBridgeSupportsSonicAtTraceArenaEntryPoint() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4880, (short) 0x01FC)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+        aiz2.sprite().setXSpeed((short) 0x0600);
+        aiz2.sprite().setGSpeed((short) 0x0600);
+        aiz2.sprite().setAir(false);
+        aiz2.sprite().setOnObject(false);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1,
+                false, true, true);
+        aiz2.sprite().setCentreXPreserveSubpixel((short) 0x4880);
+        aiz2.sprite().setCentreYPreserveSubpixel((short) 0x01FC);
+        aiz2.sprite().setXSpeed((short) 0x0600);
+        aiz2.sprite().setGSpeed((short) 0x0600);
+        aiz2.sprite().setAir(false);
+        aiz2.sprite().setOnObject(false);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1,
+                false, true, true);
+
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(object -> object instanceof AizCollapsingLogBridgeObjectInstance
+                                && object.getX() == 0x48E0
+                                && object.getY() == 0x0218),
+                "The fire log bridge must be active before checking its SolidObjectTop contact");
+        assertTrue(aiz2.sprite().isOnObject(),
+                "ROM loc_2AEE2 calls SolidObjectTop and sets Status_OnObj for Sonic at $4880,$01FC");
     }
 
     @Test
@@ -915,5 +1032,11 @@ public class TestSonic3kAIZEvents {
                 throw new AssertionError(message + " at index " + i);
             }
         }
+    }
+
+    private static void setPrivateBoolean(Object target, String fieldName, boolean value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setBoolean(target, value);
     }
 }

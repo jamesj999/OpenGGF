@@ -71,11 +71,8 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public void setCentreY(short y) {
-		short beforeY = this.yPixel;
-		short beforeCentreY = getCentreY();
 		this.yPixel = (short) (y - (height / 2));
 		this.ySubpixel = (short) 0;
-		traceS3kAizYProbe("setCentreY", beforeY, beforeCentreY);
 	}
 
 	/**
@@ -93,10 +90,7 @@ public abstract class AbstractSprite implements Sprite {
 	 * the low 16-bit subpixel field.
 	 */
 	public void setCentreYPreserveSubpixel(short y) {
-		short beforeY = this.yPixel;
-		short beforeCentreY = getCentreY();
 		this.yPixel = (short) (y - (height / 2));
-		traceS3kAizYProbe("setCentreYPreserveSubpixel", beforeY, beforeCentreY);
 	}
 
 	public final short getX() {
@@ -147,66 +141,9 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public final void setY(short y) {
-		short beforeY = this.yPixel;
-		short beforeCentreY = getCentreY();
 		this.yPixel = y;
 		// ROM-accurate: move.w to y_pos does not touch y_sub.
 		// Subpixel fraction is preserved across position updates.
-		traceS3kAizYProbe("setY", beforeY, beforeCentreY);
-	}
-
-	private void traceS3kAizYProbe(String op, short beforeY, short beforeCentreY) {
-		if (!Boolean.getBoolean("s3k.aiz.yprobe")) {
-			return;
-		}
-		if (!(this instanceof com.openggf.sprites.playable.AbstractPlayableSprite)) {
-			return;
-		}
-		com.openggf.level.LevelManager levelManager = com.openggf.game.GameServices.level();
-		if (levelManager == null || levelManager.getObjectManager() == null) {
-			return;
-		}
-		int frameCounter = levelManager.getObjectManager().getFrameCounter();
-		int beforeCentreX = getCentreX() & 0xFFFF;
-		int afterCentreX = getCentreX() & 0xFFFF;
-		int afterCentreY = getCentreY() & 0xFFFF;
-		int minY = Integer.getInteger("s3k.aiz.yprobe.minY", 0x0380);
-		int minX = Integer.getInteger("s3k.aiz.yprobe.minX", 0x1900);
-		int maxX = Integer.getInteger("s3k.aiz.yprobe.maxX", 0x1990);
-		if (Math.max(beforeCentreX, afterCentreX) < minX
-				|| Math.min(beforeCentreX, afterCentreX) > maxX
-				|| Math.max(beforeCentreY & 0xFFFF, afterCentreY) < minY
-				|| Math.min(beforeCentreY & 0xFFFF, afterCentreY) > 0x03E0) {
-			return;
-		}
-		if (beforeY == this.yPixel && beforeCentreY == getCentreY()) {
-			return;
-		}
-		StackTraceElement caller = null;
-		StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-		for (StackTraceElement element : stack) {
-			String className = element.getClassName();
-			if (!className.equals(AbstractSprite.class.getName())
-					&& !className.equals(Thread.class.getName())) {
-				caller = element;
-				break;
-			}
-		}
-		String callerSummary = caller == null
-				? "<unknown>"
-				: caller.getClassName() + "#" + caller.getMethodName() + ":" + caller.getLineNumber();
-		System.out.printf(
-				"s3k-aiz-yprobe frame=%d caller=%s op=%s centre=(%04X,%04X)->(%04X,%04X) y=%04X->%04X sub=%04X%n",
-				frameCounter,
-				callerSummary,
-				op,
-				beforeCentreX,
-				beforeCentreY & 0xFFFF,
-				getCentreX() & 0xFFFF,
-				afterCentreY,
-				beforeY & 0xFFFF,
-				this.yPixel & 0xFFFF,
-				this.ySubpixel & 0xFFFF);
 	}
 
 	/**
@@ -225,10 +162,7 @@ public abstract class AbstractSprite implements Sprite {
 	 * subpixel fraction. Used by platform riding code.
 	 */
 	public final void shiftY(int delta) {
-		short beforeY = this.yPixel;
-		short beforeCentreY = getCentreY();
 		this.yPixel += delta;
-		traceS3kAizYProbe("shiftY(" + delta + ")", beforeY, beforeCentreY);
 	}
 
 	public final void move(short xSpeed, short ySpeed) {
@@ -246,12 +180,8 @@ public abstract class AbstractSprite implements Sprite {
 		xPixel = (short) (xPos >> 16);
 		xSubpixel = (short) (xPos & 0xFFFF);
 
-		short beforeY = yPixel;
-		short beforeCentreY = getCentreY();
 		yPixel = (short) (yPos >> 16);
 		ySubpixel = (short) (yPos & 0xFFFF);
-		traceS3kAizYProbe(String.format("move(%04X,%04X)", xSpeed & 0xFFFF, ySpeed & 0xFFFF),
-				beforeY, beforeCentreY);
 	}
 
 	public int getWidth() {
@@ -267,11 +197,7 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public void setHeight(int height) {
-		int beforeHeight = this.height;
-		short beforeY = this.yPixel;
-		short beforeCentreY = getCentreY();
 		this.height = height;
-		traceS3kAizYProbe("setHeight(" + beforeHeight + "->" + height + ")", beforeY, beforeCentreY);
 	}
 
 	public float getGravity() {

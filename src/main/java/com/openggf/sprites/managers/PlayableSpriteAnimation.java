@@ -44,6 +44,9 @@ public class PlayableSpriteAnimation {
         SpriteAnimationProfile profile = sprite.getAnimationProfile();
         if (sprite.getAnimationSet() != null && !sprite.getAnimationSet().getAllScripts().isEmpty()) {
             int forced = sprite.getForcedAnimationId();
+            if (forced < 0 && profile instanceof ScriptedVelocityAnimationProfile velocityProfile) {
+                clearPushForIdleToWalkAnimationChange(velocityProfile);
+            }
             // Both branches must be Integer (not int) so null from resolveAnimationId
             // doesn't trigger auto-unboxing NPE via JLS ternary type inference.
             Integer desiredAnimId = forced >= 0
@@ -413,4 +416,25 @@ public class PlayableSpriteAnimation {
         sprite.setAnimationTick(0);
         lastAnimationId = sprite.getAnimationId();
     }
+
+    private void clearPushForIdleToWalkAnimationChange(ScriptedVelocityAnimationProfile profile) {
+        if (!sprite.getPushing()
+                || sprite.getAir()
+                || sprite.getRolling()
+                || !sprite.isMovementInputActive()
+                || sprite.getAnimationId() != profile.getIdleAnimId()) {
+            return;
+        }
+        if (sprite.getPhysicsFeatureSet() == null
+                || !sprite.getPhysicsFeatureSet().animationChangeClearsPush()) {
+            return;
+        }
+        // S2/S3K Tails/Sonic MoveRight/MoveLeft write anim=Walk after accepting
+        // ground input (S3K Tails right: sonic3k.asm:28103-28122). If the later
+        // wall-probe sets Status_Push in that same tick, Animate_Tails2P still
+        // compares anim=Walk against the previous idle anim and clears Status_Push
+        // before selecting frames (sonic3k.asm:29681-29686; s2.asm:40879-40884).
+        sprite.setPushing(false);
+    }
+
 }

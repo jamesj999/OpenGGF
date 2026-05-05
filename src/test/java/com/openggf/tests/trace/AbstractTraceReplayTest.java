@@ -672,7 +672,7 @@ public abstract class AbstractTraceReplayTest {
                     continue;
                 }
                 ObjectSpawn spawn = aoi.getSpawn();
-                if (spawn == null || spawn.objectId() == 0) {
+                if (spawn == null) {
                     continue;
                 }
                 int currentX = aoi.getX();
@@ -705,12 +705,97 @@ public abstract class AbstractTraceReplayTest {
             nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
             solidEvent = combineDiagnostics(solidEvent,
                     EngineNearbyObjectFormatter.summarise(nearbyObjects));
+            solidEvent = combineDiagnostics(solidEvent, summariseSidekickStateDiagnostics(om));
+            solidEvent = combineDiagnostics(solidEvent, summariseSidekickNearbyObjects(om));
             solidEvent = combineDiagnostics(solidEvent, summariseSidekickCpuDiagnostics());
             solidEvent = combineDiagnostics(solidEvent, summariseSidekickCylinderDiagnostics(om));
         }
 
         return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
                 cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, solidEvent, xSub, ySub);
+    }
+
+    private String summariseSidekickStateDiagnostics(ObjectManager om) {
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getRegisteredSidekicks().isEmpty()) {
+            return "eng-tails-state none sidekick=missing";
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getRegisteredSidekicks().getFirst();
+        int standOnSlot = -1;
+        int standOnType = -1;
+        ObjectInstance ridingObj = om.getRidingObject(sidekick);
+        if (ridingObj instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= 0) {
+            standOnSlot = aoi.getSlotIndex();
+            standOnType = aoi.getSpawn() != null ? aoi.getSpawn().objectId() : -1;
+        }
+        var cam = sidekick.currentCamera();
+        int camMinY = cam != null ? cam.getMinY() & 0xFFFF : -1;
+        int camMaxY = cam != null ? cam.getMaxY() & 0xFFFF : -1;
+        int camMaxYTarget = cam != null ? cam.getMaxYTarget() & 0xFFFF : -1;
+        int cpuMaxY = sidekick.getCpuController() != null
+                ? sidekick.getCpuController().getMaxYBound(camMaxY) & 0xFFFF
+                : -1;
+        return String.format(
+                "eng-tails-state pos=(%04X,%04X) sub=(%04X,%04X) onObj=%s ride=s%d type=%02X st=%02X boundsY=%04X/%04X/%04X cpuMax=%04X",
+                sidekick.getCentreX() & 0xFFFF,
+                sidekick.getCentreY() & 0xFFFF,
+                sidekick.getXSubpixelRaw() & 0xFFFF,
+                sidekick.getYSubpixelRaw() & 0xFFFF,
+                sidekick.isOnObject(),
+                standOnSlot,
+                standOnType & 0xFF,
+                buildStatusByte(sidekick),
+                camMinY,
+                camMaxY,
+                camMaxYTarget,
+                cpuMaxY);
+    }
+
+    private String summariseSidekickNearbyObjects(ObjectManager om) {
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getRegisteredSidekicks().isEmpty()) {
+            return "eng-tails-near none sidekick=missing";
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getRegisteredSidekicks().getFirst();
+        List<EngineNearbyObject> nearbyObjects = new ArrayList<>();
+        for (ObjectInstance instance : om.getActiveObjects()) {
+            if (!(instance instanceof AbstractObjectInstance aoi)) {
+                continue;
+            }
+            ObjectSpawn spawn = aoi.getSpawn();
+            if (spawn == null) {
+                continue;
+            }
+            int currentX = aoi.getX();
+            int currentY = aoi.getY();
+            int dx = Math.abs(currentX - sidekick.getCentreX());
+            int dy = Math.abs(currentY - sidekick.getCentreY());
+            if (dx > 192 || dy > 192) {
+                continue;
+            }
+            TouchResponseProvider provider =
+                    instance instanceof TouchResponseProvider trp ? trp : null;
+            nearbyObjects.add(new EngineNearbyObject(
+                    aoi.getSlotIndex(),
+                    spawn.objectId(),
+                    aoi.getName(),
+                    currentX,
+                    currentY,
+                    spawn.x(),
+                    spawn.y(),
+                    provider != null,
+                    provider != null ? provider.getCollisionFlags() : -1,
+                    provider != null ? aoi.getPreUpdateCollisionFlags() : -1,
+                    aoi.getPreUpdateX(),
+                    aoi.getPreUpdateY(),
+                    aoi.isSkipTouchThisFrame(),
+                    aoi.isSkipSolidContactThisFrame(),
+                    aoi.isOnScreenForTouch(),
+                    aoi.traceDebugDetails()));
+        }
+        nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
+        String summary = EngineNearbyObjectFormatter.summarise(nearbyObjects);
+        return summary.isEmpty() ? "eng-tails-near none" : "eng-tails-near " + summary;
     }
 
     private String summariseSidekickCylinderDiagnostics(ObjectManager om) {
@@ -743,9 +828,7 @@ public abstract class AbstractTraceReplayTest {
             parts = new ArrayList<>(parts.subList(0, 4));
         }
         if (parts.isEmpty()) {
-            return String.format("eng-tails-cyl none sidekick=@%04X,%04X",
-                    sidekick.getCentreX() & 0xFFFF,
-                    sidekick.getCentreY() & 0xFFFF);
+            return "eng-tails-cyl none";
         }
         return String.join(" | ", parts);
     }
@@ -760,6 +843,19 @@ public abstract class AbstractTraceReplayTest {
             return "eng-tails-cpu none controller=missing";
         }
         return sidekick.getCpuController().formatLatestNormalStepDiagnostics();
+    }
+
+    private int buildStatusByte(AbstractPlayableSprite sprite) {
+        int statusByte = 0;
+        if (sprite.getDirection() == com.openggf.physics.Direction.LEFT) {
+            statusByte |= 0x01;
+        }
+        if (sprite.getAir()) statusByte |= 0x02;
+        if (sprite.getRolling()) statusByte |= 0x04;
+        if (sprite.isOnObject()) statusByte |= 0x08;
+        if (sprite.getPushing()) statusByte |= 0x20;
+        if (sprite.isInWater()) statusByte |= 0x40;
+        return statusByte;
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {

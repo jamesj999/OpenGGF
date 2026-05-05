@@ -163,6 +163,10 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.PositionWrite.class)) {
             missing.add("position_write_per_frame");
         }
+        if (metadata.hasPerFrameAizShipLoop()
+                && !hasEventOfType(TraceEvent.AizShipLoop.class)) {
+            missing.add("aiz_ship_loop_per_frame");
+        }
         if (metadata.hasPerFrameTailsCpuNormalStep()
                 && !hasEventOfType(TraceEvent.TailsCpuNormalStep.class)) {
             missing.add("tails_cpu_normal_step_per_frame");
@@ -387,6 +391,20 @@ public class TraceData {
             if (event instanceof TraceEvent.PositionWrite pw
                     && characterCode.equalsIgnoreCase(pw.character())) {
                 return pw;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the focused AIZ ship-loop execution diagnostic for the requested
+     * frame, or {@code null} when absent.
+     */
+    public TraceEvent.AizShipLoop aizShipLoopForFrame(int frame) {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.AizShipLoop shipLoop) {
+                return shipLoop;
             }
         }
         return null;

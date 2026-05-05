@@ -59,6 +59,7 @@ import com.openggf.game.save.SaveReason;
 import com.openggf.game.save.SessionSaveRequests;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.SessionManager;
+import com.openggf.testmode.TraceCameraFocusController;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -174,6 +175,9 @@ public class GameLoop {
     // Listener for game mode changes (used by Engine to update projection)
     private GameModeChangeListener gameModeChangeListener;
 
+    // Optional trace camera focus controller — ticked at the top of every stepInternal()
+    private TraceCameraFocusController traceCameraFocusController;
+
     /**
      * Callback interface for game mode changes.
      */
@@ -236,6 +240,19 @@ public class GameLoop {
     private void refreshRuntimeBindings() {
         GameRuntime currentRuntime = runtime != null ? runtime : RuntimeManager.getCurrent(engineServices);
         if (currentRuntime == null) {
+            // Runtime has been torn down (e.g. trace teardown returning to
+            // master title). Clear cached references so resolveFadeManager()
+            // falls back to the graphics-owned bootstrap manager rather than
+            // a destroyed runtime FadeManager that the UI pipeline no longer
+            // ticks — which would otherwise leave fade callbacks orphaned.
+            this.runtime = null;
+            this.spriteManager = null;
+            this.camera = null;
+            this.timerManager = null;
+            this.levelManager = null;
+            this.gameState = null;
+            this.fadeManager = null;
+            this.waterSystem = null;
             return;
         }
         this.runtime = currentRuntime;
@@ -308,6 +325,10 @@ public class GameLoop {
 
     public void setGameModeChangeListener(GameModeChangeListener listener) {
         this.gameModeChangeListener = listener;
+    }
+
+    public void setTraceCameraFocusController(TraceCameraFocusController controller) {
+        this.traceCameraFocusController = controller;
     }
 
     public GameMode getCurrentGameMode() {
@@ -469,6 +490,16 @@ public class GameLoop {
         // so the key must be released and pressed again to step another frame
         int frameStepKey = configService.getInt(SonicConfiguration.FRAME_STEP_KEY);
         boolean doFrameStep = isPaused() && inputHandler.isKeyPressed(frameStepKey);
+
+        // Tick the trace test-mode camera focus controller AFTER toggleUserPause so
+        // it observes the post-toggle pause state. This guarantees that on the
+        // unpause-press frame the controller restores the original camera BEFORE
+        // any sprite/object/manager update path samples camera position later in
+        // this method. Must run before the paused early-return so the same call
+        // also handles the pause-enter snapshot and the frame-step camera restore.
+        if (traceCameraFocusController != null) {
+            traceCameraFocusController.tick(inputHandler);
+        }
 
         // When paused (and not frame stepping), still update input handler so we can detect keys
         if (isPaused() && !doFrameStep) {
@@ -677,6 +708,11 @@ public class GameLoop {
                 if (levelManager.consumeInLevelTitleCardRequest()) {
                     enterInLevelTitleCard(levelManager.getInLevelTitleCardZone(), levelManager.getInLevelTitleCardAct());
                 }
+                // Trace playback still consumes one BK2/VBlank row on a
+                // transition-only frame. Headless replay advances its movie
+                // cursor after applySeamlessTransition(); keep the live
+                // comparator cursor aligned with the same ordering.
+                playbackDebugManager.onLevelFrameAdvanced();
                 return;
             }
 
@@ -736,6 +772,13 @@ public class GameLoop {
                                 step.run();
                                 profiler.endSection(name);
                             });
+                } else if (levelManager.getObjectManager() != null) {
+                    // ROM v_vbla_byte increments in VBlank even on rows where
+                    // LevelLoop did not run. Headless trace replay mirrors
+                    // this in HeadlessTestRunner.skipFrameFromRecording();
+                    // live visual trace mode must do the same or object timing
+                    // gates enter gameplay hundreds of VBlanks behind.
+                    levelManager.getObjectManager().advanceVblaCounter();
                 }
                 // Fire the BK2-advance callback either way — on both real
                 // gameplay ticks and lag-gated skips — so the observer's
@@ -836,6 +879,15 @@ public class GameLoop {
             if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_INSERT)) {
                 com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugSourceFilter();
             }
+        }
+
+        // Post-update hook for the trace test-mode camera focus controller.
+        // Runs after gameplay updates but before the frame is rendered, so the
+        // controller can re-apply the chosen focus camera within the same frame
+        // a frame-step ran in. No flicker; sidekick despawns mid-step are handled
+        // here (rebuild + fall back to DEFAULT before render).
+        if (traceCameraFocusController != null) {
+            traceCameraFocusController.postUpdate();
         }
 
         inputHandler.update();

@@ -88,7 +88,9 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
         if (!active) {
             return 0;
         }
-        return currentMappingFrame() <= (4 + animIndex) ? COLLISION_FLAGS : 0;
+        // ROM loc_505FC: cmp.b mapping_frame,d0 / bls.s skip collision, so
+        // equality with (4 + anim) is already non-collidable.
+        return currentMappingFrame() < (4 + animIndex) ? COLLISION_FLAGS : 0;
     }
 
     @Override
@@ -99,6 +101,17 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
 
     @Override
     public int getY() { return posY; }
+
+    @Override
+    public String traceDebugDetails() {
+        return String.format("anim=%d delay=%d step=%d stepDelay=%d active=%s map=%02X",
+                animIndex,
+                delayTimer,
+                scriptStep,
+                scriptDelay,
+                active,
+                currentMappingFrame());
+    }
 
     /** ROM: subtract Level_repeat_offset on wrap frames. */
     public void applyWrapOffset(int offset) {

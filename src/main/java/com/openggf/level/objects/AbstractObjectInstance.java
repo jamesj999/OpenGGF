@@ -48,27 +48,6 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
 
-    /**
-     * Cached camera bounds snapshot from the PREVIOUS frame. Used by the
-     * solid-contact on-screen gate to mirror the ROM's render_flags bit 7,
-     * which is set during {@code Render_Sprites} at the end of frame N and
-     * read by {@code SolidObjectFull} during frame N+1's ExecuteObjects
-     * (sonic3k.asm:36336-36370 Render_Sprites; sonic3k.asm:41390-41392
-     * loc_1DF88 / SolidObjectFull_1P). The current-frame camera position
-     * is one frame ahead of the ROM's gate, allowing landings the ROM
-     * rejects at the boundary (CNZ horizontal door at sonic3k.asm:66036+
-     * is the canonical case).
-     */
-    private static CameraBounds previousFrameCameraBounds = new CameraBounds(0, 0, 320, 224);
-
-    /**
-     * True until the first {@link #updateCameraBounds(int, int, int, int, int)}
-     * call; while set, the previous-frame snapshot mirrors the current bounds
-     * so single-frame headless tests don't get a one-frame initialisation
-     * lag from the empty default snapshot.
-     */
-    private static boolean cameraBoundsInitialised;
-
     protected final ObjectSpawn spawn;
     protected final String name;
     private boolean destroyed;
@@ -168,23 +147,6 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      *                          When > 0, Y visibility checks use modular arithmetic.
      */
     public static void updateCameraBounds(int left, int top, int right, int bottom, int verticalWrapRange) {
-        // Roll the current frame's camera into the previous-frame snapshot so
-        // the solid-contact gate (isWithinSolidContactBounds) sees the camera
-        // position that ROM's render_flags bit 7 was computed against. The
-        // ROM Render_Sprites step that sets bit 7 runs at the end of frame N;
-        // SolidObjectFull on frame N+1 reads it. Capturing the prior bounds
-        // BEFORE applying the new ones keeps the engine gate one frame
-        // behind the live camera, matching the ROM observation order.
-        if (cameraBoundsInitialised) {
-            previousFrameCameraBounds.update(
-                    cameraBounds.left(), cameraBounds.top(),
-                    cameraBounds.right(), cameraBounds.bottom());
-        } else {
-            // First-frame init: previous mirrors current so single-frame
-            // headless tests don't see an empty default snapshot.
-            previousFrameCameraBounds.update(left, top, right, bottom);
-            cameraBoundsInitialised = true;
-        }
         cameraBounds.update(left, top, right, bottom);
         cameraBounds.setVerticalWrapRange(verticalWrapRange);
     }
@@ -197,9 +159,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * level / camera and should not inherit the prior fixture's snapshot).
      */
     public static void resetCameraBoundsForTests() {
-        cameraBoundsInitialised = false;
         cameraBounds.update(0, 0, 320, 224);
-        previousFrameCameraBounds.update(0, 0, 320, 224);
     }
 
     @Override
@@ -251,6 +211,10 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         if (this instanceof TouchResponseProvider trp) {
             preUpdateCollisionFlags = trp.getCollisionFlags();
         }
+        // Frame-start ReactToItem snapshots happen before object execution.
+        // A child created after the player slot in the previous object pass is
+        // no longer same-frame-spawned here and must be touch-eligible.
+        skipTouchThisFrame = false;
     }
 
     @Override
@@ -573,11 +537,12 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         // per-object on-screen half-width so collision parity matches the ROM
         // for both small and large sprites.
         //
-        // Use the PREVIOUS frame's camera bounds: ROM's bit 7 is set by
-        // Render_Sprites at the end of frame N and read by SolidObjectFull
-        // during frame N+1's ExecuteObjects. The current-frame camera would
-        // be one frame ahead of the ROM gate.
-        return previousFrameCameraBounds.contains(getX(), getY(), getOnScreenHalfWidth());
+        // ObjectManager runs before the current frame's camera step, so the
+        // cached camera bounds already represent the prior Render_Sprites pass
+        // that set render_flags bit 7. The extra previous-frame snapshot lags
+        // the ROM gate by two frames in inline object order.
+        return cameraBounds.contains(
+                getX(), getY(), getOnScreenHalfWidth(), getOnScreenHalfHeight());
     }
 
     /**
@@ -590,6 +555,15 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * the ROM-side on-screen test.
      */
     public int getOnScreenHalfWidth() {
+        return 16;
+    }
+
+    /**
+     * Per-object rendered half-height used by the on-screen / solid-contact
+     * gate. ROM equivalent: {@code height_pixels(a0)} as read by Render_Sprites
+     * while setting render_flags bit 7.
+     */
+    public int getOnScreenHalfHeight() {
         return 16;
     }
 

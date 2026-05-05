@@ -180,6 +180,15 @@ public record TraceMetadata(
     }
 
     /**
+     * Whether the trace emits focused S3K AIZ battleship ship-loop execution
+     * diagnostics around {@code AIZ2_DoShipLoop/sub_50318}.
+     */
+    public boolean hasPerFrameAizShipLoop() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("aiz_ship_loop_per_frame");
+    }
+
+    /**
      * Whether the trace emits per-frame {@code tails_cpu_normal_step} events,
      * the focused S3K Tails CPU normal-follow diagnostic for CNZ/AIZ frontiers.
      */

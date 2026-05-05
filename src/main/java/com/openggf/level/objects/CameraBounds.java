@@ -82,6 +82,16 @@ public final class CameraBounds {
     }
 
     /**
+     * Checks if a point is within these bounds with independent horizontal and
+     * vertical margins. ROM sprite visibility uses width_pixels and height_pixels
+     * separately when setting render_flags bit 7.
+     */
+    public boolean contains(int x, int y, int xMargin, int yMargin) {
+        if (x < left - xMargin || x > right + xMargin) return false;
+        return containsY(y, yMargin);
+    }
+
+    /**
      * Checks if a Y coordinate is within the vertical bounds, optionally with margin.
      * When vertical wrapping is active, uses modular arithmetic: computes the shortest
      * distance in the wrapped space and checks if it falls within the screen height.

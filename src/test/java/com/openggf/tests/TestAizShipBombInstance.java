@@ -23,6 +23,29 @@ public class TestAizShipBombInstance {
     private static final int PORT_READY_Y = 0x0A80;
 
     @Test
+    public void testSameFrameAllocationRunsInitBeforeReadyDrop() {
+        TestEnvironment.resetAll();
+        Camera camera = new Camera();
+        camera.setX((short) 0x4380);
+        camera.setY((short) 0x0180);
+
+        ObjectServices services = servicesWithCamera(camera);
+        AizShipBombInstance bomb = buildWithContext(services,
+                () -> new AizShipBombInstance(
+                        new ObjectSpawn(camera.getX(), camera.getY(), 0, 0, 0, false, 0),
+                        null,
+                        BOMB_SCRIPT_X,
+                        camera.getY()));
+
+        bomb.update(0, null);
+
+        assertEquals(PORT_START_Y, readIntField(bomb, "portYOffset"),
+                "Same-frame execution after allocation should only cover Obj_AIZShipBomb init; ReadyDrop starts next frame");
+        assertEquals(camera.getY(), bomb.getY(),
+                "The bomb should not descend in the port until the first Obj_AIZShipBombMain pass");
+    }
+
+    @Test
     public void testAttachedBombTracksBattleshipTranslationUntilRelease() {
         TestEnvironment.resetAll();
         Camera camera = new Camera();
@@ -43,7 +66,7 @@ public class TestAizShipBombInstance {
                         BOMB_SCRIPT_X,
                         camera.getY() + (PORT_START_Y - baseSecondaryY)));
 
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 17; i++) {
             ship.update(i, null);
             bomb.update(i, null);
         }
@@ -55,7 +78,7 @@ public class TestAizShipBombInstance {
         assertEquals(expectedX, bomb.getX(), "Attached bomb X should keep translating from the ship's live camera");
         assertEquals(expectedY, bomb.getY(), "Attached bomb Y should keep following the ship bob while settling in the bay");
 
-        for (int i = 16; i < 22; i++) {
+        for (int i = 17; i < 23; i++) {
             ship.update(i, null);
             bomb.update(i, null);
         }
@@ -114,6 +137,17 @@ public class TestAizShipBombInstance {
         explosion.applyWrapOffset(0x0200);
 
         assertEquals(0x4350, explosion.getX(), "Explosion fragments should shift back with Level_repeat_offset wraps");
+    }
+
+    @Test
+    public void testFrameStartTouchSnapshotClearsSameFrameSpawnGate() {
+        AizBombExplosionInstance explosion = new AizBombExplosionInstance(0x4390, 0x01FD, 0, 0);
+        explosion.setSkipTouchThisFrame(true);
+
+        explosion.snapshotTouchResponseState();
+
+        assertFalse(explosion.isSkipTouchThisFrame(),
+                "An object spawned in the previous object pass must be eligible for the next ReactToItem pass");
     }
 
     private static ObjectServices servicesWithCamera(Camera camera) {

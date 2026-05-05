@@ -148,6 +148,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     // then releases the player. (ROM: loc_205DE countdown -> sub_205FC release)
     private int solidStayTimer;
     private boolean releasePending;
+    private boolean releaseSolidPassExposed;
 
     /**
      * One-frame flag controlling the post-update solid pass slope sample
@@ -285,6 +286,16 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         return transitionFrameSlopeSkip;
     }
 
+    @Override
+    public boolean sampleSlopeOnRideExit(PlayableEntity player) {
+        // ROM loc_205DE runs sub_205B6 (SolidObjectTopSloped2) before
+        // sub_205FC clears Status_OnObj and sets Status_InAir on the rider
+        // (sonic3k.asm:44850-44864). The engine's split object/solid phases
+        // can reach the ride-exit branch after state has advanced to 3, so the
+        // final sloped y_pos write is still required before clearing support.
+        return state == 3;
+    }
+
     /**
      * Opt out of {@code ObjectManager.unloadCounterBasedOutOfRange()} so this
      * platform's lifecycle is governed exclusively by ROM's
@@ -314,6 +325,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
             // matching point to clear ride state after the no-movement frame.
             state = 3;
             releasePending = false;
+            releaseSolidPassExposed = false;
             player.setAir(true);
             player.setOnObject(false);
             services().objectManager().clearRidingObject(player);
@@ -373,28 +385,25 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 // fall away beneath them. ROM calls sub_205B6 before decrementing
                 // $38, so the normal solid pass must still see this object as solid.
                 if (releasePending) {
-                    // ROM loc_205DE (sonic3k.asm:44850-44854): when $38 decrements
-                    // to zero, the action pointer is unconditionally rewritten to
-                    // loc_20620 (the falling-fragments state) -- the player-release
-                    // calls that follow (sub_205FC at sonic3k.asm:44864) only
-                    // *additionally* unseat any player who happened to still be
-                    // standing on the platform that frame. ROM does NOT wait for
-                    // the next solid pass to see a standing contact before
-                    // transitioning, so neither should the engine. Without this
-                    // unconditional promotion, a platform whose player jumped or
-                    // walked off mid-stay (Sonic-jumps-off pattern) sits in
-                    // state==2 forever, and a later sidekick passing through the
-                    // X range gets phantom-landed (AIZ trace F7127 reproduces this
-                    // when Sonic flies past the platform around F6929-F6943,
-                    // collapse + solid-stay completes by ~F6984, and Tails arrives
-                    // at F7127 to find an indefinitely-solid invisible platform).
-                    state = 3;
-                    releasePending = false;
+                    if (releaseSolidPassExposed) {
+                        // ROM loc_205DE (sonic3k.asm:44850-44854) performs
+                        // sub_205B6 before rewriting the action pointer and
+                        // clearing any rider in sub_205FC. Expose one engine
+                        // post-update solid pass first; if no contact consumed
+                        // it, promote here on the next update so abandoned
+                        // platforms cannot remain invisible solids forever.
+                        state = 3;
+                        releasePending = false;
+                        releaseSolidPassExposed = false;
+                    } else {
+                        releaseSolidPassExposed = true;
+                    }
                     break;
                 }
                 solidStayTimer--;
                 if (solidStayTimer <= 0) {
                     releasePending = true;
+                    releaseSolidPassExposed = false;
                 }
                 // ROM loc_205DE entry-point begins with `bsr.w sub_205B6` which
                 // re-runs the SolidObjectTopSloped2 + Sprite_OnScreen_Test pair
@@ -414,7 +423,12 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 yFrac = y32 & 0xFFFF;
 
                 if (!isOnScreen(128)) {
-                    setDestroyed(true);
+                    // ROM ObjPlatformCollapse_CreateFragments clears the respawn
+                    // table bit before the falling parent reaches loc_20620
+                    // (sonic3k.asm:45435-45438). Route the final parent delete
+                    // through the respawnable/off-screen path so S3K's permanent
+                    // destroy latch does not suppress a later layout respawn.
+                    setDestroyedByOffscreen();
                 }
             }
         }
@@ -479,6 +493,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         // and loc_205DE counts it down while still calling SolidObjectTopSloped2.
         state = 2;
         releasePending = false;
+        releaseSolidPassExposed = false;
         // ROM ObjPlatformCollapse_CreateFragments (sonic3k.asm:45394) does NOT
         // fall through to sub_205B6 -- it jmps to Play_SFX. So the slope
         // sample / y_pos write is skipped on the ROM transition frame.

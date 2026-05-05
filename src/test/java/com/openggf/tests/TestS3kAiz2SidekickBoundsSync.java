@@ -3,6 +3,8 @@ package com.openggf.tests;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.sprites.playable.Tails;
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -77,11 +81,46 @@ public class TestS3kAiz2SidekickBoundsSync {
                 "S3K level events should refresh sidekick maxY bounds from camera");
     }
 
+    @Test
+    public void aizBattleshipPrePhysicsWrapRefreshesSidekickBoundsBeforeMovement() throws Exception {
+        AbstractPlayableSprite sidekick = GameServices.sprites().getSidekicks().getFirst();
+        SidekickCpuController controller = sidekick.getCpuController();
+        assertNotNull(controller, "CPU sidekick should have a controller");
+
+        fixture.camera().setX((short) 0x46BC);
+        fixture.camera().setMinX((short) 0x46BC);
+        fixture.camera().setMaxX((short) 0x46BC);
+        sidekick.setCentreXPreserveSubpixel((short) 0x4736);
+        sidekick.setXSpeed((short) 0x0400);
+        sidekick.setGSpeed((short) 0x0400);
+        controller.setLevelBounds(0x46BC, 0x45A4, 0x015A);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ events should be initialized");
+        setPrivate(events, "battleshipAutoScrollActive", true);
+        setPrivate(events, "battleshipWrapX", 0x46C0);
+
+        events.updatePrePhysics(ACT_2);
+
+        assertEquals(0x44C0, fixture.camera().getMaxX() & 0xFFFF,
+                "AIZ2_DoShipLoop wraps Camera_max_X_pos before Process_Sprites");
+        assertEquals(0x44C0, controller.getMaxXBound(Integer.MIN_VALUE) & 0xFFFF,
+                "S3K sidekick boundary mirror must be refreshed immediately after the pre-physics camera wrap");
+    }
+
     private void createSidekick() {
         Tails tails = new Tails("tails", (short) 0, (short) 0);
         tails.setCpuControlled(true);
         SidekickCpuController controller = new SidekickCpuController(tails, fixture.sprite());
         tails.setCpuController(controller);
         GameServices.sprites().addSprite(tails);
+    }
+
+    private static void setPrivate(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }

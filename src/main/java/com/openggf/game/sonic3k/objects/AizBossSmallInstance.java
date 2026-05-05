@@ -112,10 +112,19 @@ public class AizBossSmallInstance extends AbstractObjectInstance {
                     + Integer.toHexString(cameraX));
         }
 
-        // Play siren SFX every 16 frames (only after activation)
-        if ((this.frameCounter & 0xF) == 0) {
-            services().playSfx(Sonic3kSfx.ROBOTNIK_SIREN.id);
+        // ROM loc_50712 checks x_pos >= $240 before loc_50732 moves Robotnik;
+        // crossing the threshold deletes the object on the following update.
+        if (screenX >= EXIT_SCREEN_X) {
+            onExitScreen();
+            return;
         }
+
+        // ROM loc_50732 moves by the current x_vel before loc_5075E stores the
+        // decelerated/accelerated velocity for the next frame.
+        int xPos32 = (screenX << 16) | (xSub & 0xFFFF);
+        xPos32 += xVel;
+        screenX = xPos32 >> 16;
+        xSub = xPos32 & 0xFFFF;
 
         // Apply deceleration / acceleration arc
         if (decelerating) {
@@ -127,15 +136,9 @@ public class AizBossSmallInstance extends AbstractObjectInstance {
             xVel += ACCEL;
         }
 
-        // Apply velocity to screen position (16:16 fixed-point)
-        int xPos32 = (screenX << 16) | (xSub & 0xFFFF);
-        xPos32 += xVel;
-        screenX = xPos32 >> 16;
-        xSub = xPos32 & 0xFFFF;
-
-        // Check exit condition
-        if (screenX >= EXIT_SCREEN_X) {
-            onExitScreen();
+        // Play siren SFX every 16 frames (only after activation)
+        if ((this.frameCounter & 0xF) == 0) {
+            services().playSfx(Sonic3kSfx.ROBOTNIK_SIREN.id);
         }
     }
 

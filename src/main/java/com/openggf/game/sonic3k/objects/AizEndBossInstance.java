@@ -246,7 +246,11 @@ public class AizEndBossInstance extends AbstractBossInstance {
                 || (flags38 & FLAG_HIDDEN) != 0) {
             return 0;
         }
-        return 0xC0 | COLLISION_SIZE;
+        // ROM ObjDat_AIZEndBoss starts with collision $10, but the revealed
+        // setup overwrites it with $16 before touch is active
+        // (sonic3k.asm:138109-138114). Keep the raw enemy-style flag byte:
+        // Touch_Enemy treats this as a boss through nonzero collision_property.
+        return COLLISION_FLAGS_ACTIVE;
     }
 
     @Override
@@ -406,9 +410,9 @@ public class AizEndBossInstance extends AbstractBossInstance {
     // Emerge animation state (ROM: byte_69D98 — flickering between frame $2B and frame 0)
     private int emergeAnimFrame;
     private int emergeAnimTimer;
-    // ROM animation: alternating $2B (hidden) and 0 (visible) with delays
-    // Simplified: flicker for ~40 frames then become visible
-    private static final int EMERGE_FLICKER_DURATION = 40;
+    // ROM byte_69D98 has thirteen zero-delay raw-animation entries before
+    // the $F4 callback to loc_69302 (sonic3k.asm:139089-139104).
+    private static final int EMERGE_FLICKER_DURATION = 13;
 
     /** ROM: loc_692E2 — Emerge animation (flickering reveal). */
     private void updateEmerge() {

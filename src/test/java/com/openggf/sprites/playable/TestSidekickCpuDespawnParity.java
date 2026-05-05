@@ -165,6 +165,30 @@ class TestSidekickCpuDespawnParity {
     }
 
     @Test
+    void s3kDespawnMarkerClearsRollStatusWithoutRestoringRadii() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.usePhysicsFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        tails.useS3kTailsRadii();
+        tails.setCpuControlled(true);
+        tails.setRolling(true);
+        tails.setCentreX((short) 0x1E8F);
+        tails.setCentreY((short) 0x057B);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.setInitialState(SidekickCpuController.State.NORMAL);
+
+        controller.despawn();
+
+        assertFalse(tails.getRolling(),
+                "S3K sub_13ECA writes status=Status_InAir and clears Status_Roll");
+        assertEquals(7, tails.getXRadius(),
+                "S3K sub_13ECA does not restore x_radius");
+        assertEquals(14, tails.getYRadius(),
+                "S3K sub_13ECA does not restore y_radius");
+    }
+
+    @Test
     void levelBoundaryKillRunsTailsTouchFloorBeforeDeathState() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");
@@ -189,8 +213,12 @@ class TestSidekickCpuDespawnParity {
 
         assertEquals(SidekickCpuController.State.DEAD_FALLING, controller.getState(),
                 "S3K Kill_Character leaves Tails in object routine 6 for one frame");
-        assertEquals((short) 0x040F, tails.getCentreY(),
-                "Tails_TouchFloor applies the rolling height delta before death velocities");
+        // setRollingJump(true) mirrors Sonic_Jump restoring default radii while
+        // leaving Status_Roll set. S3K Tails_TouchFloor computes the y_pos
+        // shift from current y_radius - default_y_radius
+        // (sonic3k.asm:29133-29156), so this setup has no radius delta.
+        assertEquals((short) 0x0402, tails.getCentreY(),
+                "Tails_TouchFloor uses the current y_radius byte, not sprite height");
         assertEquals(15, tails.getYRadius());
         assertFalse(tails.getRolling());
         assertTrue(tails.getAir(), "Kill_Character sets Status_InAir after Tails_TouchFloor");

@@ -58,6 +58,13 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean usesInclusiveRightEdge() {
+        // ROM SolidObject_cont keeps relX == width * 2 in contact; it rejects
+        // only relX > width * 2 (sonic3k.asm:41395-41401).
+        return true;
+    }
+
+    @Override
     public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
         if (player == null) {
             return;

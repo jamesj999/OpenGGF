@@ -1285,10 +1285,12 @@ public class LevelManager {
             }
         }
 
-        // Update player water state after both water movement and zone features.
-        if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
-            playable.updateWaterState(waterY);
+        // Legacy object-before-physics modules update playable water state here.
+        // Inline-order modules run this immediately after the player slot in
+        // LevelFrameStep, before ExecuteObjects, matching S3K's Sonic_Water /
+        // Tails_Water ordering.
+        if (!usesInlineObjectSolidResolution()) {
+            updatePlayableWaterStatesForCurrentLevel();
         }
     }
 
@@ -1316,10 +1318,66 @@ public class LevelManager {
             zoneFeatureProvider.update(playable, camera.getX(), getFeatureZoneId());
         }
 
-        if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
-            playable.updateWaterState(waterY);
+        updatePlayableWaterStatesForCurrentLevel();
+    }
+
+    public void updatePlayableWaterStatesForCurrentLevel() {
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        if (level == null || waterSystem == null || !waterSystem.hasWater(featureZone, featureAct)) {
+            return;
         }
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
+        AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+        if (playable == null) {
+            return;
+        }
+        int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
+        updatePlayableWaterStates(playable, waterY);
+    }
+
+    public void updatePlayableWaterStateForCurrentLevel(AbstractPlayableSprite playable) {
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        if (level == null || waterSystem == null || !waterSystem.hasWater(featureZone, featureAct)
+                || playable == null) {
+            return;
+        }
+        int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
+        updatePlayableWaterState(playable, waterY);
+    }
+
+    private void updatePlayableWaterStates(AbstractPlayableSprite mainPlayable, int waterY) {
+        updatePlayableWaterState(mainPlayable, waterY);
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            if (sidekick != mainPlayable) {
+                updatePlayableWaterState(sidekick, waterY);
+            }
+        }
+    }
+
+    private void updatePlayableWaterState(AbstractPlayableSprite playable, int waterY) {
+        if (playable == null) {
+            return;
+        }
+        // S3K hurt movement (routine 4) runs its own path at loc_122D8
+        // (sonic3k.asm:24449-24467): MoveSprite_TestGravity2, hurt gravity,
+        // underwater gravity reduction from the existing status bit, collision,
+        // bounds, draw. It does not reach the normal loc_10C36 Sonic_Water call
+        // (sonic3k.asm:21993-21998), so preserve Status_Underwater while hurt.
+        if (playable.isHurt()) {
+            return;
+        }
+        // S3K Tails object_control bit 0 skips Tails_Modes but still runs
+        // Tails_Water (sonic3k.asm:26220-26248). Tails_Water updates
+        // Status_Underwater and speed constants before the object_control
+        // early return that skips velocity quarter/double side effects
+        // (sonic3k.asm:27416-27470).
+        if (playable.isObjectControlSuppressesMovement()) {
+            playable.updateWaterStateObjectControlled(waterY);
+            return;
+        }
+        playable.updateWaterState(waterY);
     }
 
     private boolean shouldSuppressUnderwaterPalette(int zoneId, int actId) {

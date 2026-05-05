@@ -478,6 +478,12 @@ public class Engine {
 	 */
 	void returnToMasterTitleScreen() {
 		resetForGameplayFromMasterTitle();
+		// resetForGameplayFromMasterTitle destroyed the runtime, but GameLoop
+		// still caches the old runtime + its FadeManager. Drop the reference
+		// so the next launch's fade-to-black runs on the bootstrap manager
+		// (which the UI pipeline actually ticks) rather than the dead one.
+		gameLoop.setRuntime(null);
+		this.runtime = null;
 		if (masterTitleScreen != null) {
 			masterTitleScreen.cleanup();
 		}

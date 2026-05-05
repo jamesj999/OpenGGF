@@ -138,6 +138,14 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        if (zoneIndex == Sonic3kZoneIds.ZONE_AIZ
+                && GameServices.module().getLevelEventProvider()
+                instanceof Sonic3kLevelEventManager mgr) {
+            var events = mgr.getAizEvents();
+            if (events != null) {
+                events.releaseBattleshipScrollLockCamera();
+            }
+        }
         updateAizForestFrontPriority(player, zoneIndex);
         var spriteManager = GameServices.spritesOrNull();
         if (spriteManager == null) {
@@ -156,6 +164,16 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public void updatePrePhysics(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
         var levelManager = GameServices.levelOrNull();
+        if (zoneIndex == Sonic3kZoneIds.ZONE_AIZ && player != null && !player.getDead()) {
+            int act = levelManager != null ? levelManager.getFeatureActId() : 0;
+            if (GameServices.module().getLevelEventProvider()
+                    instanceof Sonic3kLevelEventManager mgr) {
+                var events = mgr.getAizEvents();
+                if (events != null) {
+                    events.updatePrePhysics(act);
+                }
+            }
+        }
         if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && player != null && !player.getDead()) {
             int act = levelManager != null ? levelManager.getFeatureActId() : 0;
             HCZWaterTunnelHandler.update(act);
