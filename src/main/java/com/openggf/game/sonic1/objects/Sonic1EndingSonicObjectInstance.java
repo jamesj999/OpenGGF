@@ -1,9 +1,9 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.mutation.MutationEffects;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.Level;
-import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -335,24 +335,18 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
      * that reference the animated Kos_EndFlowers tile positions.
      */
     private void patchLayoutWithFlowers() {
-        Level level = services().currentLevel();
-        if (level == null) {
-            return;
-        }
-        Map map = level.getMap();
-        if (map == null) {
-            return;
-        }
-        try {
-            // ROM writes $2E at v_lvllayout+$80 (row 1, col 0)
-            //          $2F at v_lvllayout+$81 (row 1, col 1)
-            map.setValue(0, 0, 1, (byte) 0x2E);
-            map.setValue(0, 1, 1, (byte) 0x2F);
-            // ROM: bsr.w DrawChunks — re-render level with modified layout
-            services().invalidateForegroundTilemap();
-        } catch (IllegalArgumentException e) {
-            LOGGER.warning("Ending layout patch failed: " + e.getMessage());
-        }
+        // ROM writes $2E at v_lvllayout+$80 (row 1, col 0)
+        //          $2F at v_lvllayout+$81 (row 1, col 1)
+        // ROM: bsr.w DrawChunks — pipeline publishes redraw effects automatically.
+        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+            try {
+                context.surface().setBlockInMap(0, 0, 1, 0x2E);
+                return context.surface().setBlockInMap(0, 1, 1, 0x2F);
+            } catch (IllegalArgumentException e) {
+                LOGGER.warning("Ending layout patch failed: " + e.getMessage());
+                return MutationEffects.NONE;
+            }
+        });
     }
 
     private void clearEmeralds() {
