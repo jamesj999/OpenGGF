@@ -21,6 +21,9 @@ import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsProvider;
 import com.openggf.physics.TrigLookupTable;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.RingSnapshot;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -31,7 +34,7 @@ import java.util.List;
 /**
  * Handles ring collection state, sparkle animation, rendering, and lost-ring behavior.
  */
-public class RingManager {
+public class RingManager implements RewindSnapshottable<RingSnapshot> {
     private static final int MAX_ATTRACTED_RINGS = 32;
     // ROM: AttractedRing_Move — base acceleration is $30 subpixels/frame²
     private static final int ATTRACT_ACCEL = 0x30;
@@ -604,6 +607,103 @@ public class RingManager {
         }
     }
 
+    // --- RewindSnapshottable<RingSnapshot> ---
+
+    @Override
+    public String key() {
+        return "rings";
+    }
+
+    @Override
+    public RingSnapshot capture() {
+        // --- RingPlacement state ---
+        BitSet collectedCopy = (BitSet) placement.collected.clone();
+        int[] sparkles = Arrays.copyOf(placement.sparkleStartFrames, placement.sparkleStartFrames.length);
+        int cursorIndex = placement.cursorIndex;
+        int lastCameraX = placement.lastCameraX;
+
+        // --- LostRingPool state ---
+        RingSnapshot.LostRingEntry[] lostEntries = new RingSnapshot.LostRingEntry[LostRingPool.MAX_LOST_RINGS];
+        for (int i = 0; i < LostRingPool.MAX_LOST_RINGS; i++) {
+            LostRing lr = lostRings.ringPool[i];
+            lostEntries[i] = new RingSnapshot.LostRingEntry(
+                    lr.isActive(),
+                    lr.getXSubpixel(), lr.getYSubpixel(),
+                    lr.getXVel(), lr.getYVel(),
+                    lr.getLifetime(),
+                    lr.isCollected(),
+                    lr.getSparkleStartFrame(),
+                    lr.getPhaseOffset(),
+                    lr.getSlotIndex());
+        }
+
+        // --- AttractedRing state ---
+        RingSnapshot.AttractedRingEntry[] atEntries = new RingSnapshot.AttractedRingEntry[MAX_ATTRACTED_RINGS];
+        for (int i = 0; i < MAX_ATTRACTED_RINGS; i++) {
+            AttractedRing ar = attractedRings[i];
+            atEntries[i] = new RingSnapshot.AttractedRingEntry(
+                    ar.active, ar.sourceIndex, ar.x, ar.y,
+                    ar.xSub, ar.ySub, ar.xVel, ar.yVel);
+        }
+
+        return new RingSnapshot(
+                collectedCopy,
+                sparkles,
+                cursorIndex,
+                lastCameraX,
+                lostRings.activeRingCount,
+                lostRings.spillAnimCounter,
+                lostRings.spillAnimAccum,
+                lostRings.spillAnimFrame,
+                lostRings.frameCounter,
+                lostEntries,
+                atEntries);
+    }
+
+    @Override
+    public void restore(RingSnapshot snap) {
+        // --- RingPlacement ---
+        placement.collected.clear();
+        placement.collected.or(snap.collected());
+        int[] snapSparkles = snap.sparkleStartFrames();
+        int copyLen = Math.min(snapSparkles.length, placement.sparkleStartFrames.length);
+        System.arraycopy(snapSparkles, 0, placement.sparkleStartFrames, 0, copyLen);
+        if (copyLen < placement.sparkleStartFrames.length) {
+            Arrays.fill(placement.sparkleStartFrames, copyLen, placement.sparkleStartFrames.length,
+                    RingPlacement.NO_SPARKLE);
+        }
+        placement.cursorIndex = snap.placementCursorIndex();
+        placement.lastCameraX = snap.placementLastCameraX();
+
+        // --- LostRingPool ---
+        lostRings.activeRingCount = snap.lostRingActiveCount();
+        lostRings.spillAnimCounter = snap.spillAnimCounter();
+        lostRings.spillAnimAccum = snap.spillAnimAccum();
+        lostRings.spillAnimFrame = snap.spillAnimFrame();
+        lostRings.frameCounter = snap.lostRingFrameCounter();
+        RingSnapshot.LostRingEntry[] snapLost = snap.lostRings();
+        for (int i = 0; i < Math.min(snapLost.length, LostRingPool.MAX_LOST_RINGS); i++) {
+            RingSnapshot.LostRingEntry entry = snapLost[i];
+            LostRing lr = lostRings.ringPool[i];
+            lr.restoreFromSnapshot(entry);
+        }
+
+        // --- AttractedRings ---
+        RingSnapshot.AttractedRingEntry[] snapAt = snap.attractedRings();
+        for (int i = 0; i < Math.min(snapAt.length, MAX_ATTRACTED_RINGS); i++) {
+            RingSnapshot.AttractedRingEntry entry = snapAt[i];
+            AttractedRing ar = attractedRings[i];
+            ar.active = entry.active();
+            ar.sourceIndex = entry.sourceIndex();
+            ar.x = entry.x();
+            ar.y = entry.y();
+            ar.xSub = entry.xSub();
+            ar.ySub = entry.ySub();
+            ar.xVel = entry.xVel();
+            ar.yVel = entry.yVel();
+        }
+    }
+
     private static final class AttractedRing {
         int sourceIndex;
         int x, y;
@@ -842,7 +942,6 @@ public class RingManager {
         private final RingRenderer renderer;
         private final TouchResponseTable touchResponseTable;
         private final AudioManager audioManager;
-        private final Camera camera = GameServices.camera();
         private final LostRing[] ringPool = new LostRing[MAX_LOST_RINGS];
         private int activeRingCount = 0;
         // ROM-accurate shared animation state (Ring_spill_anim_counter/accum/frame).
@@ -954,7 +1053,7 @@ public class RingManager {
             boolean reverseGravity = GameServices.gameState().isReverseGravityActive();
             int gravity = reverseGravity ? -GRAVITY : GRAVITY;
 
-            int cameraBottom = camera.getMaxY() + 224;
+            int cameraBottom = GameServices.camera().getMaxY() + 224;
             ObjectManager objectManager = levelManager != null ? levelManager.getObjectManager() : null;
             // ROM: RLoss_Bounce uses v_vbla_byte, not the gameplay frame counter.
             // Trace replay keeps ObjectManager's VBla counter aligned across lag frames,

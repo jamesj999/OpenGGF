@@ -27,6 +27,7 @@ import com.openggf.graphics.FadeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
+import com.openggf.level.rings.RingManager;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.managers.SpriteManager;
@@ -319,6 +320,19 @@ public final class GameplayModeContext implements ModeContext {
                 rewindRegistry.register(alem);
             }
         }
+    }
+
+    /**
+     * Registers the {@link RingManager} rewind adapter after ring data is
+     * available (Phase H of level load, after {@link #registerLevelAdapters}).
+     * Safe to call with a null argument — it is silently ignored.
+     */
+    public void registerRingAdapter(RingManager ringManager) {
+        if (rewindRegistry == null || ringManager == null) {
+            return;
+        }
+        rewindRegistry.deregister("rings");
+        rewindRegistry.register(ringManager);
     }
 
     /**

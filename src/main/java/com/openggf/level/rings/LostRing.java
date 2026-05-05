@@ -116,4 +116,22 @@ public class LostRing {
     public int getSparkleStartFrame() {
         return sparkleStartFrame;
     }
+
+    /**
+     * Rewind-restore path: repopulates all fields from a snapshot entry.
+     * Separate from {@link #reset} to avoid the coordinate-shift in reset's
+     * {@code xSubpixel = x << 8} contract.
+     */
+    public void restoreFromSnapshot(com.openggf.game.rewind.snapshot.RingSnapshot.LostRingEntry entry) {
+        this.active = entry.active();
+        this.xSubpixel = entry.xSubpixel();
+        this.ySubpixel = entry.ySubpixel();
+        this.xVel = entry.xVel();
+        this.yVel = entry.yVel();
+        this.lifetime = entry.lifetime();
+        this.collected = entry.collected();
+        this.sparkleStartFrame = entry.sparkleStartFrame();
+        this.phaseOffset = entry.phaseOffset();
+        this.slotIndex = entry.slotIndex();
+    }
 }

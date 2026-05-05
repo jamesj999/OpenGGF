@@ -601,6 +601,11 @@ public class LevelManager {
         ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable, audioManager);
         ringManager.reset(camera.getX());
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
+        com.openggf.game.session.GameplayModeContext gameplayMode =
+                com.openggf.game.session.SessionManager.getCurrentGameplayMode();
+        if (gameplayMode != null) {
+            gameplayMode.registerRingAdapter(ringManager);
+        }
     }
 
     /**
