@@ -152,7 +152,7 @@ public final class S3kSeamlessMutationExecutor {
         }
 
         applyImmediateMutation(levelManager, context -> {
-            AizAct2LayoutAdjuster.apply(level.getMap());
+            AizAct2LayoutAdjuster.apply(context, level.getMap());
             return MutationEffects.redrawAllTilemaps();
         });
         // Load the full fire palette (PalPointers #$0B) first, then overlay fire line 4.
@@ -211,17 +211,18 @@ public final class S3kSeamlessMutationExecutor {
         private AizAct2LayoutAdjuster() {
         }
 
-        private static void apply(com.openggf.level.Map map) {
+        private static void apply(LayoutMutationContext context, com.openggf.level.Map map) {
             if (map == null) {
                 return;
             }
-            copyCell(map, LAYER_FOREGROUND, 127, 1, 99, 14);
-            copyRowPrefix(map, LAYER_BACKGROUND, 0, 5, 4);
-            copyRowPrefix(map, LAYER_BACKGROUND, 1, 6, 4);
-            copyRowPrefix(map, LAYER_BACKGROUND, 2, 7, 4);
+            copyCell(context, map, LAYER_FOREGROUND, 127, 1, 99, 14);
+            copyRowPrefix(context, map, LAYER_BACKGROUND, 0, 5, 4);
+            copyRowPrefix(context, map, LAYER_BACKGROUND, 1, 6, 4);
+            copyRowPrefix(context, map, LAYER_BACKGROUND, 2, 7, 4);
         }
 
-        private static void copyCell(com.openggf.level.Map map,
+        private static void copyCell(LayoutMutationContext context,
+                                     com.openggf.level.Map map,
                                      int layer,
                                      int sourceX,
                                      int sourceY,
@@ -230,10 +231,12 @@ public final class S3kSeamlessMutationExecutor {
             if (!isInBounds(map, sourceX, sourceY) || !isInBounds(map, targetX, targetY)) {
                 return;
             }
-            map.setValue(layer, targetX, targetY, map.getValue(layer, sourceX, sourceY));
+            int sourceVal = map.getValue(layer, sourceX, sourceY) & 0xFF;
+            context.surface().setBlockInMap(layer, targetX, targetY, sourceVal);
         }
 
-        private static void copyRowPrefix(com.openggf.level.Map map,
+        private static void copyRowPrefix(LayoutMutationContext context,
+                                          com.openggf.level.Map map,
                                           int layer,
                                           int sourceY,
                                           int targetY,
@@ -243,8 +246,14 @@ public final class S3kSeamlessMutationExecutor {
                 return;
             }
             int width = Math.min(count, map.getWidth());
+            // Capture source row values before writing — preserves read-then-write
+            // semantics in case source and target rows overlap.
+            int[] sourceVals = new int[width];
             for (int x = 0; x < width; x++) {
-                map.setValue(layer, x, targetY, map.getValue(layer, x, sourceY));
+                sourceVals[x] = map.getValue(layer, x, sourceY) & 0xFF;
+            }
+            for (int x = 0; x < width; x++) {
+                context.surface().setBlockInMap(layer, x, targetY, sourceVals[x]);
             }
         }
 
