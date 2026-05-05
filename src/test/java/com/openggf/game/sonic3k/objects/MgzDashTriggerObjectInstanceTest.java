@@ -1,7 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SlopedSolidProvider;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -11,6 +13,8 @@ import org.mockito.ArgumentCaptor;
 import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -18,7 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-class TestMgzDashTriggerObjectInstance {
+class MgzDashTriggerObjectInstanceTest {
 
     @Test
     void appendRenderCommandsWhileArmedDrawsMainAndChildSpriteFrames() {
@@ -47,6 +51,48 @@ class TestMgzDashTriggerObjectInstance {
                 "Armed trigger should render its main sprite frame");
         assertTrue(frameCaptor.getAllValues().stream().anyMatch(frame -> frame >= 0 && frame < 4),
                 "Armed trigger should also render the child shine frame");
+    }
+
+    @Test
+    void dashTriggerExposesRomSlopeTableForRidingPlayers() {
+        MGZDashTriggerObjectInstance trigger = new MGZDashTriggerObjectInstance(
+                new ObjectSpawn(0x0950, 0x0E04, Sonic3kObjectIds.MGZ_DASH_TRIGGER,
+                        0x04, 0, false, 0));
+
+        SlopedSolidProvider sloped = assertInstanceOf(SlopedSolidProvider.class, trigger,
+                "ROM Obj_MGZDashTrigger calls sub_1DD0E with byte_25F0E "
+                        + "(sonic3k.asm:51489-51493,51611-51639)");
+        int relX = 0x0948 - trigger.getX() + trigger.getSolidParams().halfWidth();
+        int sampleX = relX >> 1;
+
+        assertEquals(0x0F, sloped.getSlopeData()[sampleX],
+                "MGZ F1451 rides sample 9 from byte_25F0E, not the flat 0x10 top");
+    }
+
+    @Test
+    void dashTriggerSlopeFlipFollowsStatusBitZero() {
+        MGZDashTriggerObjectInstance trigger = new MGZDashTriggerObjectInstance(
+                new ObjectSpawn(0x0950, 0x0E04, Sonic3kObjectIds.MGZ_DASH_TRIGGER,
+                        0x04, 1, false, 0));
+
+        SlopedSolidProvider sloped = assertInstanceOf(SlopedSolidProvider.class, trigger);
+
+        assertTrue(sloped.isSlopeFlipped(),
+                "SolidObjSloped2 mirrors samples when object status bit 0 is set "
+                        + "(sonic3k.asm:41730-41737)");
+    }
+
+    @Test
+    void dashTriggerUsesFlatTopForNewLandingAndSlopeOnlyForExistingRiders() {
+        MGZDashTriggerObjectInstance trigger = new MGZDashTriggerObjectInstance(
+                new ObjectSpawn(0x0950, 0x0E04, Sonic3kObjectIds.MGZ_DASH_TRIGGER,
+                        0x04, 0, false, 0));
+
+        SlopedSolidProvider sloped = assertInstanceOf(SlopedSolidProvider.class, trigger);
+
+        assertFalse(sloped.usesSlopeForNewLanding(),
+                "sub_1DD0E only calls SolidObjSloped2 after the standing bit is already set "
+                        + "(sonic3k.asm:41112-41142,41727-41753)");
     }
 
     private static final class TestDashTrigger extends MGZDashTriggerObjectInstance {

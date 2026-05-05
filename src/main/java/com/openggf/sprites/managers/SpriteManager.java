@@ -378,6 +378,7 @@ public class SpriteManager {
 						// directly (Tails fly-in, Knuckles glide), skip normal physics.
 						// Strategies that need physics (Sonic walk/spindash) fall through.
 						if (skipCpuPhysicsThisFrame) {
+							applyScreenYWrapValueAfterControl(playable);
 							playable.getAnimationManager().update(frameCounter);
 							playable.tickStatus();
 							playable.endOfTick();
@@ -385,6 +386,7 @@ public class SpriteManager {
 						}
 						if (cpuController.isApproaching()
 								&& !cpuController.getRespawnStrategy().requiresPhysics()) {
+							applyScreenYWrapValueAfterControl(playable);
 							playable.getAnimationManager().update(frameCounter);
 							playable.tickStatus();
 							playable.endOfTick();
@@ -1048,6 +1050,7 @@ public class SpriteManager {
 		} else {
 			playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
 		}
+		applyScreenYWrapValueAfterControl(playable);
 		SidekickCpuController cpuController = playable.getCpuController();
 		if (cpuController != null) {
 			cpuController.finishCarryAfterCarrierMovement();
@@ -1081,6 +1084,13 @@ public class SpriteManager {
 		if (levelManager.getObjectManager() != null) {
 			levelManager.getObjectManager().updateSolidContacts(playable, postMovement,
 					deferSideToPostMovement);
+		}
+	}
+
+	private static void applyScreenYWrapValueAfterControl(AbstractPlayableSprite playable) {
+		Camera camera = GameServices.camera();
+		if (camera != null) {
+			camera.applyScreenYWrapValue(playable);
 		}
 	}
 
