@@ -336,6 +336,22 @@ public final class GameplayModeContext implements ModeContext {
     }
 
     /**
+     * Registers an {@link com.openggf.game.ObjectArtProvider} that also implements
+     * {@link com.openggf.game.rewind.RewindSnapshottable} with the rewind registry.
+     * Called from {@link com.openggf.level.LevelManager} after object art is loaded.
+     * Safe to call with a null argument — it is silently ignored.
+     */
+    public void registerPlcArtAdapter(com.openggf.game.ObjectArtProvider provider) {
+        if (rewindRegistry == null || provider == null) {
+            return;
+        }
+        if (provider instanceof com.openggf.game.rewind.RewindSnapshottable<?> snap) {
+            rewindRegistry.deregister(snap.key());
+            rewindRegistry.register(snap);
+        }
+    }
+
+    /**
      * Registers a {@link com.openggf.level.animation.AnimatedPatternManager} that also
      * implements {@link com.openggf.game.rewind.RewindSnapshottable} with the rewind
      * registry. Called from {@link com.openggf.level.LevelManager#initAnimatedContent()}.

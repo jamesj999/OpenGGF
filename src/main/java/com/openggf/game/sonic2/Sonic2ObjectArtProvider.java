@@ -33,12 +33,14 @@ import java.util.logging.Logger;
  * This provider lazily initializes the art loader when first needed, obtaining the ROM
  * from RomManager.
  */
-public class Sonic2ObjectArtProvider implements ObjectArtProvider {
+public class Sonic2ObjectArtProvider implements ObjectArtProvider,
+        com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.PlcProgressSnapshot> {
     private static final Logger LOGGER = Logger.getLogger(Sonic2ObjectArtProvider.class.getName());
 
     private Sonic2ObjectArt artLoader;
     private ObjectArtData artData;
     private int currentZoneIndex = -2; // Use -2 to distinguish from explicit -1
+    private int loadEpoch = 0;
 
     private final Map<String, PatternSpriteRenderer> renderers = new HashMap<>();
     private final Map<String, ObjectSpriteSheet> sheets = new HashMap<>();
@@ -95,6 +97,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         ensureArtLoader();
         artData = artLoader.loadForZone(zoneIndex);
         currentZoneIndex = zoneIndex;
+        loadEpoch++;
 
         // Clear previous registrations
         renderers.clear();
@@ -543,5 +546,27 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (sheet != null) {
             registerSheet(Sonic2ObjectArtKeys.MTZ_STEAM_PISTON, sheet);
         }
+    }
+
+    // --- RewindSnapshottable<PlcProgressSnapshot> ---
+
+    @Override
+    public String key() {
+        return "s2-plc-art";
+    }
+
+    @Override
+    public com.openggf.game.rewind.snapshot.PlcProgressSnapshot capture() {
+        return new com.openggf.game.rewind.snapshot.PlcProgressSnapshot(loadEpoch);
+    }
+
+    /**
+     * Restore is a no-op for v1: all PLC art is loaded at zone-load time and
+     * does not change per-frame. The epoch is recorded in the snapshot as a
+     * diagnostic check but is not re-applied here.
+     */
+    @Override
+    public void restore(com.openggf.game.rewind.snapshot.PlcProgressSnapshot snap) {
+        // No per-frame PLC state to restore in v1.
     }
 }

@@ -1579,6 +1579,11 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load object art.", e);
             objectRenderManager = null;
         }
+        com.openggf.game.session.GameplayModeContext gameplayMode =
+                com.openggf.game.session.SessionManager.getCurrentGameplayMode();
+        if (gameplayMode != null && provider != null) {
+            gameplayMode.registerPlcArtAdapter(provider);
+        }
     }
 
     boolean isHudSuppressed() {
