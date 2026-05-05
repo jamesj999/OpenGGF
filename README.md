@@ -304,6 +304,23 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
   physics differences, configuration UX, debug rendering, and performance hot paths continue to be
   tightened across Sonic 1, Sonic 2, and Sonic 3 & Knuckles.
+- **Architectural fixes sweep:** review-driven cleanup eliminated remaining game-id branches
+  (`LevelManager` respawn-table latch and inline-object-execution gate, `WaterSystem` visual-water
+  oscillation, `DefaultPowerUpSpawner` invincibility-stars factory and S1 fixed shield slot — now
+  feature-flag/provider gated); removed runtime `.asm` reads from `Sonic3kObjectArtProvider`;
+  hardened the trace-replay invariant guard against frame-zero snapshot hydration in S1 credits
+  demos and converted hidden divergences into documented known issues; unified
+  `GameServices.hasRuntime()` with the gameplay-mode predicate and migrated `bonusStage()` off
+  `RuntimeManager.getCurrent()`; migrated HTZ earthquake and HCZ wall-chase render overlays into
+  `SpecialRenderEffectRegistry`; brought `ScrollEffectComposer` adoption to 100% across all 26
+  scroll handlers; ported S1 badnik subpixel arithmetic to `SubpixelMotion` and routed S1/S2 child
+  spawns through `spawnChild`/`spawnFreeChild` for `CONSTRUCTION_CONTEXT` safety; extracted the
+  rendering pipeline from `LevelManager` into a new `LevelRenderer` (4812→3768 lines, GL imports
+  collapsed); collapsed `PatternAtlas.isSlotShared` to O(1) via per-slot reference counts;
+  eliminated per-call allocations in `endSpriteSatCollectionAndReplay`; replaced bytecode
+  constant-pool heuristic in the `ObjectServices` migration guard with a source-level scan; fixed
+  `DebugRenderer` Y-coord mix to `getCentreY()`; documented the S2 CPZ visual-water `-8` recentre
+  vs ROM `lsr.w #1` divergence in `KNOWN_DISCREPANCIES.md`.
 
 See `CHANGELOG.md` for the detailed 0.6 prerelease change history.
 
