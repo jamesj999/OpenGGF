@@ -255,4 +255,29 @@ public final class OscillationManager {
     public static int[] deltasForTest() {
         return deltas.clone();
     }
+
+    /** Captures the current oscillator phase for rewind snapshots. */
+    public static OscillationSnapshot snapshot() {
+        return new OscillationSnapshot(
+                values, deltas, activeSpeeds, activeLimits,
+                control, lastFrame, suppressedUpdates);
+    }
+
+    /** Restores oscillator phase from a previously captured snapshot. */
+    public static void restore(OscillationSnapshot snap) {
+        java.util.Objects.requireNonNull(snap, "snap");
+        int[] sv = snap.values();
+        int[] sd = snap.deltas();
+        int[] ss = snap.activeSpeeds();
+        int[] sl = snap.activeLimits();
+        for (int i = 0; i < OSC_COUNT; i++) {
+            values[i] = sv[i] & 0xFFFF;
+            deltas[i] = sd[i] & 0xFFFF;
+        }
+        activeSpeeds = ss;
+        activeLimits = sl;
+        control = snap.control() & 0xFFFF;
+        lastFrame = snap.lastFrame();
+        suppressedUpdates = Math.max(0, snap.suppressedUpdates());
+    }
 }
