@@ -6,6 +6,8 @@ import com.openggf.game.GameServices;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
 import com.openggf.game.ScrollHandlerProvider;
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.ParallaxSnapshot;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
 import java.io.IOException;
@@ -19,7 +21,7 @@ import java.util.logging.Logger;
  * {@link ScrollHandlerProvider} obtained from the active {@link GameModule}.
  * ParallaxManager itself contains no game-specific imports or constants.
  */
-public class ParallaxManager {
+public class ParallaxManager implements RewindSnapshottable<ParallaxSnapshot> {
     private static final Logger LOGGER = Logger.getLogger(ParallaxManager.class.getName());
 
     public static final int VISIBLE_LINES = 224;
@@ -452,5 +454,52 @@ public class ParallaxManager {
             java.util.Arrays.fill(vScrollPerColumnFG, count, FG_VSCROLL_COLUMN_COUNT, (short) 0);
         }
         hasPerColumnVScrollFG = true;
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    @Override
+    public String key() {
+        return "parallax";
+    }
+
+    @Override
+    public ParallaxSnapshot capture() {
+        return new ParallaxSnapshot(
+                currentShakeOffsetX,
+                currentShakeOffsetY,
+                cachedBgCameraX,
+                cachedBgPeriodWidth,
+                java.util.Arrays.copyOf(hScroll, hScroll.length),
+                java.util.Arrays.copyOf(vScrollPerLineBG, vScrollPerLineBG.length),
+                java.util.Arrays.copyOf(vScrollPerColumnBG, vScrollPerColumnBG.length),
+                java.util.Arrays.copyOf(vScrollPerColumnFG, vScrollPerColumnFG.length),
+                hasPerLineVScrollBG,
+                hasPerColumnVScrollBG,
+                hasPerColumnVScrollFG,
+                minScroll,
+                maxScroll,
+                vscrollFactorFG,
+                vscrollFactorBG
+        );
+    }
+
+    @Override
+    public void restore(ParallaxSnapshot s) {
+        currentShakeOffsetX = s.currentShakeOffsetX();
+        currentShakeOffsetY = s.currentShakeOffsetY();
+        cachedBgCameraX = s.cachedBgCameraX();
+        cachedBgPeriodWidth = s.cachedBgPeriodWidth();
+        System.arraycopy(s.hScroll(), 0, hScroll, 0, hScroll.length);
+        System.arraycopy(s.vScrollPerLineBG(), 0, vScrollPerLineBG, 0, vScrollPerLineBG.length);
+        System.arraycopy(s.vScrollPerColumnBG(), 0, vScrollPerColumnBG, 0, vScrollPerColumnBG.length);
+        System.arraycopy(s.vScrollPerColumnFG(), 0, vScrollPerColumnFG, 0, vScrollPerColumnFG.length);
+        hasPerLineVScrollBG = s.hasPerLineVScrollBG();
+        hasPerColumnVScrollBG = s.hasPerColumnVScrollBG();
+        hasPerColumnVScrollFG = s.hasPerColumnVScrollFG();
+        minScroll = s.minScroll();
+        maxScroll = s.maxScroll();
+        vscrollFactorFG = s.vscrollFactorFG();
+        vscrollFactorBG = s.vscrollFactorBG();
     }
 }

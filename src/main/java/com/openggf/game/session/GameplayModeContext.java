@@ -18,6 +18,7 @@ import com.openggf.game.rewind.PlaybackController;
 import com.openggf.game.rewind.RewindController;
 import com.openggf.game.rewind.RewindRegistry;
 import com.openggf.game.rewind.snapshot.OscillationStaticAdapter;
+import com.openggf.game.solid.DefaultSolidExecutionRegistry;
 import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.graphics.FadeManager;
@@ -131,6 +132,10 @@ public final class GameplayModeContext implements ModeContext {
         this.rewindRegistry.register(timerManager);
         this.rewindRegistry.register(fadeManager);
         this.rewindRegistry.register(new OscillationStaticAdapter());
+        // Register solid-execution adapter (no-op if not DefaultSolidExecutionRegistry)
+        if (solidExecutionRegistry instanceof DefaultSolidExecutionRegistry dser) {
+            this.rewindRegistry.register(dser);
+        }
     }
 
     /**
@@ -152,6 +157,13 @@ public final class GameplayModeContext implements ModeContext {
         this.collisionSystem = Objects.requireNonNull(collisionSystem, "collisionSystem");
         this.spriteManager = Objects.requireNonNull(spriteManager, "spriteManager");
         this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
+
+        if (rewindRegistry != null) {
+            rewindRegistry.deregister("parallax");
+            rewindRegistry.deregister("water");
+            rewindRegistry.register(parallaxManager);
+            rewindRegistry.register(waterSystem);
+        }
     }
 
     /**
@@ -174,6 +186,21 @@ public final class GameplayModeContext implements ModeContext {
         this.specialRenderEffectRegistry = Objects.requireNonNull(specialRenderEffectRegistry, "specialRenderEffectRegistry");
         this.advancedRenderModeController = Objects.requireNonNull(advancedRenderModeController, "advancedRenderModeController");
         this.zoneLayoutMutationPipeline = Objects.requireNonNull(zoneLayoutMutationPipeline, "zoneLayoutMutationPipeline");
+
+        if (rewindRegistry != null) {
+            rewindRegistry.deregister("zone-runtime");
+            rewindRegistry.deregister("palette-ownership");
+            rewindRegistry.deregister("animated-tile-channels");
+            rewindRegistry.deregister("special-render");
+            rewindRegistry.deregister("advanced-render-mode");
+            rewindRegistry.deregister("mutation-pipeline");
+            rewindRegistry.register(zoneRuntimeRegistry);
+            rewindRegistry.register(paletteOwnershipRegistry);
+            rewindRegistry.register(animatedTileChannelGraph);
+            rewindRegistry.register(specialRenderEffectRegistry);
+            rewindRegistry.register(advancedRenderModeController);
+            rewindRegistry.register(zoneLayoutMutationPipeline);
+        }
     }
 
     public Camera getCamera() {
