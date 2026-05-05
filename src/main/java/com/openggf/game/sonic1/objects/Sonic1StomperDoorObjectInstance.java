@@ -14,6 +14,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -153,8 +154,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     // Whether this is an SBZ3 instance (zone == LZ)
     private final boolean isSbz3;
 
-    // Type 5: sub-pixel Y accumulator for 0.5px/frame movement
-    private int ySubPixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16.16 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Whether render flags bit 4 is set (SBZ3 bigdoor uses bg render)
     private final boolean bgRender;
@@ -239,7 +240,6 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
         this.currentOffset = 0;
         this.timer = 0;
         this.active = false;
-        this.ySubPixel = 0;
 
         // SolidObject params: d1=obActWid+$B, d2=obHeight, d3=obHeight+1
         int halfWidth = actWidth + 0x0B;
@@ -526,12 +526,13 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
         // subi.l #$10000,obX(a0) -> X -= 1.0 pixel (in 16.16 fixed point)
         x -= TYPE5_X_SPEED;
 
-        // addi.l #$8000,obY(a0) -> Y += 0.5 pixel (sub-pixel accumulation)
-        ySubPixel += TYPE5_Y_SUBPIXEL;
-        if (ySubPixel >= 0x10000) {
-            y += ySubPixel >> 16;
-            ySubPixel &= 0xFFFF;
-        }
+        // addi.l #$8000,obY(a0) -> Y += 0.5 pixel (sub-pixel accumulation).
+        // Direct 16.16 add (not velocity-driven), so update the accumulator
+        // on the State directly — same pattern as PushBlock's slow sink.
+        int yPos32 = (y << 16) | (motion.ySub & 0xFFFF);
+        yPos32 += TYPE5_Y_SUBPIXEL;
+        y = yPos32 >> 16;
+        motion.ySub = yPos32 & 0xFFFF;
 
         // Update origX for range checking
         // move.w obX(a0),sto_origX(a0)

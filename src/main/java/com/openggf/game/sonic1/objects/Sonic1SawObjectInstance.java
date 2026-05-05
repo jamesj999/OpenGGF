@@ -9,6 +9,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -106,8 +107,8 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
     // X velocity (subpixel, 16-bit signed)
     private int velX;
 
-    // Subpixel X accumulator (fractional part)
-    private int subPixelX;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Animation state
     private int mappingFrame;     // 0 or 1 for pizza cutters; 2 or 3 for ground saws
@@ -410,9 +411,10 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
         // SpeedToPos: obX += obVelX (16.16 fixed point, but S1 uses 16.8 subpixel)
         // In practice for this object, velX is whole pixels at 8-bit subpixel scale.
         // $600 = 6.0 pixels per frame
-        subPixelX += velX;
-        x += subPixelX >> 8;
-        subPixelX &= 0xFF;
+        motion.x = x;
+        motion.xVel = velX;
+        SubpixelMotion.moveX(motion);
+        x = motion.x;
     }
 
     /**
