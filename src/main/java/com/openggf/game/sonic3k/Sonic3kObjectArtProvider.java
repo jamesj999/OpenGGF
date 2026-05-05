@@ -47,11 +47,13 @@ import java.util.logging.Logger;
  * This provider builds sprite sheets from the loaded level's pattern data
  * after the level has been loaded.
  */
-public class Sonic3kObjectArtProvider implements ObjectArtProvider {
+public class Sonic3kObjectArtProvider implements ObjectArtProvider,
+        com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.PlcProgressSnapshot> {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArtProvider.class.getName());
 
     private int currentZoneIndex = -2;
     private int currentActIndex = 0;
+    private int loadEpoch = 0;
 
     private final Map<String, PatternSpriteRenderer> renderers = new HashMap<>();
     private final Map<String, ObjectSpriteSheet> sheets = new HashMap<>();
@@ -105,6 +107,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     @Override
     public void loadArtForZone(int zoneIndex) throws IOException {
         currentZoneIndex = zoneIndex;
+        loadEpoch++;
 
         // Clear previous registrations
         renderers.clear();
@@ -1747,5 +1750,27 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             }
         }
         return false;
+    }
+
+    // --- RewindSnapshottable<PlcProgressSnapshot> ---
+
+    @Override
+    public String key() {
+        return "s3k-plc-art";
+    }
+
+    @Override
+    public com.openggf.game.rewind.snapshot.PlcProgressSnapshot capture() {
+        return new com.openggf.game.rewind.snapshot.PlcProgressSnapshot(loadEpoch);
+    }
+
+    /**
+     * Restore is a no-op for v1: all PLC art is loaded at zone-load time and
+     * does not change per-frame. The epoch is recorded in the snapshot as a
+     * diagnostic check but is not re-applied here.
+     */
+    @Override
+    public void restore(com.openggf.game.rewind.snapshot.PlcProgressSnapshot snap) {
+        // No per-frame PLC state to restore in v1.
     }
 }
