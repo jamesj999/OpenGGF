@@ -17,6 +17,8 @@ import com.openggf.game.rewind.InputSource;
 import com.openggf.game.rewind.PlaybackController;
 import com.openggf.game.rewind.RewindController;
 import com.openggf.game.rewind.RewindRegistry;
+import com.openggf.game.AbstractLevelEventManager;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.rewind.snapshot.OscillationStaticAdapter;
 import com.openggf.game.solid.DefaultSolidExecutionRegistry;
 import com.openggf.game.solid.SolidExecutionRegistry;
@@ -305,9 +307,17 @@ public final class GameplayModeContext implements ModeContext {
         }
         rewindRegistry.deregister("level");
         rewindRegistry.deregister("object-manager");
+        rewindRegistry.deregister("level-event");
         rewindRegistry.register(levelManager.levelRewindSnapshottable());
         if (levelManager.getObjectManager() != null) {
             rewindRegistry.register(levelManager.getObjectManager().rewindSnapshottable());
+        }
+        // Register level-event manager adapter (available after gameModule is set).
+        if (levelManager.getGameModule() != null) {
+            LevelEventProvider lep = levelManager.getGameModule().getLevelEventProvider();
+            if (lep instanceof AbstractLevelEventManager alem) {
+                rewindRegistry.register(alem);
+            }
         }
     }
 

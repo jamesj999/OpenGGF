@@ -1,6 +1,8 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.LevelEventSnapshot;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -17,7 +19,8 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  * Subclasses implement zone-specific dispatch in {@link #onUpdate()} and
  * game-specific initialization in {@link #onInitLevel(int, int)}.
  */
-public abstract class AbstractLevelEventManager implements LevelEventProvider {
+public abstract class AbstractLevelEventManager
+        implements LevelEventProvider, RewindSnapshottable<LevelEventSnapshot> {
 
     /**
      * Returns the current Camera singleton. Always call this accessor rather
@@ -382,5 +385,69 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     public void setBossActive(boolean bossActive) {
         this.bossActive = bossActive;
+    }
+
+    // =========================================================================
+    // RewindSnapshottable<LevelEventSnapshot>
+    // =========================================================================
+
+    /**
+     * Subclasses override to encode game-specific extra state into a byte array
+     * (e.g. using {@link java.nio.ByteBuffer}).
+     * Return {@code null} when there is no extra state to capture.
+     */
+    protected byte[] captureExtra() {
+        return null;
+    }
+
+    /**
+     * Subclasses override to restore game-specific state from the byte array
+     * previously produced by {@link #captureExtra()}.
+     * The default no-op is safe for subclasses without extra state.
+     */
+    protected void restoreExtra(byte[] extra) {
+        // no-op in base class
+    }
+
+    @Override
+    public String key() {
+        return "level-event";
+    }
+
+    @Override
+    public LevelEventSnapshot capture() {
+        return new LevelEventSnapshot(
+                currentZone,
+                currentAct,
+                eventRoutineFg,
+                eventRoutineBg,
+                frameCounter,
+                timerFrames,
+                bossActive,
+                eventDataFg != null ? eventDataFg.clone() : null,
+                eventDataBg != null ? eventDataBg.clone() : null,
+                captureExtra());
+    }
+
+    @Override
+    public void restore(LevelEventSnapshot snapshot) {
+        this.currentZone    = snapshot.currentZone();
+        this.currentAct     = snapshot.currentAct();
+        this.eventRoutineFg = snapshot.eventRoutineFg();
+        this.eventRoutineBg = snapshot.eventRoutineBg();
+        this.frameCounter   = snapshot.frameCounter();
+        this.timerFrames    = snapshot.timerFrames();
+        this.bossActive     = snapshot.bossActive();
+        short[] fg = snapshot.eventDataFg();
+        if (this.eventDataFg != null && fg != null) {
+            System.arraycopy(fg, 0, this.eventDataFg, 0,
+                    Math.min(fg.length, this.eventDataFg.length));
+        }
+        byte[] bg = snapshot.eventDataBg();
+        if (this.eventDataBg != null && bg != null) {
+            System.arraycopy(bg, 0, this.eventDataBg, 0,
+                    Math.min(bg.length, this.eventDataBg.length));
+        }
+        restoreExtra(snapshot.extra());
     }
 }

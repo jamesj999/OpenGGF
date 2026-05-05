@@ -3443,6 +3443,7 @@ public class LevelManager {
         if (gameplayMode != null && gameplayMode.getRewindRegistry() != null) {
             gameplayMode.getRewindRegistry().deregister("level");
             gameplayMode.getRewindRegistry().deregister("object-manager");
+            gameplayMode.getRewindRegistry().deregister("level-event");
         }
         writeCurrentLevel(null);
         game = null;
