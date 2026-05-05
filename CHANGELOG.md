@@ -6,6 +6,26 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Architecture cleanup: removed game-id branching from
+  `DefaultPowerUpSpawner`; documented G4 priority-inversion deferral in
+  code.** `DefaultPowerUpSpawner.spawnInvincibilityStars` no longer
+  switches on `instanceof Sonic3kGameModule`; instead, a new
+  `GameModule.getInvincibilityStarsFactory()` default returns the
+  game-agnostic `InvincibilityStarsObjectInstance::new`, and
+  `Sonic3kGameModule` overrides it to return
+  `Sonic3kInvincibilityStarsObjectInstance::new`. The S1 fixed shield
+  slot (ROM `v_shieldobj` at slot 6) is now expressed as
+  `PhysicsFeatureSet.shieldObjectFixedSlotIndex` (S1=6, S2/S3K=-1) and
+  consumed by `addPowerUpObject`, replacing the second
+  `instanceof Sonic1GameModule` check. Per-game behavioral differences
+  in this class are now gated entirely through `GameModule` factories or
+  `PhysicsFeatureSet` flags as required by `CLAUDE.md`. Separately, the
+  G4 priority-inversion deferral previously documented only in the
+  commit message now has an explicit `// TODO(G4-followup):` comment at
+  the top of `Sonic2SmpsLoader.findMusicOffset` citing the symptom
+  (Metropolis 0x82 / Chemical Plant 0x83 break TestRomAudioIntegration
+  when ROM resolution is primary) and the byte-order root cause inside
+  `resolveMusicOffsetFromRom`.
 - **G4: consolidated S2 uncompressed-track constants; documented why
   ROM-resolution priority inversion is deferred.** The four uncompressed
   track ROM addresses (1-Up, Game Over, Got Emerald, Credits) and their

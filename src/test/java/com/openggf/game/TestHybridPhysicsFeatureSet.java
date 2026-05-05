@@ -86,7 +86,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // waterExitBoostSkipsFastUpwardVelocity - S1 exits water with unconditional asl.w obVelY(a0)
                 false,  // slopeResistAppliesAtZeroInertia - S1 SlopeResist returns when inertia=0 (s1disasm/_incObj/01 Sonic.asm:1243-1244)
                 false,  // permanentRespawnTableLatch - S1 only latches remembered spawns
-                true    // objectsExecuteAfterPlayerPhysics - S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan
+                true,   // objectsExecuteAfterPlayerPhysics - S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan
+                6       // shieldObjectFixedSlotIndex - S1 v_shieldobj at slot 6
         );
 
         // Verify spindash is enabled (donor contribution)

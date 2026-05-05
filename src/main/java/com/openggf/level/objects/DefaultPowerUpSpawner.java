@@ -1,18 +1,17 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.GameModule;
 import com.openggf.game.InstaShieldHandle;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PowerUpObject;
 import com.openggf.game.PowerUpSpawner;
 import com.openggf.game.ShieldType;
 import com.openggf.game.sonic1.objects.Sonic1SplashObjectInstance;
-import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.Sonic3kInvincibilityStarsObjectInstance;
-import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpindashDustController;
@@ -26,17 +25,18 @@ import java.util.logging.Logger;
  * Default implementation of {@link PowerUpSpawner} that creates concrete
  * power-up objects and registers them with the {@link ObjectManager}.
  * <p>
- * <b>Intentional bridge class:</b> This class imports game-specific types
- * (S1 splash, S3K elemental shields) from the game-agnostic layer. This is
- * an accepted layering violation because extracting a per-game shield factory
- * would add indirection with no practical benefit — the shield types are
- * stable and the spawner logic is shared across all games.
+ * <b>Intentional bridge class:</b> This class imports game-specific concrete
+ * types (S1 splash, S3K elemental shields) from the game-agnostic layer.
+ * This is an accepted layering violation: the {@code switch} on
+ * {@link ShieldType} maps each enum value to its concrete class without
+ * relying on game-id checks, and game-specific divergences (invincibility
+ * stars subclass, S1's fixed shield slot) are gated through
+ * {@link com.openggf.game.GameModule} factories or
+ * {@link PhysicsFeatureSet} flags.
  */
 public class DefaultPowerUpSpawner implements PowerUpSpawner {
 
     private static final Logger LOGGER = Logger.getLogger(DefaultPowerUpSpawner.class.getName());
-    // S1 Variables.asm: v_shieldobj = v_objspace + object_size*6
-    private static final int S1_SHIELD_SLOT = 6;
 
     private final ObjectManager objectManager;
     private final ObjectServices services;
@@ -66,9 +66,10 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
 
     @Override
     public PowerUpObject spawnInvincibilityStars(PlayableEntity player) {
+        GameModule module = services != null ? services.gameModule() : null;
         AbstractObjectInstance stars;
-        if (services != null && services.gameModule() instanceof Sonic3kGameModule) {
-            stars = constructWithServices(() -> new Sonic3kInvincibilityStarsObjectInstance(player));
+        if (module != null) {
+            stars = constructWithServices(() -> module.getInvincibilityStarsFactory().apply(player));
         } else {
             stars = constructWithServices(() -> new InvincibilityStarsObjectInstance(player));
         }
@@ -156,17 +157,28 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
         if (objectManager == null || object == null) {
             return;
         }
-        if (usesSonic1FixedShieldSlot(object)) {
-            objectManager.addDynamicObjectAtSlot(object, S1_SHIELD_SLOT);
+        int fixedSlot = shieldFixedSlotIndex(object);
+        if (fixedSlot >= 0) {
+            objectManager.addDynamicObjectAtSlot(object, fixedSlot);
             return;
         }
         objectManager.addDynamicObject(object);
     }
 
-    private boolean usesSonic1FixedShieldSlot(ObjectInstance object) {
+    private int shieldFixedSlotIndex(ObjectInstance object) {
         if (!(object instanceof ShieldObjectInstance)) {
-            return false;
+            return -1;
         }
-        return services != null && services.gameModule() instanceof Sonic1GameModule;
+        if (services == null) {
+            return -1;
+        }
+        GameModule module = services.gameModule();
+        if (module == null) {
+            return -1;
+        }
+        PhysicsFeatureSet featureSet = module.getPhysicsProvider() != null
+                ? module.getPhysicsProvider().getFeatureSet()
+                : null;
+        return featureSet != null ? featureSet.shieldObjectFixedSlotIndex() : -1;
     }
 }

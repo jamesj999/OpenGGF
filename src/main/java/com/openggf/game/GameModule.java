@@ -399,6 +399,23 @@ public interface GameModule {
     }
 
     /**
+     * Returns a factory that constructs the invincibility-stars power-up object
+     * for the player. Games may override to return a game-specific subclass
+     * (e.g. S3K returns {@code Sonic3kInvincibilityStarsObjectInstance}).
+     *
+     * <p>The default returns the game-agnostic
+     * {@link com.openggf.level.objects.InvincibilityStarsObjectInstance} used
+     * by S1/S2.
+     *
+     * @return a factory creating an {@link com.openggf.level.objects.AbstractObjectInstance}
+     *         for the given player
+     */
+    default java.util.function.Function<PlayableEntity, com.openggf.level.objects.AbstractObjectInstance>
+            getInvincibilityStarsFactory() {
+        return com.openggf.level.objects.InvincibilityStarsObjectInstance::new;
+    }
+
+    /**
      * Returns whether this game natively supports a sidekick character (e.g., Tails).
      * Games without sidekick art/logic should return false.
      *

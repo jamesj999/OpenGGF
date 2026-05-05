@@ -324,6 +324,12 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
+    public java.util.function.Function<com.openggf.game.PlayableEntity,
+            com.openggf.level.objects.AbstractObjectInstance> getInvincibilityStarsFactory() {
+        return com.openggf.game.sonic3k.objects.Sonic3kInvincibilityStarsObjectInstance::new;
+    }
+
+    @Override
     public DonorCapabilities getDonorCapabilities() {
         return Sonic3kDonorCapabilities.INSTANCE;
     }

@@ -228,6 +228,14 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
      * Exposed for debug tools (sound test).
      */
     public int findMusicOffset(int musicId) {
+        // TODO(G4-followup): invert priority so resolveMusicOffsetFromRom is
+        // tried before the hardcoded musicMap (needed for non-REV01 ROMs).
+        // Currently deferred: resolveMusicOffsetFromRom has an endianness bug
+        // that yields wrong-but-non-negative offsets for several REV01 IDs —
+        // notably Metropolis (0x82) and Chemical Plant (0x83) — so flipping
+        // the priority breaks TestRomAudioIntegration / TestSmpsDriver. Fix
+        // the byte-order in resolveMusicOffsetFromRom (lo/hi swap on the
+        // pointer-table read), re-verify against REV01, then invert here.
         Integer mapped = musicMap.get(musicId);
         if (mapped != null) {
             return mapped;

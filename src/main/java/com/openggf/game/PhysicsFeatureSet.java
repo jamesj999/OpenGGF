@@ -543,7 +543,18 @@ public record PhysicsFeatureSet(
          *  2026-04-18-solid-ordering-rom-accuracy plan.
          *
          *  <p>S1/S2/S3K: {@code true}. */
-        boolean objectsExecuteAfterPlayerPhysics
+        boolean objectsExecuteAfterPlayerPhysics,
+        /** Fixed object slot index used for shield power-ups, or {@code -1}
+         *  when shields are dynamically allocated through the normal slot pool.
+         *
+         *  <p>S1: 6. ROM Variables.asm hardcodes {@code v_shieldobj = v_objspace
+         *  + object_size*6}, so the shield object always lives at object slot 6
+         *  ({@link com.openggf.level.objects.DefaultPowerUpSpawner} routes
+         *  shield objects through {@code addDynamicObjectAtSlot}).
+         *
+         *  <p>S2/S3K: -1. Shields share the dynamic slot pool with other
+         *  spawned objects; no fixed slot reservation. */
+        int shieldObjectFixedSlotIndex
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -625,7 +636,8 @@ public record PhysicsFeatureSet(
             false /* waterExitBoostSkipsFastUpwardVelocity: S1 exits water with unconditional asl.w obVelY(a0) */,
             false /* slopeResistAppliesAtZeroInertia: S1 Sonic_SlopeResist (s1disasm/_incObj/01 Sonic.asm:1243-1244) returns unconditionally when inertia=0 */,
             false /* permanentRespawnTableLatch: S1 ObjectsManager_Main only latches remembered spawns; non-remembered spawns re-trigger when cursor passes */,
-            true /* objectsExecuteAfterPlayerPhysics: S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan */);
+            true /* objectsExecuteAfterPlayerPhysics: S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan */,
+            6 /* shieldObjectFixedSlotIndex: S1 Variables.asm v_shieldobj = v_objspace + object_size*6 */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -650,7 +662,8 @@ public record PhysicsFeatureSet(
             true /* waterExitBoostSkipsFastUpwardVelocity: S2 Sonic_Water skips asl y_vel when y_vel < -$400 (s2.asm:36120-36124) */,
             false /* slopeResistAppliesAtZeroInertia: S2 Sonic_SlopeResist/Tails_SlopeResist (s2.asm:37394-37395, 40249-40250) return unconditionally on tst.w inertia(a0)/beq when stationary. Required for EHZ trace F3644 Tails-on-loop divergence. */,
             false /* permanentRespawnTableLatch: S2 ObjectsManager_Main only latches remembered spawns (s2.asm:33402 tst.b 2(a0); bpl.s +); non-remembered spawns re-trigger when cursor passes */,
-            true /* objectsExecuteAfterPlayerPhysics: S2 DUAL_PATH uses post-physics object ordering with inline solid checkpoints */);
+            true /* objectsExecuteAfterPlayerPhysics: S2 DUAL_PATH uses post-physics object ordering with inline solid checkpoints */,
+            -1 /* shieldObjectFixedSlotIndex: S2 shields use the dynamic slot pool, no fixed v_shieldobj slot */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -679,7 +692,8 @@ public record PhysicsFeatureSet(
             true /* waterExitBoostSkipsFastUpwardVelocity: S3K Sonic_Water skips asl y_vel when y_vel < -$400 (sonic3k.asm:22267-22270) */,
             true /* slopeResistAppliesAtZeroInertia: S3K Player_SlopeResist (sonic3k.asm:23830-23856) branches to loc_11DDC on inertia=0 and applies slope force when |force| >= $D, kicking stationary player into motion */,
             true /* permanentRespawnTableLatch: S3K Touch_EnemyNormal (sonic3k.asm:20953 bset #7,status(a1)) sets the destroyed bit on kill; badnik becomes Obj_Explosion which never re-enters Sprite_OnScreen_Test clear path, so bit persists until level reset */,
-            true /* objectsExecuteAfterPlayerPhysics: S3K DUAL_PATH uses post-physics object ordering with inline solid checkpoints */);
+            true /* objectsExecuteAfterPlayerPhysics: S3K DUAL_PATH uses post-physics object ordering with inline solid checkpoints */,
+            -1 /* shieldObjectFixedSlotIndex: S3K shields use the dynamic slot pool, no fixed v_shieldobj slot */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
