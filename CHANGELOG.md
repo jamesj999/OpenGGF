@@ -6,6 +6,28 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **`spawnChild` / `spawnFreeChild` migration sweep across S1 object
+  code.** Replaced direct `objectManager.addDynamicObject(...)` calls
+  in S1 instance classes with the inherited
+  `AbstractObjectInstance.spawnChild(() -> ...)` /
+  `spawnFreeChild(() -> ...)` helpers so that the
+  `CONSTRUCTION_CONTEXT` ThreadLocal is set before each child
+  constructor runs. This guarantees children calling `services()`
+  during construction see a non-null context and stops the migration
+  guard from regressing. Original ROM allocation semantics are
+  preserved (`addDynamicObject` -> `spawnFreeChild` for `FindFreeObj`,
+  `addDynamicObjectAfterCurrent` -> `spawnChild` for
+  `FindNextFreeObj`). Batches: badniks (Buzz Bomber, Cannonball,
+  Crabmeat, Motobug, Newtron); bosses (FZ, MZ, GHZ, SLZ, SYZ, FZ
+  plasma launcher, false floor, boss block, boss fire, SLZ spikeball);
+  level objects (breakable wall, bumper, collapsing floor/ledge, egg
+  prison, elevator, ending, gargoyle, giant ring, glass block, grass
+  fire, junction, lamppost, large grassy platform, lava
+  geyser/maker/wall, LZ conveyor, monitor, push block, ring flash,
+  seesaw, signpost, smash block, spin conveyor). `addDynamicObject`
+  call count inside classes extending `AbstractObjectInstance` under
+  `game/sonic1/objects/` reduced to zero.
+
 - **G4 follow-up: retired the broken
   `Sonic2SmpsLoader.resolveMusicOffsetFromRom` and removed the deferred
   priority-inversion TODO.** Investigation showed the function's premise

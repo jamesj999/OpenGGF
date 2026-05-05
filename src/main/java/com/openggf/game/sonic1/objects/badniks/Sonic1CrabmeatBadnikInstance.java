@@ -203,18 +203,16 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         renderedFrame = 4; // Firing animation (mapping frame 4)
 
         // Left projectile
-        Sonic1CrabmeatProjectileInstance leftBall = new Sonic1CrabmeatProjectileInstance(
+        spawnFreeChild(() -> new Sonic1CrabmeatProjectileInstance(
                 currentX - PROJECTILE_X_OFFSET, currentY,
                 -PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this);
-        services().objectManager().addDynamicObject(leftBall);
+                this));
 
         // Right projectile
-        Sonic1CrabmeatProjectileInstance rightBall = new Sonic1CrabmeatProjectileInstance(
+        spawnFreeChild(() -> new Sonic1CrabmeatProjectileInstance(
                 currentX + PROJECTILE_X_OFFSET, currentY,
                 PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this);
-        services().objectManager().addDynamicObject(rightBall);
+                this));
     }
 
     /**

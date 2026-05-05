@@ -196,9 +196,8 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
      * causing it to skip to Moto_Animate (animation-only routine).
      */
     private void spawnSmoke() {
-        Sonic1MotobugSmokeInstance smoke = new Sonic1MotobugSmokeInstance(
-                currentX, currentY, facingLeft);
-        services().objectManager().addDynamicObject(smoke);
+        spawnFreeChild(() -> new Sonic1MotobugSmokeInstance(
+                currentX, currentY, facingLeft));
     }
 
     /**

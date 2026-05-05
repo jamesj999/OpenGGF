@@ -360,9 +360,11 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
         int missileX = currentX + xOffset;
         int missileY = currentY + MISSILE_Y_OFFSET;
 
-        Sonic1NewtronMissileInstance missile = new Sonic1NewtronMissileInstance(
-                missileX, missileY, missileXVel, facingLeft);
-        services().objectManager().addDynamicObject(missile);
+        final int fMissileX = missileX;
+        final int fMissileY = missileY;
+        final int fMissileXVel = missileXVel;
+        spawnFreeChild(() -> new Sonic1NewtronMissileInstance(
+                fMissileX, fMissileY, fMissileXVel, facingLeft));
     }
 
     @Override

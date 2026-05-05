@@ -244,16 +244,14 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         destroyed = true;
         setDestroyed(true);
 
-        var objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // Spawn bomb explosion (object $3F)
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(
+        spawnFreeChild(() -> new ExplosionObjectInstance(
                 0x3F, currentX, currentY,
-                services().renderManager());
-        objectManager.addDynamicObject(explosion);
+                services().renderManager()));
 
         // sfx_Bomb = $C4 = BOSS_EXPLOSION
         services().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
