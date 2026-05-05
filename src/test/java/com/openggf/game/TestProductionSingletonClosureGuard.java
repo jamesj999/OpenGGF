@@ -60,7 +60,7 @@ public class TestProductionSingletonClosureGuard {
     );
 
     private static final String ENGINE_SERVICES_BOOTSTRAP_EXCEPTION =
-            "com/openggf/game/EngineContext.java";
+            "com/openggf/game/session/EngineContext.java";
     private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineContext.fromLegacySingletonsForBootstrap(";
     private static final String ENGINE_SERVICES_LOCATOR = "RuntimeManager.getEngineServices(";
     private static final String ENGINE_SERVICES_LOCATOR_ALIAS = "RuntimeManager.currentEngineServices(";

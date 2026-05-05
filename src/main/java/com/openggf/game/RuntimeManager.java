@@ -161,9 +161,12 @@ public final class RuntimeManager {
                     sessionModule.getChaosEmeraldCount());
         }
         FadeManager fadeManager = new FadeManager();
-        GameModule currentModule = GameModuleRegistry.getCurrent();
-        GameRng rng = new GameRng(currentModule != null
-                ? currentModule.rngFlavour()
+        // Use the session's module for RNG flavor, not GameModuleRegistry —
+        // the latter can be out of sync when a GameplayModeContext was opened
+        // with a specific module before the registry was updated. Falls back
+        // to S1_S2 only when no session module is set (bootstrap path).
+        GameRng rng = new GameRng(sessionModule != null
+                ? sessionModule.rngFlavour()
                 : GameRng.Flavour.S1_S2);
         SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
         gameplayMode.attachGameplayManagers(camera, timers, gameState, fadeManager, rng, solidExecutionRegistry);
