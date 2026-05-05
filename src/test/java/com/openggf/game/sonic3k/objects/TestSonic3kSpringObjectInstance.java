@@ -149,7 +149,8 @@ class TestSonic3kSpringObjectInstance {
                 "sub_23190 applies the horizontal spring nudge even for airborne side contact");
         assertEquals(0x1000, player.getXSpeed() & 0xFFFF);
         assertEquals(0x1000, player.getGSpeed() & 0xFFFF);
-        assertFalse(player.getAir(), "Horizontal spring launch leaves the player in grounded movement");
+        assertEquals(true, player.getAir(),
+                "sub_23190 does not clear Status_InAir for an airborne side-contact launch");
     }
 
     @Test

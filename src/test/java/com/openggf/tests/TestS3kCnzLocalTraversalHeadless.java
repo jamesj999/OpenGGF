@@ -182,27 +182,24 @@ class TestS3kCnzLocalTraversalHeadless {
                     "Settled platform should keep the resting frame while carried");
         }
 
-        int storedCompression = invokeIntHook(platform, "getYSpeedForTest");
         platform.update(60, fixture.sprite());
-        int releaseY = platform.getSpawn().y();
-        assertFalse(invokeBooleanHook(platform, "isArmedForTest"),
-                "Stepping off should clear the armed flag");
-        assertEquals(-storedCompression - 0x80, invokeIntHook(platform, "getYSpeedForTest"),
-                "Stepping off should bounce from the stored compression, not a clamped floor velocity");
+        assertTrue(invokeBooleanHook(platform, "isArmedForTest"),
+                "ROM loc_31C6A swaps to loc_31BD2, so stepping off does not clear the armed latch");
+        assertTrue(invokeIntHook(platform, "getYSpeedForTest") > 0,
+                "ROM loc_31BD2 preserves the stored compression velocity instead of running loc_31C86");
         assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
-                "Release should switch the platform to the settling frame");
+                "Terminal routine should keep the settled frame");
 
         for (int frame = 61; frame < 120; frame++) {
             platform.update(frame, fixture.sprite());
-            if (platform.getSpawn().y() == settledY && invokeIntHook(platform, "getYSpeedForTest") == 0) {
-                break;
-            }
+            assertEquals(settledY, platform.getSpawn().y(),
+                    "Terminal routine should keep the floor-snapped position");
         }
 
-        assertTrue(platform.getSpawn().y() < releaseY,
-                "The platform should settle upward onto its floor position");
-        assertEquals(0, invokeIntHook(platform, "getYSpeedForTest"),
-                "Settled platforms should come to rest");
+        assertTrue(invokeBooleanHook(platform, "isArmedForTest"),
+                "Terminal routine should keep the armed latch");
+        assertTrue(invokeIntHook(platform, "getYSpeedForTest") > 0,
+                "Terminal routine should preserve the compressed velocity field");
         assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
                 "Settled platforms should keep the resting frame");
         assertFalse(fixture.sprite().getAir(),

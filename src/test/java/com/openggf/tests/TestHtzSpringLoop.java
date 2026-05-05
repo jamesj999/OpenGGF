@@ -91,6 +91,13 @@ public class TestHtzSpringLoop {
         // update, and for Sonic to settle onto the floor at the test position.
         fixture.stepIdleFrames(5);
 
+        // Object spawn warmup can settle or nudge the player before the behavior
+        // check begins. Re-anchor to the explicit debug-overlay start point so
+        // this test continues to exercise the spring loop, not fixture drift.
+        sprite.setX(START_X);
+        sprite.setY(START_Y);
+        fixture.camera().updatePosition(true);
+
         // Log initial state
         logState("Initial");
 

@@ -59,8 +59,8 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         if (floorSettledRoutine) {
             // ROM loc_31C6A-31C92 swaps the object routine to loc_31BD2 after
             // the floor snap, so sub_31C0A/loc_31C86's release bounce no longer runs.
-            armed = false;
-            motion.yVel = 0;
+            armed = true;
+            displayFrame = 2;
             updateDynamicSpawn(motion.x, motion.y);
             return;
         }

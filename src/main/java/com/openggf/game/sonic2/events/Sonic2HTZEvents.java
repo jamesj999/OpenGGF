@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.events;
 
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
 import com.openggf.level.LevelManager;
@@ -192,7 +191,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
         earthquakeActive = active;
         gameState().setScreenShakeActive(active);
         if (wasActive != active || wasGeneralShake != active) {
-            LevelManager lm = GameServices.levelOrNull();
+            LevelManager lm = levelManager();
             if (lm != null) {
                 lm.invalidateAllTilemaps();
             }

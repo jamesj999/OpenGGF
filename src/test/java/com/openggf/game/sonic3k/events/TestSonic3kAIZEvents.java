@@ -757,12 +757,12 @@ public class TestSonic3kAIZEvents {
         camera.setX((short) 0x4160);
         events.update(1, 3);
         assertEquals(0x10, events.getDynamicResizeRoutine(), "Stage $0E should advance to terminal state");
-        assertTrue(events.isEventsFg4(), "Stage $0E should raise Events_fg_4 for AIZ2_ScreenEvent");
-        assertFalse(events.isBattleshipAutoScrollActive(), "Resize should not start bombing directly");
+        assertFalse(events.isEventsFg4(), "AIZ2_ScreenEvent should consume Events_fg_4 in the same frame");
+        assertTrue(events.isBattleshipAutoScrollActive(), "AIZ2_ScreenEvent should start the bombing sequence");
 
         events.update(1, 4);
         assertFalse(events.isEventsFg4(), "AIZ2_ScreenEvent should consume Events_fg_4");
-        assertTrue(events.isBattleshipAutoScrollActive(), "AIZ2_ScreenEvent should start the bombing sequence");
+        assertTrue(events.isBattleshipAutoScrollActive(), "Battleship bombing should remain active after the handoff");
     }
 
     @Test

@@ -54,6 +54,22 @@ public final class TraceReplayBootstrap {
                     sprite.getYSubpixelRaw(),
                     "player");
         }
+
+        public static ReplayPrimaryState fromTraceFrame(TraceFrame frame, String source) {
+            return new ReplayPrimaryState(
+                    frame.x(),
+                    frame.y(),
+                    frame.xSpeed(),
+                    frame.ySpeed(),
+                    frame.gSpeed(),
+                    frame.angle(),
+                    frame.air(),
+                    frame.rolling(),
+                    frame.groundMode(),
+                    frame.xSub(),
+                    frame.ySub(),
+                    source);
+        }
     }
 
     private TraceReplayBootstrap() {
@@ -160,7 +176,7 @@ public final class TraceReplayBootstrap {
         if (trace == null || trace.frameCount() == 0) {
             return 0;
         }
-        return recordingStartFrameForTraceReplay(trace);
+        return trace.initialVblankCounter() + 1;
     }
 
     public static int preTraceOscillationFramesForTraceReplay(TraceData trace,
@@ -228,7 +244,7 @@ public final class TraceReplayBootstrap {
             return 0;
         }
         if ("s3k".equals(trace.metadata().game())) {
-            return usesSidekickTitleCardSeedFrame(trace) ? 1 : 0;
+            return hasS3kSidekickTitleCardPrelude(trace) ? 1 : 0;
         }
         if (!"s2".equals(trace.metadata().game())) {
             return 0;
@@ -302,6 +318,14 @@ public final class TraceReplayBootstrap {
         if (sprite == null) {
             throw new IllegalArgumentException("sprite must not be null");
         }
+        if (isLegacyS3kAizIntroTrace(trace)
+                && current != null
+                && current.frame() < findFirstLevelGameplayFrame(trace)) {
+            // Pre-level AIZ full-run rows sample title/intro Player_1 RAM,
+            // not the loaded-level Sonic object. Keep this comparison-side
+            // only; never copy these fields back into engine state.
+            return ReplayPrimaryState.fromTraceFrame(current, "trace-vblank");
+        }
         return ReplayPrimaryState.fromSprite(sprite);
     }
 
@@ -352,6 +376,26 @@ public final class TraceReplayBootstrap {
     }
 
     private static boolean usesSidekickTitleCardSeedFrame(TraceData trace) {
+        if (!hasS3kSidekickTitleCardPrelude(trace)) {
+            return false;
+        }
+        TraceFrame firstFrame = trace.getFrame(0);
+        // S3K Sonic+Tails starts spawn the sidekick from Player_1 before the
+        // first LevelLoop (docs/skdisasm/sonic3k.asm:8357-8369), and LevelLoop
+        // then increments Level_frame_counter before Process_Sprites
+        // (docs/skdisasm/sonic3k.asm:7888-7894). Some level-select traces
+        // expose a strict frame-0 seed row before Sonic's own movement has
+        // advanced. MGZ frame 0 is different: Sonic has already run
+        // Sonic_Control/Sonic_MdAir and MoveSprite_TestGravity
+        // (docs/skdisasm/sonic3k.asm:21967-21985, 22350-22361,
+        // 36068-36077), so its nonzero primary speed/subpixel state must be
+        // produced by driving the first BK2 input natively rather than
+        // seed-compared against post-load state. This is timing classification
+        // only; no recorded player or sidekick values are hydrated.
+        return !firstFramePrimaryMovementAdvanced(firstFrame);
+    }
+
+    private static boolean hasS3kSidekickTitleCardPrelude(TraceData trace) {
         if (trace == null || trace.frameCount() < 2
                 || !"s3k".equals(trace.metadata().game())
                 || trace.metadata().recordedSidekicks().isEmpty()
@@ -362,13 +406,22 @@ public final class TraceReplayBootstrap {
             return false;
         }
         TraceFrame firstFrame = trace.getFrame(0);
-        // S3K spawns Tails at Player_1 for Sonic+Tails starts, then the level
-        // loop increments Level_frame_counter before Process_Sprites
-        // (sonic3k.asm:8191-8196, 7884-7894). Level-select traces can therefore
-        // expose a strict frame-0 seed row after Tails' object tick but before
-        // Sonic's first driven movement tick. Use that as a timing policy only;
-        // no recorded player or sidekick values are hydrated into engine state.
+        // Level setup runs SpawnLevelMainSprites, then Load_Sprites and a
+        // pre-LevelLoop Process_Sprites pass before controls unlock
+        // (docs/skdisasm/sonic3k.asm:7848-7859). Headless fixtures load the
+        // team but do not run that setup sprite pass, so a trace whose first
+        // gameplay row has Level_frame_counter=1 needs one native sidekick
+        // prelude to advance Tails from Obj_Tails routine 0 to routine 2
+        // (docs/skdisasm/sonic3k.asm:26085-26156) before the first driven row.
         return firstFrame.gameplayFrameCounter() == 1;
+    }
+
+    private static boolean firstFramePrimaryMovementAdvanced(TraceFrame firstFrame) {
+        return firstFrame.xSpeed() != 0
+                || firstFrame.ySpeed() != 0
+                || firstFrame.gSpeed() != 0
+                || firstFrame.xSub() != 0
+                || firstFrame.ySub() != 0;
     }
 
     /**

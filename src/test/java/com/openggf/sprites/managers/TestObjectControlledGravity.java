@@ -4,6 +4,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
+import com.openggf.game.GameServices;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,10 +15,13 @@ class TestObjectControlledGravity {
     @Test
     void gravityIsSkippedWhenObjectControlled() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
-                .withZoneAndAct(0, 0)  // AIZ1 — any S3K level works for this physics test
+                .withZoneAndAct(3, 0)  // CNZ1 avoids AIZ1 intro object-control scripting.
                 .build();
         AbstractPlayableSprite sonic = fixture.sprite();
 
+        GameServices.camera().setLevelStarted(true);
+        sonic.setCentreY((short) 0x0200);
+        sonic.setOnObject(false);
         sonic.setAir(true);
         sonic.setObjectControlled(true);
         sonic.setYSpeed((short) 0);
@@ -34,10 +38,13 @@ class TestObjectControlledGravity {
     @Test
     void gravityStillAppliedWhenNotObjectControlled() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
-                .withZoneAndAct(0, 0)
+                .withZoneAndAct(3, 0)
                 .build();
         AbstractPlayableSprite sonic = fixture.sprite();
 
+        GameServices.camera().setLevelStarted(true);
+        sonic.setCentreY((short) 0x0200);
+        sonic.setOnObject(false);
         sonic.setAir(true);
         sonic.setObjectControlled(false);
         sonic.setYSpeed((short) 0);
@@ -53,10 +60,13 @@ class TestObjectControlledGravity {
     @Test
     void gravityStillAppliesWhenObjectControlDoesNotSuppressMovement() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
-                .withZoneAndAct(0, 0)
+                .withZoneAndAct(3, 0)
                 .build();
         AbstractPlayableSprite sonic = fixture.sprite();
 
+        GameServices.camera().setLevelStarted(true);
+        sonic.setCentreY((short) 0x0200);
+        sonic.setOnObject(false);
         sonic.setAir(true);
         sonic.setObjectControlled(true);
         sonic.setObjectControlAllowsCpu(true);

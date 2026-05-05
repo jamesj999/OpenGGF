@@ -272,7 +272,7 @@ local OBJ_CNZ_BALLOON       = 0x00031754
 OBJ_CNZ_CYLINDER            = 0x00032188
 local OBJ_ID_CNZ_BALLOON    = 0x41
 
-local ADDR_FRAMECOUNT       = 0xFE04
+local ADDR_FRAMECOUNT       = 0xFE08
 -- Oscillating_table address ($FFFFFE6E in S3K RAM, $42 bytes total).
 -- First word ($FE6E/$FE6F) is the control bitfield (Osc_Data $0000 first dc.w),
 -- followed by 16 (value, delta) word pairs. Computed from
@@ -280,7 +280,7 @@ local ADDR_FRAMECOUNT       = 0xFE04
 -- $FFFF0000 -> CrossResetRAM at $FFFFFE00 -> Oscillating_table at offset $6E.
 local ADDR_OSC_TABLE        = 0xFE6E
 local OSC_TABLE_SIZE        = 0x42
-local ADDR_VBLA_WORD        = 0xFE0E
+local ADDR_VBLA_WORD        = 0xFE12
 local ADDR_LAG_FRAME_COUNT  = 0xF628
 local ADDR_RNG_SEED         = 0xF636
 -- Tails CPU global block. Layout from sonic3k.constants.asm:618-626:

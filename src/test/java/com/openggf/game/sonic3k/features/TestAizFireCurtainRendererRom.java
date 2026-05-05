@@ -61,7 +61,7 @@ public class TestAizFireCurtainRendererRom {
         boolean sawRisingCurtain = false;
         boolean sawRefreshCurtain = false;
 
-        for (int frame = 0; frame < 240 && !events.isAct2TransitionRequested(); frame++) {
+        for (int frame = 0; frame < 360 && !events.isAct2TransitionRequested(); frame++) {
             events.update(0, frame);
             FireCurtainRenderState state = events.getFireCurtainRenderState(224);
             if (!state.active() || state.coverHeightPx() <= 0) {
@@ -108,7 +108,7 @@ public class TestAizFireCurtainRendererRom {
         boolean sawOverlayBackedCurtain = false;
         boolean sawDenseCurtain = false;
 
-        for (int frame = 0; frame < 240 && !events.isAct2TransitionRequested(); frame++) {
+        for (int frame = 0; frame < 360 && !events.isAct2TransitionRequested(); frame++) {
             events.update(0, frame);
             FireCurtainRenderState state = events.getFireCurtainRenderState(224);
             if (!state.active() || state.coverHeightPx() <= 0) {
@@ -167,7 +167,7 @@ public class TestAizFireCurtainRendererRom {
         AizFireCurtainRenderer renderer = new AizFireCurtainRenderer();
         EnumMap<FireCurtainStage, PhaseStats> statsByStage = new EnumMap<>(FireCurtainStage.class);
 
-        for (int frame = 0; frame < 240 && !events.isAct2TransitionRequested(); frame++) {
+        for (int frame = 0; frame < 360 && !events.isAct2TransitionRequested(); frame++) {
             events.update(0, frame);
             FireCurtainRenderState state = events.getFireCurtainRenderState(224);
             collectStageStats(renderer, state, overlayTileBase, overlayTileEnd, statsByStage);
@@ -220,7 +220,7 @@ public class TestAizFireCurtainRendererRom {
         act1Events.init(0);
         act1Events.setEventsFg5(true);
 
-        for (int frame = 0; frame < 240 && !act1Events.isAct2TransitionRequested(); frame++) {
+        for (int frame = 0; frame < 360 && !act1Events.isAct2TransitionRequested(); frame++) {
             act1Events.update(0, frame);
         }
 

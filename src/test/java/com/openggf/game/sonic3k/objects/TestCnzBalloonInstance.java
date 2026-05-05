@@ -141,7 +141,7 @@ class TestCnzBalloonInstance {
         }
 
         assertTrue(balloon.hasMovedOffscreenForTest());
-        assertFalse(balloon.isDestroyed());
+        assertTrue(balloon.isDestroyed());
         assertEquals(0x7F00, balloon.getX());
         assertEquals(0, balloon.getCollisionFlags());
     }

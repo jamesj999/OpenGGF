@@ -253,6 +253,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             // Delete_Current_Sprite only when the normal offscreen test later
             // decides the balloon is past the camera margin.
             movedOffscreen = true;
+            setDestroyedByOffscreen();
         }
     }
 
