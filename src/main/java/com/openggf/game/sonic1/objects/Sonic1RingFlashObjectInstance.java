@@ -6,7 +6,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -144,18 +143,18 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
 
         // Gather results data
         var levelGamestate = services().levelGamestate();
-        int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
-        int ringCount = player != null ? player.getRingCount() : 0;
-        int actNumber = services().currentAct() + 1;
+        final int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
+        final int ringCount = player != null ? player.getRingCount() : 0;
+        final int actNumber = services().currentAct() + 1;
 
         // Spawn results screen with special stage transition
-        Sonic1ResultsScreenObjectInstance resultsScreen = new Sonic1ResultsScreenObjectInstance(
-                elapsedSeconds, ringCount, actNumber);
-        resultsScreen.setSpecialStageAfter(true);
-
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager != null) {
-            objectManager.addDynamicObject(resultsScreen);
+        if (services().objectManager() != null) {
+            spawnFreeChild(() -> {
+                Sonic1ResultsScreenObjectInstance resultsScreen = new Sonic1ResultsScreenObjectInstance(
+                        elapsedSeconds, ringCount, actNumber);
+                resultsScreen.setSpecialStageAfter(true);
+                return resultsScreen;
+            });
         }
     }
 

@@ -812,9 +812,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // move.w obX(a0),obX(a1) / add.w d2,obX(a1)
         // move.w obY(a0),obY(a1) / addi.w #$10,obY(a1)
         // move.l a0,objoff_3C(a1)
-        Sonic1LavaGeyserMakerObjectInstance maker = new Sonic1LavaGeyserMakerObjectInstance(
-                x + xOffset, y + 0x10, 0, this);
-        services().objectManager().addDynamicObject(maker);
+        spawnFreeChild(() -> new Sonic1LavaGeyserMakerObjectInstance(
+                x + xOffset, y + 0x10, 0, this));
     }
 
     /**

@@ -197,16 +197,16 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
 
         mappingFrame = BROKEN_FRAME;
         if (objectManager != null) {
-            objectManager.addDynamicObject(
-                    new Sonic1MonitorPowerUpObjectInstance(spawn.x(), currentY, type.id, player));
+            spawnFreeChild(() -> new Sonic1MonitorPowerUpObjectInstance(
+                    spawn.x(), currentY, type.id, player));
         }
 
         // Spawn explosion (id_ExplosionItem = $27) - only if explosion art is loaded
-        ObjectRenderManager renderManager = services().renderManager();
+        final ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
-            objectManager.addDynamicObject(
-                    new ExplosionObjectInstance(Sonic1ObjectIds.EXPLOSION_ITEM, spawn.x(), currentY, renderManager));
+            spawnFreeChild(() -> new ExplosionObjectInstance(
+                    Sonic1ObjectIds.EXPLOSION_ITEM, spawn.x(), currentY, renderManager));
         }
         services().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }

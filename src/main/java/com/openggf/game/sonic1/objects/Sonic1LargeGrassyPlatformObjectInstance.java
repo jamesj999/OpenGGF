@@ -475,23 +475,26 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         }
 
         // Fire base Y = lgrass_origY + 8 - 3 = baseY + 5
-        int fireBaseY = baseY + 5;
+        final int fireBaseY = baseY + 5;
         // Fire starts at left edge: obX - $40
-        int fireStartX = x - 0x40;
+        final int fireStartX = x - 0x40;
+        final int fSinkOffset = sinkOffset;
+        final int parentSlot = getSlotIndex();
 
-        walkerFire = new Sonic1GrassFireObjectInstance(
-                fireStartX, fireBaseY, sinkOffset, slopeData, this, true);
-        // ROM: FindNextFreeObj allocates a slot AFTER the platform's slot.
-        // This ensures the fire runs its first update in the same frame
-        // (its slot hasn't been processed yet in the ExecuteObjects loop).
-        int parentSlot = getSlotIndex();
-        if (parentSlot >= 0) {
-            int fireSlot = services().objectManager().allocateSlotAfter(parentSlot);
-            if (fireSlot >= 0) {
-                walkerFire.setSlotIndex(fireSlot);
+        walkerFire = spawnFreeChild(() -> {
+            Sonic1GrassFireObjectInstance fire = new Sonic1GrassFireObjectInstance(
+                    fireStartX, fireBaseY, fSinkOffset, slopeData, this, true);
+            // ROM: FindNextFreeObj allocates a slot AFTER the platform's slot.
+            // This ensures the fire runs its first update in the same frame
+            // (its slot hasn't been processed yet in the ExecuteObjects loop).
+            if (parentSlot >= 0) {
+                int fireSlot = services().objectManager().allocateSlotAfter(parentSlot);
+                if (fireSlot >= 0) {
+                    fire.setSlotIndex(fireSlot);
+                }
             }
-        }
-        services().objectManager().addDynamicObject(walkerFire);
+            return fire;
+        });
 
         // Register walker itself in children list for sink offset updates
         fireChildren.add(walkerFire);

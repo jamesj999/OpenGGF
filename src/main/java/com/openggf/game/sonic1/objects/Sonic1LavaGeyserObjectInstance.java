@@ -230,52 +230,57 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
         // .activate: create body child at Y+0x60
         if (services().objectManager() != null) {
             // Create body piece (routine 4 = loc_EFFC)
-            ObjectSpawn bodySpawn = new ObjectSpawn(
-                    currentX, currentY + BODY_Y_OFFSET,
-                    0x4D, subtype, 0, false, 0);
-            Sonic1LavaGeyserObjectInstance body = new Sonic1LavaGeyserObjectInstance(
-                    bodySpawn, Role.BODY, this, makerParent, false);
-            body.originY = this.originY + BODY_Y_OFFSET;
-            body.columnAnimTimer = 7; // start with timer at 7 for immediate frame select
-            body.columnAnimFrame = 0;
-            // ROM: FindNextFreeObj allocates slot after head
-            int prevSlot = getSlotIndex();
-            if (prevSlot >= 0) {
-                int childSlot = services().objectManager().allocateSlotAfter(prevSlot);
-                if (childSlot >= 0) {
-                    body.setSlotIndex(childSlot);
-                    prevSlot = childSlot;
+            final int prevSlotInit = getSlotIndex();
+            final int[] prevSlotHolder = { prevSlotInit };
+            spawnFreeChild(() -> {
+                ObjectSpawn bodySpawn = new ObjectSpawn(
+                        currentX, currentY + BODY_Y_OFFSET,
+                        0x4D, subtype, 0, false, 0);
+                Sonic1LavaGeyserObjectInstance b = new Sonic1LavaGeyserObjectInstance(
+                        bodySpawn, Role.BODY, this, makerParent, false);
+                b.originY = this.originY + BODY_Y_OFFSET;
+                b.columnAnimTimer = 7; // start with timer at 7 for immediate frame select
+                b.columnAnimFrame = 0;
+                // ROM: FindNextFreeObj allocates slot after head
+                if (prevSlotHolder[0] >= 0) {
+                    int childSlot = services().objectManager().allocateSlotAfter(prevSlotHolder[0]);
+                    if (childSlot >= 0) {
+                        b.setSlotIndex(childSlot);
+                        prevSlotHolder[0] = childSlot;
+                    }
                 }
-            }
-            services().objectManager().addDynamicObject(body);
+                return b;
+            });
 
             // Lavafall: create third piece as independent HEAD at Y+0x100
             // ROM: moveq #0,d1 / bsr.w .loop (creates one piece via .makelava)
             // Then configures it: routine 2, tile offset +16, priority 0, parent = maker
             if (subtype != 0) {
-                ObjectSpawn thirdSpawn = new ObjectSpawn(
-                        currentX, currentY + THIRD_PIECE_Y_OFFSET,
-                        0x4D, 1, 0, false, 0);
-                // Third piece is an independent HEAD (routine 2 = Geyser_Action)
-                // with subtype 1 → uses Type01 → signals maker anim 1 when past origin
-                Sonic1LavaGeyserObjectInstance third = new Sonic1LavaGeyserObjectInstance(
-                        thirdSpawn, Role.HEAD, null, makerParent, true);
-                third.originY = this.originY; // move.w objoff_30(a0),objoff_30(a1)
-                third.headAnimId = 2; // .end animation (set by .makelava since subtype=1)
-                third.velY = 0; // starts stationary, falls under gravity
-                // ROM: addq.b #2,obRoutine(a1) — third piece starts at routine 2
-                // (Geyser_Action), skipping Geyser_Main. Mark as initialized to
-                // prevent ensureInitialized() from re-running initializeHead(),
-                // which would cascade-spawn infinite children.
-                third.initialized = true;
-                // ROM: FindNextFreeObj allocates slot after body
-                if (prevSlot >= 0) {
-                    int thirdSlot = services().objectManager().allocateSlotAfter(prevSlot);
-                    if (thirdSlot >= 0) {
-                        third.setSlotIndex(thirdSlot);
+                spawnFreeChild(() -> {
+                    ObjectSpawn thirdSpawn = new ObjectSpawn(
+                            currentX, currentY + THIRD_PIECE_Y_OFFSET,
+                            0x4D, 1, 0, false, 0);
+                    // Third piece is an independent HEAD (routine 2 = Geyser_Action)
+                    // with subtype 1 → uses Type01 → signals maker anim 1 when past origin
+                    Sonic1LavaGeyserObjectInstance third = new Sonic1LavaGeyserObjectInstance(
+                            thirdSpawn, Role.HEAD, null, makerParent, true);
+                    third.originY = this.originY; // move.w objoff_30(a0),objoff_30(a1)
+                    third.headAnimId = 2; // .end animation (set by .makelava since subtype=1)
+                    third.velY = 0; // starts stationary, falls under gravity
+                    // ROM: addq.b #2,obRoutine(a1) — third piece starts at routine 2
+                    // (Geyser_Action), skipping Geyser_Main. Mark as initialized to
+                    // prevent ensureInitialized() from re-running initializeHead(),
+                    // which would cascade-spawn infinite children.
+                    third.initialized = true;
+                    // ROM: FindNextFreeObj allocates slot after body
+                    if (prevSlotHolder[0] >= 0) {
+                        int thirdSlot = services().objectManager().allocateSlotAfter(prevSlotHolder[0]);
+                        if (thirdSlot >= 0) {
+                            third.setSlotIndex(thirdSlot);
+                        }
                     }
-                }
-                services().objectManager().addDynamicObject(third);
+                    return third;
+                });
 
                 // move.b #0,obSubtype(a0) — clear head's subtype to 0
                 // Head now uses Type00 (signals maker anim 3/afRoutine when done)
