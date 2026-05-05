@@ -1,5 +1,8 @@
 package com.openggf.game.animation;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.AnimatedTileChannelSnapshot;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,7 +17,7 @@ import java.util.Set;
  * remembers the last resolved phase for each channel id. That lets channels use
  * phase-based caching without keeping their own mutable frame state.
  */
-public final class AnimatedTileChannelGraph {
+public final class AnimatedTileChannelGraph implements RewindSnapshottable<AnimatedTileChannelSnapshot> {
 
     private List<AnimatedTileChannel> channels = List.of();
     private final Map<String, Integer> lastPhaseByChannel = new HashMap<>();
@@ -75,5 +78,39 @@ public final class AnimatedTileChannelGraph {
             lastPhaseByChannel.put(channel.channelId(), phase);
             channel.applyStrategy().apply(channelContext);
         }
+    }
+
+    /**
+     * Records the last resolved phase for a channel. Package-private for testing.
+     */
+    void recordPhase(String channelId, int phase) {
+        lastPhaseByChannel.put(channelId, phase);
+    }
+
+    /**
+     * Returns the last resolved phase for a channel, or -1 if not recorded.
+     * Package-private for testing.
+     */
+    int getLastPhase(String channelId) {
+        Integer phase = lastPhaseByChannel.get(channelId);
+        return phase != null ? phase : -1;
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    @Override
+    public String key() {
+        return "animated-tile-channels";
+    }
+
+    @Override
+    public AnimatedTileChannelSnapshot capture() {
+        return new AnimatedTileChannelSnapshot(lastPhaseByChannel);
+    }
+
+    @Override
+    public void restore(AnimatedTileChannelSnapshot s) {
+        lastPhaseByChannel.clear();
+        lastPhaseByChannel.putAll(s.lastPhaseByChannel());
     }
 }
