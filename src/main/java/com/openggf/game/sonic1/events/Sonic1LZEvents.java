@@ -108,8 +108,14 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
         }
 
         // move.b #7,(a1)
-        map.setValue(0, LAYOUT_GAP_X, LAYOUT_GAP_Y, (byte) CHUNK_ID_GAP);
-        lm.invalidateForegroundTilemap();
+        mutationPipeline().queue(context -> {
+            try {
+                return context.surface().setBlockInMap(0,
+                        LAYOUT_GAP_X, LAYOUT_GAP_Y, CHUNK_ID_GAP);
+            } catch (IllegalArgumentException e) {
+                return com.openggf.game.mutation.MutationEffects.NONE;
+            }
+        });
 
         // move.w #sfx_Rumbling,d0 / bsr.w QueueSound2
         audio().playSfx(Sonic1Sfx.RUMBLING.id);

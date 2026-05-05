@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 
@@ -38,6 +39,10 @@ abstract class Sonic1ZoneEvents {
 
     protected GameStateManager gameState() {
         return GameServices.gameState();
+    }
+
+    protected ZoneLayoutMutationPipeline mutationPipeline() {
+        return GameServices.zoneLayoutMutationPipeline();
     }
 
     protected <T> T gameService(Class<T> type) {
