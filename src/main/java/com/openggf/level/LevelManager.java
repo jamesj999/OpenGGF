@@ -3777,4 +3777,51 @@ public class LevelManager {
             return -1;
         }
     }
+
+    // ===== Rewind snapshot adapter =====
+
+    /**
+     * Returns a {@link com.openggf.game.rewind.RewindSnapshottable} adapter for level state.
+     * Captures block/chunk array references and map data; restores via copy-on-write.
+     */
+    public com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.LevelSnapshot> levelRewindSnapshottable() {
+        return new com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.LevelSnapshot>() {
+            @Override
+            public String key() {
+                return "level";
+            }
+
+            @Override
+            public com.openggf.game.rewind.snapshot.LevelSnapshot capture() {
+                Level currentLevel = getCurrentLevel();
+                if (!(currentLevel instanceof AbstractLevel)) {
+                    throw new IllegalStateException("Current level is not an AbstractLevel: " + currentLevel.getClass().getName());
+                }
+                AbstractLevel level = (AbstractLevel) currentLevel;
+
+                return new com.openggf.game.rewind.snapshot.LevelSnapshot(
+                        level.currentEpoch(),
+                        level.blocksReference().clone(),  // shallow array clone
+                        level.chunksReference().clone(),  // shallow array clone
+                        level.getMap().getData()          // share ref; CoW protects
+                );
+            }
+
+            @Override
+            public void restore(com.openggf.game.rewind.snapshot.LevelSnapshot s) {
+                Level currentLevel = getCurrentLevel();
+                if (!(currentLevel instanceof AbstractLevel)) {
+                    throw new IllegalStateException("Current level is not an AbstractLevel: " + currentLevel.getClass().getName());
+                }
+                AbstractLevel level = (AbstractLevel) currentLevel;
+
+                level.replaceBlocks(s.blocks());
+                level.replaceChunks(s.chunks());
+                level.getMap().restoreData(s.mapData());
+                level.bumpEpoch();
+                // TODO: mark dirty regions for re-upload — see L1 LevelManager.processDirtyRegions
+                level.markAllDirty();
+            }
+        };
+    }
 }
