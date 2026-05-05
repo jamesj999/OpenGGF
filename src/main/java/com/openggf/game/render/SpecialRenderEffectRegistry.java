@@ -1,8 +1,12 @@
 package com.openggf.game.render;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.SpecialRenderEffectSnapshot;
+
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -12,7 +16,8 @@ import java.util.Objects;
  * the standard scene pipeline at fixed points between background, foreground,
  * and sprite rendering.
  */
-public final class SpecialRenderEffectRegistry {
+public final class SpecialRenderEffectRegistry
+        implements RewindSnapshottable<SpecialRenderEffectSnapshot> {
 
     private final EnumMap<SpecialRenderEffectStage, List<SpecialRenderEffect>> effectsByStage =
             new EnumMap<>(SpecialRenderEffectStage.class);
@@ -53,6 +58,15 @@ public final class SpecialRenderEffectRegistry {
         return effects != null ? effects.size() : 0;
     }
 
+    /** Returns the total number of registered effects across all stages. */
+    public int activeEffectCount() {
+        int count = 0;
+        for (List<SpecialRenderEffect> effects : effectsByStage.values()) {
+            count += effects.size();
+        }
+        return count;
+    }
+
     /** Executes all effects registered for the requested stage. */
     public void dispatch(SpecialRenderEffectStage stage, SpecialRenderEffectContext context) {
         Objects.requireNonNull(stage, "stage");
@@ -63,6 +77,30 @@ public final class SpecialRenderEffectRegistry {
         }
         for (SpecialRenderEffect effect : List.copyOf(effects)) {
             effect.render(context);
+        }
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    @Override
+    public String key() {
+        return "special-render";
+    }
+
+    @Override
+    public SpecialRenderEffectSnapshot capture() {
+        return new SpecialRenderEffectSnapshot(effectsByStage);
+    }
+
+    @Override
+    public void restore(SpecialRenderEffectSnapshot s) {
+        for (Map.Entry<SpecialRenderEffectStage, List<SpecialRenderEffect>> e
+                : effectsByStage.entrySet()) {
+            e.getValue().clear();
+            List<SpecialRenderEffect> saved = s.effectsByStage().get(e.getKey());
+            if (saved != null) {
+                e.getValue().addAll(saved);
+            }
         }
     }
 }
