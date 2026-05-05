@@ -6,6 +6,23 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **G3: residual cleanup of the runtime-ownership migration.**
+  `StubObjectServices` now overrides `zoneRuntimeRegistry()` and
+  `zoneRuntimeState()` so unit tests using the stub get a deterministic
+  isolated `ZoneRuntimeRegistry` instead of silently routing through
+  `GameServices` (which defaults to `new ZoneRuntimeRegistry()` when no
+  runtime exists, producing a different fresh registry on each call —
+  brittle for tests that read state back). `rng()` and
+  `solidExecutionRegistry()` were already overridden.
+  `TestEnvironment.resetAll()` now calls
+  `AbstractObjectInstance.resetCameraBoundsForTests()` so the static
+  `cameraBounds` field starts every test from `(0, 0, 320, 224)` rather
+  than whatever the previous test left behind. Manager teardown moved
+  off `GameRuntime.destroy()` and onto `GameplayModeContext.destroy()`
+  (which was previously a stub); `GameRuntime.destroy()` now delegates.
+  Both teardown paths (`RuntimeManager.destroyCurrent()` and
+  `SessionManager.destroyCurrentMode()`) now share one implementation.
+  No behavioral change for production code paths.
 - **G2: fixed Y-coord mix in `DebugRenderer.renderPlayerPlaneState` and
   expanded the pattern atlas range table.** The plane-state debug label
   was computing `screenY` from `playable.getY()` (top-left) while every

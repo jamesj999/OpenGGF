@@ -20,6 +20,8 @@ import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
 import com.openggf.game.solid.SolidExecutionRegistry;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
+import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -37,6 +39,7 @@ import java.util.List;
  */
 public class StubObjectServices implements ObjectServices {
     private final GameRng rng = new GameRng(GameRng.Flavour.S3K);
+    private final ZoneRuntimeRegistry zoneRuntimeRegistry = new ZoneRuntimeRegistry();
 
     @Override public ObjectManager objectManager() { return null; }
     @Override public ObjectRenderManager renderManager() { return null; }
@@ -55,6 +58,8 @@ public class StubObjectServices implements ObjectServices {
     @Override public void fadeOutMusic() {}
     @Override public AudioManager audioManager() { return null; }
     @Override public GameRng rng() { return rng; }
+    @Override public ZoneRuntimeRegistry zoneRuntimeRegistry() { return zoneRuntimeRegistry; }
+    @Override public ZoneRuntimeState zoneRuntimeState() { return zoneRuntimeRegistry.current(); }
     @Override public SolidExecutionRegistry solidExecutionRegistry() { return SolidExecutionRegistry.inert(); }
     @Override public void spawnLostRings(PlayableEntity player, int frameCounter) {}
     @Override public Camera camera() { return null; }

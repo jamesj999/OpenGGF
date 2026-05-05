@@ -12,6 +12,7 @@ import com.openggf.game.LevelInitProfile;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
 import com.openggf.game.session.SessionManager;
+import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
@@ -38,6 +39,11 @@ public final class TestEnvironment {
      */
     public static void resetAll() {
         resetToBootstrapBaseline();
+
+        // Reset the static AbstractObjectInstance.cameraBounds so on-screen
+        // visibility checks in newly constructed objects start from a known
+        // baseline rather than whatever the previous test left behind.
+        AbstractObjectInstance.resetCameraBoundsForTests();
 
         // Ensure a runtime exists after reset so GameServices and
         // DefaultObjectServices can delegate through RuntimeManager.

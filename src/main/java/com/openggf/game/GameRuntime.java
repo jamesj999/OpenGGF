@@ -189,25 +189,12 @@ public final class GameRuntime {
     // ── Lifecycle ────────────────────────────────────────────────────────
 
     /**
-     * Tears down all managers in reverse construction order.
-     * Called by {@link RuntimeManager#destroyCurrent()}.
+     * Tears down all managers via {@link GameplayModeContext#destroy()}.
+     * Called by {@link RuntimeManager#destroyCurrent()}. Both this path and
+     * {@code SessionManager.destroyCurrentMode()} now delegate to the same
+     * destroy implementation on the gameplay mode context.
      */
     public void destroy() {
-        clearTransientFrameState();
-        gameplayMode.getAnimatedTileChannelGraph().clear();
-        gameplayMode.getSpecialRenderEffectRegistry().clear();
-        gameplayMode.getAdvancedRenderModeController().clear();
-        gameplayMode.getPaletteOwnershipRegistry().beginFrame();
-        gameplayMode.getZoneRuntimeRegistry().clear();
-        gameplayMode.getLevelManager().resetState();
-        gameplayMode.getSpriteManager().resetState();
-        gameplayMode.getCollisionSystem().resetState();
-        gameplayMode.getTerrainCollisionManager().resetState();
-        gameplayMode.getParallaxManager().resetState();
-        gameplayMode.getWaterSystem().reset();
-        gameplayMode.getFadeManager().cancel();
-        gameplayMode.getGameStateManager().resetState();
-        gameplayMode.getTimerManager().resetState();
-        gameplayMode.getCamera().resetState();
+        gameplayMode.destroy();
     }
 }

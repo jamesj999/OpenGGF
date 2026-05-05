@@ -252,11 +252,62 @@ public final class GameplayModeContext implements ModeContext {
 
     @Override
     public void destroy() {
-        // Manager lifecycle is currently driven by GameRuntime.destroy() because
-        // RuntimeManager.parkCurrent() preserves the runtime (and its managers)
-        // across editor mode entry, while SessionManager destroys the
-        // gameplay-mode context. Once parking is replaced by a proper
-        // world-preserving teardown, manager resets should move here.
+        // Tear down all managers in reverse construction order. Idempotent:
+        // each manager's reset is a no-op when fields are null (e.g., when
+        // destroy is invoked during a partial setup). Called from both
+        // SessionManager.destroyCurrentMode() and (delegated) GameRuntime.destroy()
+        // so that the parked-runtime path keeps the same teardown semantics.
+        if (zoneLayoutMutationPipeline != null) {
+            zoneLayoutMutationPipeline.clear();
+        }
+        if (solidExecutionRegistry != null) {
+            solidExecutionRegistry.clearTransientState();
+        }
+        if (animatedTileChannelGraph != null) {
+            animatedTileChannelGraph.clear();
+        }
+        if (specialRenderEffectRegistry != null) {
+            specialRenderEffectRegistry.clear();
+        }
+        if (advancedRenderModeController != null) {
+            advancedRenderModeController.clear();
+        }
+        if (paletteOwnershipRegistry != null) {
+            paletteOwnershipRegistry.beginFrame();
+        }
+        if (zoneRuntimeRegistry != null) {
+            zoneRuntimeRegistry.clear();
+        }
+        if (levelManager != null) {
+            levelManager.resetState();
+        }
+        if (spriteManager != null) {
+            spriteManager.resetState();
+        }
+        if (collisionSystem != null) {
+            collisionSystem.resetState();
+        }
+        if (terrainCollisionManager != null) {
+            terrainCollisionManager.resetState();
+        }
+        if (parallaxManager != null) {
+            parallaxManager.resetState();
+        }
+        if (waterSystem != null) {
+            waterSystem.reset();
+        }
+        if (fadeManager != null) {
+            fadeManager.cancel();
+        }
+        if (gameStateManager != null) {
+            gameStateManager.resetState();
+        }
+        if (timerManager != null) {
+            timerManager.resetState();
+        }
+        if (camera != null) {
+            camera.resetState();
+        }
     }
 
     /**
