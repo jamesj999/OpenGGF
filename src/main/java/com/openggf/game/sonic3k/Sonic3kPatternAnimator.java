@@ -28,7 +28,8 @@ import java.util.logging.Logger;
  * Animates S3K zone tiles using the ROM's AniPLC script format plus the direct
  * HCZ background DMA updates that sit alongside AniPLC in the original engine.
  */
-class Sonic3kPatternAnimator implements AnimatedPatternManager {
+class Sonic3kPatternAnimator implements AnimatedPatternManager,
+        com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot> {
     private static final Logger LOG = Logger.getLogger(Sonic3kPatternAnimator.class.getName());
 
     private static final int HCZ1_WATERLINE_VISIBLE = 0x60;
@@ -1312,5 +1313,69 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             destPos += 0x100;
         }
         return expanded;
+    }
+
+    // --- RewindSnapshottable<PatternAnimatorSnapshot> ---
+
+    @Override
+    public String key() {
+        return "pattern-animator";
+    }
+
+    @Override
+    public com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot capture() {
+        // AniPLC script counters
+        com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot.ScriptCounter[] sc =
+                new com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot.ScriptCounter[scripts.size()];
+        for (int i = 0; i < scripts.size(); i++) {
+            AniPlcScriptState s = scripts.get(i);
+            sc[i] = new com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot.ScriptCounter(
+                    s.getTimer(), s.getFrameIndex());
+        }
+        // Scalar state packed into extra blob (45 bytes: 1 bool + 11 ints)
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(45);
+        buf.put((byte) (firstTreeApplied ? 1 : 0));
+        buf.putInt(lastHcz1WaterlineDelta);
+        buf.putInt(lastHcz2SmallBgLineValue);
+        buf.putInt(lastHcz2Art2Value);
+        buf.putInt(lastHcz2Art3Value);
+        buf.putInt(lastHcz2Art4Value);
+        buf.putInt(pachinkoPhase);
+        buf.putInt(pachinkoSourceOffset);
+        buf.putInt(pachinkoStripeOffset);
+        buf.putInt(frameCounter);
+        buf.putInt(lastGumballIndex);
+        buf.putInt(gumballFrameCounter);
+        return new com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot(
+                sc,
+                new com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot.HandlerCounter[0],
+                buf.array());
+    }
+
+    @Override
+    public void restore(com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot snap) {
+        // Restore AniPLC script counters
+        com.openggf.game.rewind.snapshot.PatternAnimatorSnapshot.ScriptCounter[] sc = snap.scriptCounters();
+        int restoreCount = Math.min(sc.length, scripts.size());
+        for (int i = 0; i < restoreCount; i++) {
+            scripts.get(i).restoreCounters(sc[i].timer(), sc[i].frameIndex());
+        }
+        // Restore scalar state from extra blob
+        byte[] extra = snap.extra();
+        if (extra != null && extra.length >= 45) {
+            java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(extra);
+            firstTreeApplied     = buf.get() != 0;
+            lastHcz1WaterlineDelta   = buf.getInt();
+            lastHcz2SmallBgLineValue = buf.getInt();
+            lastHcz2Art2Value        = buf.getInt();
+            lastHcz2Art3Value        = buf.getInt();
+            lastHcz2Art4Value        = buf.getInt();
+            pachinkoPhase            = buf.getInt();
+            pachinkoSourceOffset     = buf.getInt();
+            pachinkoStripeOffset     = buf.getInt();
+            frameCounter             = buf.getInt();
+            lastGumballIndex         = buf.getInt();
+            gumballFrameCounter      = buf.getInt();
+        }
     }
 }
