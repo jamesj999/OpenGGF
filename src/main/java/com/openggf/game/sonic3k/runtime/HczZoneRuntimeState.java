@@ -22,4 +22,12 @@ public final class HczZoneRuntimeState implements S3kZoneRuntimeState {
     @Override public PlayerCharacter playerCharacter() { return playerCharacter; }
     @Override public int getDynamicResizeRoutine() { return events.getDynamicResizeRoutine(); }
     @Override public boolean isActTransitionFlagActive() { return events.isEventsFg5(); }
+
+    /**
+     * Whether the HCZ2 wall-chase BG high-priority overlay is currently active.
+     * Drives the staged {@code HczWallChaseBgOverlayEffect} render pass.
+     */
+    public boolean wallChaseBgOverlayActive() {
+        return events.isWallChaseBgOverlayActive();
+    }
 }

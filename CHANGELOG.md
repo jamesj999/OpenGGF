@@ -6,6 +6,25 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **HCZ wall chase: migrated BG-high overlay render and active flag off
+  `LevelManager` / `GameStateManager`.** The S3K-only inline render method
+  `LevelManager.renderBgHighPriorityOverlay()` (and its caller in
+  `LevelManager.draw()`) and the matching
+  `GameStateManager.bgHighPriorityOverlayActive` field were a zone-specific
+  leak in shared infrastructure -- the same architectural concern just fixed
+  for HTZ in the previous commit. The overlay was extracted into a new
+  `HczWallChaseBgOverlayEffect` (`com.openggf.game.sonic3k.render`) that
+  registers itself at the `AFTER_SPRITES` stage from
+  `Sonic3kZoneFeatureProvider`. The active flag storage moved into
+  `Sonic3kHCZEvents.wallChaseBgOverlayActive` (now the canonical source for
+  `HczZoneRuntimeState.wallChaseBgOverlayActive()`); a private
+  `setWallChaseBgOverlayActive(boolean)` setter encapsulates the
+  activation/deactivation transitions previously written through
+  `gameState().setBgHighPriorityOverlayActive(...)`. The
+  `bgHighPriorityOverlayActive` field plus its getter/setter on
+  `GameStateManager` are gone. HCZ-specific reference counts in
+  `LevelManager.java` and `GameStateManager.java` dropped to comments only
+  (no runtime references).
 - **HTZ earthquake: migrated BG-high overlay render and active flag off
   `LevelManager` / `GameStateManager`.** The HTZ-only inline render method
   `LevelManager.renderHtzEarthquakeBgHighOverlay()` (and its caller in

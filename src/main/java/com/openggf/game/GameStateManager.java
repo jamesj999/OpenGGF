@@ -53,15 +53,6 @@ public class GameStateManager {
     private boolean backgroundCollisionFlag;
 
     /**
-     * BG high-priority overlay flag. When set, the renderer performs an extra
-     * BG pass (high-priority tiles only) between FG-low and FG-high, matching
-     * hardware VDP layer compositing where high-priority Plane B tiles render
-     * in front of low-priority Plane A tiles. Used by HCZ2 wall chase (wall
-     * rendered as high-priority BG tiles in front of FG terrain).
-     */
-    private boolean bgHighPriorityOverlayActive;
-
-    /**
      * Giant Ring collected flag (S1 ROM: f_bigring at $FFFFF7AA).
      * Set when a Giant Ring flash triggers; prevents hidden bonuses from activating.
      * Reset on level load.
@@ -142,7 +133,6 @@ public class GameStateManager {
         this.currentBossId = 0;
         this.screenShakeActive = false;
         this.backgroundCollisionFlag = false;
-        this.bgHighPriorityOverlayActive = false;
         this.bigRingCollected = false;
         this.wfzFireToggle = false;
         this.itemBonus = 0;
@@ -486,14 +476,6 @@ public class GameStateManager {
      */
     public void setBackgroundCollisionFlag(boolean flag) {
         this.backgroundCollisionFlag = flag;
-    }
-
-    public boolean isBgHighPriorityOverlayActive() {
-        return bgHighPriorityOverlayActive;
-    }
-
-    public void setBgHighPriorityOverlayActive(boolean active) {
-        this.bgHighPriorityOverlayActive = active;
     }
 
     /**
