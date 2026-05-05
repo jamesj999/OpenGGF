@@ -252,11 +252,25 @@ public final class GameplayModeContext implements ModeContext {
 
     @Override
     public void destroy() {
-        // Tear down all managers in reverse construction order. Idempotent:
-        // each manager's reset is a no-op when fields are null (e.g., when
-        // destroy is invoked during a partial setup). Called from both
-        // SessionManager.destroyCurrentMode() and (delegated) GameRuntime.destroy()
-        // so that the parked-runtime path keeps the same teardown semantics.
+        // Manager teardown is driven by GameRuntime.destroy() via
+        // tearDownManagers() rather than this method, because the editor flow
+        // calls SessionManager.destroyCurrentMode() (which routes here) when
+        // entering editor mode while the runtime is parked — at that point
+        // the parked runtime still expects its managers to be alive on resume.
+        // Once parking is replaced by a proper world-preserving teardown, the
+        // distinction collapses and tearDownManagers() can become this method
+        // body directly.
+    }
+
+    /**
+     * Tears down all attached managers in reverse construction order.
+     * Idempotent: each manager's reset is a no-op when its field is null
+     * (e.g., when destroy is invoked during a partial setup). Called by
+     * {@link com.openggf.game.GameRuntime#destroy()} only — see {@link #destroy()}
+     * for why {@code SessionManager.destroyCurrentMode} does not trigger
+     * this teardown.
+     */
+    public void tearDownManagers() {
         if (zoneLayoutMutationPipeline != null) {
             zoneLayoutMutationPipeline.clear();
         }

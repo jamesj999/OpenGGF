@@ -189,12 +189,13 @@ public final class GameRuntime {
     // ── Lifecycle ────────────────────────────────────────────────────────
 
     /**
-     * Tears down all managers via {@link GameplayModeContext#destroy()}.
-     * Called by {@link RuntimeManager#destroyCurrent()}. Both this path and
-     * {@code SessionManager.destroyCurrentMode()} now delegate to the same
-     * destroy implementation on the gameplay mode context.
+     * Tears down all managers via {@link GameplayModeContext#tearDownManagers()}.
+     * Called by {@link RuntimeManager#destroyCurrent()}. The actual teardown
+     * implementation lives on {@code GameplayModeContext}; this façade just
+     * routes the runtime-driven path. {@code SessionManager.destroyCurrentMode}
+     * intentionally does NOT trigger teardown — see {@link GameplayModeContext#destroy()}.
      */
     public void destroy() {
-        gameplayMode.destroy();
+        gameplayMode.tearDownManagers();
     }
 }
