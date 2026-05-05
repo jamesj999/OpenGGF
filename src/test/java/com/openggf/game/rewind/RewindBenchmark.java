@@ -474,7 +474,8 @@ public class RewindBenchmark {
                 "parallax", "water", "zone-runtime", "palette-ownership",
                 "animated-tile-channels", "special-render", "advanced-render-mode",
                 "mutation-pipeline", "solid-execution",
-                "level-event", "rings", "s2-plc-art"
+                "level-event", "rings", "s2-plc-art",
+                "sprites"
         };
         // Diagnostic: collect ALL divergent keys, not just the first.
         java.util.List<String> divergent = new java.util.ArrayList<>();

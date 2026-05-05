@@ -164,8 +164,10 @@ public final class GameplayModeContext implements ModeContext {
         if (rewindRegistry != null) {
             rewindRegistry.deregister("parallax");
             rewindRegistry.deregister("water");
+            rewindRegistry.deregister("sprites");
             rewindRegistry.register(parallaxManager);
             rewindRegistry.register(waterSystem);
+            rewindRegistry.register(spriteManager.rewindSnapshottable());
         }
     }
 

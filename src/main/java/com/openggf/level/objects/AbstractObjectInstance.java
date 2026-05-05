@@ -808,7 +808,8 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 solidContactFirstFrame,
                 slotIndex,
                 respawnStateIndex,
-                null  // Base class does not capture badnik extra; subclass overrides if needed
+                null,  // Base class does not capture badnik extra; subclass overrides if needed
+                null   // Base class does not capture player extra; subclass overrides if needed
         );
     }
 

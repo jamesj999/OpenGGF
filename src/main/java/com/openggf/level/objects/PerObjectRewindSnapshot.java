@@ -50,7 +50,11 @@ public record PerObjectRewindSnapshot(
 
         // Badnik movement state (nullable; only present when capturing
         // AbstractBadnikInstance or subclass)
-        BadnikRewindExtra badnikExtra
+        BadnikRewindExtra badnikExtra,
+
+        // Player gameplay state (nullable; only present when capturing
+        // AbstractPlayableSprite or subclass)
+        PlayerRewindExtra playerExtra
 ) {
     /**
      * Immutable capture of {@link AbstractBadnikInstance} movement-state fields
@@ -65,4 +69,90 @@ public record PerObjectRewindSnapshot(
             int animFrame,
             boolean facingLeft
     ) {}
+
+    /**
+     * Mutable gameplay state on AbstractPlayableSprite that AbstractObjectInstance's
+     * default 11-field capture surface does NOT cover. Per the
+     * v1.5.1 plan, render-only state, character physics constants, animation
+     * state, and collision radii are excluded — they are derived from these
+     * fields and regenerate within one forward frame of replay.
+     */
+    public record PlayerRewindExtra(
+            // AbstractSprite base position fields (not in AbstractObjectInstance hierarchy)
+            short xPixel, short yPixel,
+            short xSubpixel, short ySubpixel,
+            int width, int height,
+            // Movement / physics
+            short gSpeed, short xSpeed, short ySpeed, short jump,
+            byte angle, byte statusTertiary, boolean loopLowPlane,
+            byte topSolidBit, byte lrbSolidBit,
+            boolean prePhysicsAir, byte prePhysicsAngle,
+            short prePhysicsGSpeed, short prePhysicsXSpeed, short prePhysicsYSpeed,
+            boolean air, boolean rolling, boolean jumping, boolean rollingJump,
+            boolean pinballMode, boolean pinballSpeedLock, boolean tunnelMode,
+            // Surface interaction / collision
+            boolean onObject, boolean onObjectAtFrameStart,
+            int latchedSolidObjectId, boolean slopeRepelJustSlipped,
+            boolean stickToConvex, boolean sliding, boolean pushing,
+            boolean skidding, int skidDustTimer,
+            short wallClimbX, int rightWallPenetrationTimer,
+            int balanceState,
+            // Special states / hazards
+            boolean springing, int springingFrames,
+            boolean dead, boolean drowningDeath, int drownPreDeathTimer,
+            boolean hurt, int deathCountdown,
+            int invulnerableFrames, int invincibleFrames,
+            // Player abilities
+            boolean spindash, short spindashCounter,
+            boolean crouching, boolean lookingUp, short lookDelayCounter,
+            int doubleJumpFlag, byte doubleJumpProperty,
+            boolean shield, boolean instaShieldRegistered,
+            boolean speedShoes, boolean superSonic,
+            // Input gating / control
+            boolean forceInputRight, int forcedInputMask,
+            boolean forcedJumpPress, boolean suppressNextJumpPress,
+            boolean deferredObjectControlRelease,
+            boolean controlLocked, boolean hasQueuedControlLockedState, boolean queuedControlLocked,
+            boolean hasQueuedForceInputRightState, boolean queuedForceInputRight,
+            int moveLockTimer,
+            boolean objectControlled, boolean objectControlAllowsCpu, boolean objectControlSuppressesMovement,
+            int objectControlReleasedFrame,
+            boolean suppressAirCollision, boolean suppressGroundWallCollision, boolean forceFloorCheck,
+            boolean hidden,
+            // MGZ-specific
+            boolean mgzTopPlatformSpringHandoffPending,
+            int mgzTopPlatformSpringHandoffXVel,
+            int mgzTopPlatformSpringHandoffYVel,
+            // Input edge tracking
+            boolean jumpInputPressed, boolean jumpInputJustPressed, boolean jumpInputPressedPreviousFrame,
+            boolean upInputPressed, boolean downInputPressed,
+            boolean leftInputPressed, boolean rightInputPressed,
+            boolean movementInputActive,
+            short logicalInputState, boolean logicalJumpPressState,
+            // CPU / sidekick / spiral
+            boolean cpuControlled, byte historyPos, boolean followerHistoryRecordedThisTick,
+            int spiralActiveFrame, byte flipAngle, byte flipSpeed,
+            byte flipsRemaining, boolean flipTurned,
+            // Water
+            boolean inWater, boolean waterPhysicsActive, boolean wasInWater, boolean waterSkimActive,
+            boolean preventTailsRespawn,
+            // Other
+            int badnikChainCounter,
+            int bubbleAnimId,
+            boolean initPhysicsActive,
+            boolean objectMappingFrameControl
+    ) {}
+
+    /** Returns a copy of this snapshot with the given {@link PlayerRewindExtra} attached. */
+    public PerObjectRewindSnapshot withPlayerExtra(PlayerRewindExtra extra) {
+        return new PerObjectRewindSnapshot(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                extra
+        );
+    }
 }

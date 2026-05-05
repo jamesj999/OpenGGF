@@ -1178,4 +1178,52 @@ public class SpriteManager {
 		return MOVEMENT_MAPPING_ARRAY[groundMode.ordinal()][direction.ordinal()];
 	}
 
+	/**
+	 * Returns a {@link com.openggf.game.rewind.RewindSnapshottable} adapter for
+	 * all active playable sprites.
+	 *
+	 * <p><strong>Capture</strong> records the full mutable gameplay surface of
+	 * every active playable sprite (main player + sidekicks) keyed by
+	 * {@link Sprite#getCode()} via
+	 * {@link AbstractPlayableSprite#captureRewindState()}.
+	 *
+	 * <p><strong>Restore</strong> applies the captured snapshots back to the
+	 * currently registered sprites by code.  Sprites not present in the
+	 * snapshot (e.g. mid-level sidekick joins) are left untouched; sprites
+	 * in the snapshot but not present in the current manager are skipped.
+	 */
+	public com.openggf.game.rewind.RewindSnapshottable<java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot>>
+			rewindSnapshottable() {
+		return new com.openggf.game.rewind.RewindSnapshottable<>() {
+			@Override
+			public String key() {
+				return "sprites";
+			}
+
+			@Override
+			public java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> capture() {
+				java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap =
+						new java.util.LinkedHashMap<>();
+				for (Sprite sprite : sprites.values()) {
+					if (sprite instanceof AbstractPlayableSprite aps) {
+						snap.put(aps.getCode(), aps.captureRewindState());
+					}
+				}
+				return java.util.Collections.unmodifiableMap(snap);
+			}
+
+			@Override
+			public void restore(java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap) {
+				for (Sprite sprite : sprites.values()) {
+					if (sprite instanceof AbstractPlayableSprite aps) {
+						com.openggf.level.objects.PerObjectRewindSnapshot s = snap.get(aps.getCode());
+						if (s != null) {
+							aps.restoreRewindState(s);
+						}
+					}
+				}
+			}
+		};
+	}
+
 }

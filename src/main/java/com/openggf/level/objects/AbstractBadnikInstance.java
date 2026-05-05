@@ -228,7 +228,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
                 new PerObjectRewindSnapshot.BadnikRewindExtra(
                         currentX, currentY, xVelocity, yVelocity,
                         animTimer, animFrame, facingLeft);
-        // The record constructor with badnikExtra parameter
+        // The record constructor with badnikExtra parameter; playerExtra is null for badniks
         return new PerObjectRewindSnapshot(
                 base.destroyed(),
                 base.destroyedRespawnable(),
@@ -243,7 +243,8 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
                 base.solidContactFirstFrame(),
                 base.slotIndex(),
                 base.respawnStateIndex(),
-                badnikExtra
+                badnikExtra,
+                null   // playerExtra is not applicable for badniks
         );
     }
 
