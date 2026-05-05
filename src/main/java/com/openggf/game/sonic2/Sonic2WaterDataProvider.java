@@ -93,6 +93,10 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
         // CPZ: water oscillation using oscillator index 0 (limit=0x10, range 0..16).
         // Center the bob around 0 by subtracting half the limit (8) so it
         // produces +/-8 pixels of vertical motion (~ring height).
+        // ROM ref: docs/s2disasm/s2.asm:5273-5282 (MoveWater) reads
+        // (Oscillating_Data).w and lsr.w #1 then adds to (Water_Level_2). The
+        // engine instead centres the same oscillator around zero for visual use
+        // (the absolute water level is owned by WaterSystem / event managers).
         if (zoneId == ZONE_CPZ) {
             int oscillation = OscillationManager.getByte(0);
             return oscillation - 8;

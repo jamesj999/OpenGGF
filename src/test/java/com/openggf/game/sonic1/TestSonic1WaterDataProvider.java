@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1;
 
+import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
 import org.junit.jupiter.api.Test;
 
@@ -110,6 +111,31 @@ public class TestSonic1WaterDataProvider {
     public void testDefaultWaterSpeed() {
         // WaterDataProvider default is 1
         assertEquals(1, provider.getWaterSpeed(ZONE_LZ, 0));
+    }
+
+    // --- getVisualWaterLevelOffset tests ---
+
+    @Test
+    public void testLzVisualOffsetMatchesOscillator() {
+        // ROM (LZWaterFeatures.asm): byte at v_oscillate+2, lsr #1, added to v_waterpos2.
+        OscillationManager.resetForSonic1();
+        int expected = OscillationManager.getByte(0) >> 1;
+        assertEquals(expected, provider.getVisualWaterLevelOffset(ZONE_LZ, 0));
+    }
+
+    @Test
+    public void testSbz3VisualOffsetMatchesOscillator() {
+        // SBZ3 reuses LZ water mechanics, so it should produce the same offset formula.
+        OscillationManager.resetForSonic1();
+        int expected = OscillationManager.getByte(0) >> 1;
+        assertEquals(expected, provider.getVisualWaterLevelOffset(ZONE_SBZ, 2));
+    }
+
+    @Test
+    public void testGhzVisualOffsetIsZero() {
+        // Non-water zones report no oscillation offset.
+        OscillationManager.resetForSonic1();
+        assertEquals(0, provider.getVisualWaterLevelOffset(ZONE_GHZ, 0));
     }
 }
 

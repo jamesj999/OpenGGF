@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import org.junit.jupiter.api.Test;
@@ -128,6 +129,32 @@ public class TestSonic2WaterDataProvider {
         // S2 uses default water speed of 1
         assertEquals(1, provider.getWaterSpeed(ZONE_ARZ, 0));
         assertEquals(1, provider.getWaterSpeed(ZONE_CPZ, 1));
+    }
+
+    // =========================================================================
+    // getVisualWaterLevelOffset() tests
+    // =========================================================================
+
+    @Test
+    public void testCpz2VisualOffsetMatchesOscillator() {
+        // CPZ centres bob around 0 by subtracting half the limit (8) from oscillator 0.
+        OscillationManager.reset();
+        int expected = OscillationManager.getByte(0) - 8;
+        assertEquals(expected, provider.getVisualWaterLevelOffset(ZONE_CPZ, 1));
+    }
+
+    @Test
+    public void testArzVisualOffsetIsZero() {
+        // S2 ARZ has a static water surface (no oscillation offset applied).
+        OscillationManager.reset();
+        assertEquals(0, provider.getVisualWaterLevelOffset(ZONE_ARZ, 0));
+    }
+
+    @Test
+    public void testEhzVisualOffsetIsZero() {
+        // Non-water zones report no oscillation offset.
+        OscillationManager.reset();
+        assertEquals(0, provider.getVisualWaterLevelOffset(ZONE_EHZ, 0));
     }
 }
 
