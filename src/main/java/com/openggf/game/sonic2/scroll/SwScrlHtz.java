@@ -4,6 +4,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_HTZ (Hill Top Zone scroll routine).
@@ -44,6 +45,8 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
     // TempArray_LayerDef values for Dynamic_HTZ cloud art streaming
     // 16 word values at offsets 0-30 (indices 0-15)
     private final short[] tempArrayLayerDef = new short[16];
+
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
 
     private static final int VISIBLE_LINES = 224;
     private static final int STATIC_LINES = 128;  // First 128 lines use constant scroll
@@ -105,9 +108,10 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
                        int actId) {
 
         resetScrollTracking();
+        composer.reset();
 
         // Default vertical factors for normal mode.
-        vscrollFactorBG = (short) bgCamera.getBgYPos();
+        composer.setVscrollFactorBG((short) bgCamera.getBgYPos());
         vscrollFactorFG = (short) cameraY;
 
         // Reset shake offsets - quake mode may overwrite.
@@ -136,10 +140,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         int d0_long = ((d2 & 0xFFFF) << 16) | ((d2 >> 3) & 0xFFFF);
 
         // Lines 15802-15805: Fill first 128 lines with constant scroll
-        for (int i = 0; i < STATIC_LINES; i++) {
-            horizScrollBuf[i] = d0_long;
-        }
-        trackOffsetFromPacked(d0_long);
+        composer.fillPackedScrollWords(0, STATIC_LINES, d0_long);
 
         // Line 15808: move.l d0,d4 (save the packed value for later)
         int d4 = d0_long;
@@ -229,8 +230,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         // move.w d3,d4; move.l d4,(a1)+ (3 times)
         d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
         for (int i = 0; i < 3 && line < VISIBLE_LINES; i++, line++) {
-            horizScrollBuf[line] = d4;
-            trackOffsetFromPacked(d4);
+            composer.writePackedScrollWord(line, d4);
         }
         // swap d3; add.l d0,d3; swap d3; move.w d3,d4; move.l d4,(a1)+ (5 times)
         d3 = swap32(d3);
@@ -238,8 +238,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         d3 = swap32(d3);
         d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
         for (int i = 0; i < 5 && line < VISIBLE_LINES; i++, line++) {
-            horizScrollBuf[line] = d4;
-            trackOffsetFromPacked(d4);
+            composer.writePackedScrollWord(line, d4);
         }
 
         // Lines 15902-15910: Do 7 lines
@@ -248,8 +247,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         d3 = swap32(d3);
         d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
         for (int i = 0; i < 7 && line < VISIBLE_LINES; i++, line++) {
-            horizScrollBuf[line] = d4;
-            trackOffsetFromPacked(d4);
+            composer.writePackedScrollWord(line, d4);
         }
 
         // Lines 15912-15921: Do 8 lines (2 adds)
@@ -259,8 +257,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         d3 = swap32(d3);
         d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
         for (int i = 0; i < 8 && line < VISIBLE_LINES; i++, line++) {
-            horizScrollBuf[line] = d4;
-            trackOffsetFromPacked(d4);
+            composer.writePackedScrollWord(line, d4);
         }
 
         // Lines 15923-15932: Do 10 lines (2 adds)
@@ -270,8 +267,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         d3 = swap32(d3);
         d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
         for (int i = 0; i < 10 && line < VISIBLE_LINES; i++, line++) {
-            horizScrollBuf[line] = d4;
-            trackOffsetFromPacked(d4);
+            composer.writePackedScrollWord(line, d4);
         }
 
         // Lines 15934-15944: Do 15 lines (3 adds)
@@ -282,8 +278,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         d3 = swap32(d3);
         d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
         for (int i = 0; i < 15 && line < VISIBLE_LINES; i++, line++) {
-            horizScrollBuf[line] = d4;
-            trackOffsetFromPacked(d4);
+            composer.writePackedScrollWord(line, d4);
         }
 
         // Lines 15946-15966: Do 48 lines in 3 groups of 16 (3 adds before first, 4 adds between)
@@ -296,8 +291,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         for (int group = 0; group < 3; group++) {
             d4 = (d4 & 0xFFFF0000) | ((int) d3 & 0xFFFF);
             for (int i = 0; i < 16 && line < VISIBLE_LINES; i++, line++) {
-                horizScrollBuf[line] = d4;
-                trackOffsetFromPacked(d4);
+                composer.writePackedScrollWord(line, d4);
             }
             // 4 adds between groups
             d3 = swap32(d3);
@@ -307,6 +301,11 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
             d3 = (d3 + d0_ext) & 0xFFFFFFFFL;
             d3 = swap32(d3);
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**
@@ -357,20 +356,19 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         // Vscroll_Factor_FG = Camera_Y_pos (+ optional ripple)
         vscrollFactorFG = (short) (cameraY + shakeOffsetV);
         // Vscroll_Factor_BG = Camera_BG_Y_pos (+ optional ripple)
-        vscrollFactorBG = (short) (bgYPos + shakeOffsetV);
+        composer.setVscrollFactorBG((short) (bgYPos + shakeOffsetV));
 
         // Horizontal scroll uses Camera_X_pos and Camera_BG_X_pos (+ optional ripple).
         short fgScroll = M68KMath.negWord(cameraX + shakeOffsetH);
         short bgScroll = M68KMath.negWord(bgXPos + shakeOffsetH);
 
-        int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-
         // Fill all 224 lines with same value (no parallax during earthquake mode).
-        for (int i = 0; i < VISIBLE_LINES; i++) {
-            horizScrollBuf[i] = packed;
-        }
+        composer.fillPackedScrollWords(0, VISIBLE_LINES, fgScroll, bgScroll);
 
-        trackOffsetFromPacked(packed);
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     public short getVscrollFactorFG() {

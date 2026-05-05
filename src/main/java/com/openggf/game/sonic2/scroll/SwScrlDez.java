@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 /**
  * ROM-accurate implementation of SwScrl_DEZ (Death Egg Zone scroll routine).
@@ -48,6 +49,8 @@ public class SwScrlDez extends AbstractZoneScrollHandler {
 
     private int[] rowHeights = DEFAULT_ROW_HEIGHTS;
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     public SwScrlDez(ParallaxTables tables) {
         this.tables = tables;
         loadRowHeights();
@@ -73,6 +76,7 @@ public class SwScrlDez extends AbstractZoneScrollHandler {
                        int actId) {
 
         resetScrollTracking();
+        composer.reset();
 
         // ==================== Step 1: Vertical Scroll ====================
         // DEZ BG Y tracks via Camera_Y_pos_diff << 8 through SetHorizVertiScrollFlagsBG
@@ -214,13 +218,11 @@ public class SwScrlDez extends AbstractZoneScrollHandler {
 
         // Get initial BG scroll from tempArray
         short bgScroll = M68KMath.negWord(tempArray[segIdx]);
-        int packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-        trackOffset(fgScroll, bgScroll);
         segIdx++;
 
         // Fill 224 lines (dbf d2,.rowLoop with d2 starting at 223)
         for (int line = 0; line < M68KMath.VISIBLE_LINES; line++) {
-            horizScrollBuf[line] = packed;
+            composer.writePackedScrollWord(line, fgScroll, bgScroll);
 
             linesInSegment--;
             if (linesInSegment == 0 && line < M68KMath.VISIBLE_LINES - 1) {
@@ -228,12 +230,14 @@ public class SwScrlDez extends AbstractZoneScrollHandler {
                 if (segIdx < numSegments) {
                     linesInSegment = heights[segIdx] & 0xFF;
                     bgScroll = M68KMath.negWord(tempArray[segIdx]);
-                    packed = M68KMath.packScrollWords(fgScroll, bgScroll);
-                    trackOffset(fgScroll, bgScroll);
                     segIdx++;
                 }
             }
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
     }
 
     /**

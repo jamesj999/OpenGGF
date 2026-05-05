@@ -6,6 +6,29 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **F2 phase 4: completed `ScrollEffectComposer` adoption across all scroll
+  handlers.** Migrated the remaining eight handlers from inline buffer
+  bookkeeping to the shared composer: S2 `SwScrlOoz`, `SwScrlArz`,
+  `SwScrlCnz` (rippling segment + 9 banded segments), `SwScrlDez` (36-element
+  TempArray-driven row segments), `SwScrlWfz` (data-array-driven layer
+  selection with normal/transition arrays), `SwScrlHtz` (gradient parallax
+  for animated clouds + earthquake mode), S3K `SwScrlSlots` (per-line
+  parallax driven by background deform segments + plane row updates), and
+  S3K `SwScrlGumball` (per-column FG VSCROLL for machine body). Each handler
+  now drives its own `ScrollEffectComposer` instance, writes its packed
+  scroll output through the composer (including per-line ripple, segment
+  fills, and pre-packed `int` writes), and publishes the composed buffer
+  back to the caller's `horizScrollBuf` via `copyPackedScrollWordsTo`. Min/
+  max scroll-offset bounds and `vscrollFactorBG` flow through the composer's
+  tracked state. Added two helper overloads to the composer to support
+  HTZ's pre-packed scroll writes:
+  `writePackedScrollWord(int, int)` and
+  `fillPackedScrollWords(int, int, int)`. With this commit, every
+  `AbstractZoneScrollHandler` subclass (26 of 26: 7 S1, 11 S2, 8 S3K) goes
+  through `ScrollEffectComposer`, completing the F2 scroll-handler unification.
+  All scroll-handler unit tests remain green at the prior baseline; the
+  pre-existing `SwScrlArzTest` / `SwScrlMczTest` setUp errors
+  (EngineServices not configured) are unchanged.
 - **F2 phase 3: migrated banded scroll handlers to `ScrollEffectComposer`.**
   Continues the F2 architectural fix by migrating the next set of scroll
   handlers - those whose `update()` writes a sequence of constant-bg-per-band

@@ -92,6 +92,37 @@ public final class ScrollEffectComposer {
         trackOffset(fgScroll, bgScroll);
     }
 
+    /**
+     * Writes a pre-packed (FG << 16 | BG) longword for a single scanline and tracks the
+     * resulting BG-FG offset.
+     */
+    public void writePackedScrollWord(int line, int packedWord) {
+        checkLine(line);
+        packedScrollWords[line] = packedWord;
+        short fgScroll = (short) (packedWord >> 16);
+        short bgScroll = (short) packedWord;
+        trackOffset(fgScroll, bgScroll);
+    }
+
+    /**
+     * Fills a contiguous range of scanlines with the same pre-packed scroll word.
+     */
+    public void fillPackedScrollWords(int startLine, int lineCount, int packedWord) {
+        if (lineCount <= 0) {
+            return;
+        }
+        int end = Math.min(packedScrollWords.length, startLine + lineCount);
+        int begin = Math.max(0, startLine);
+        for (int line = begin; line < end; line++) {
+            packedScrollWords[line] = packedWord;
+        }
+        if (end > begin) {
+            short fgScroll = (short) (packedWord >> 16);
+            short bgScroll = (short) packedWord;
+            trackOffset(fgScroll, bgScroll);
+        }
+    }
+
     public void fillPackedScrollWords(int startLine, int lineCount, short fgScroll, short bgScroll) {
         if (lineCount <= 0) {
             return;
