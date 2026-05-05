@@ -5,9 +5,10 @@ import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.audio.AudioManager;
+import com.openggf.game.mutation.MutationEffects;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.level.Map;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
@@ -194,6 +195,10 @@ public class Sonic1LZWaterEvents {
 
     private LevelManager levelManager() {
         return GameServices.level();
+    }
+
+    private ZoneLayoutMutationPipeline mutationPipeline() {
+        return GameServices.zoneLayoutMutationPipeline();
     }
 
     private Sonic1SwitchManager switchManager() {
@@ -1171,17 +1176,21 @@ public class Sonic1LZWaterEvents {
      * Used by DynWater_LZ3 routine 0 to write $4B (water slide chunk).
      */
     private void writeLayoutChunk(int chunkId) {
-        LevelManager lm = levelManager();
-        Level level = lm.getCurrentLevel();
+        Level level = levelManager().getCurrentLevel();
         if (level == null) {
             return;
         }
-        Map map = level.getMap();
-        if (map == null) {
+        if (level.getMap() == null) {
             return;
         }
-        map.setValue(0, LAYOUT_GAP_X, LAYOUT_GAP_Y, (byte) chunkId);
-        lm.invalidateForegroundTilemap();
+        mutationPipeline().queue(context -> {
+            try {
+                return context.surface().setBlockInMap(0,
+                        LAYOUT_GAP_X, LAYOUT_GAP_Y, chunkId);
+            } catch (IllegalArgumentException e) {
+                return MutationEffects.NONE;
+            }
+        });
     }
 
     /**
