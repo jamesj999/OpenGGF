@@ -1658,7 +1658,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         }
         if (!collapseInitialized) {
             snapshotForegroundTilemapBeforeCollapseClear();
-            clearForegroundRegion(COLLAPSE_REGION_X, COLLAPSE_OPENING_Y,
+            clearForegroundRegionWithoutRedraw(COLLAPSE_REGION_X, COLLAPSE_OPENING_Y,
                     COLLAPSE_REGION_WIDTH, COLLAPSE_REGION_HEIGHT);
             collapseMutationCount++;
             createCollapseSolids();
@@ -1756,6 +1756,19 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         LevelManager levelManager = levelManager();
         if (levelManager != null) {
             levelManager.snapshotForegroundTilemapBeforeRuntimeLayoutMutation();
+        }
+    }
+
+    private void clearForegroundRegionWithoutRedraw(int startX, int startY, int width, int height) {
+        LevelManager levelManager = levelManager();
+        Level level = levelManager != null ? levelManager.getCurrentLevel() : null;
+        if (level == null || level.getMap() == null) {
+            return;
+        }
+        for (int y = startY; y < startY + height; y++) {
+            for (int x = startX; x < startX + width; x++) {
+                level.getMap().setValue(0, x, y, (byte) 0);
+            }
         }
     }
 
