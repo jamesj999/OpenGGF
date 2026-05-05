@@ -21,6 +21,7 @@ import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceReplayBootstrap;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -37,6 +38,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     private final MismatchRingBuffer mismatches = new MismatchRingBuffer(RING_CAPACITY);
     private final Supplier<AbstractPlayableSprite> spriteProvider;
     private final Runnable firstErrorCallback;
+    private final Consumer<FrameComparison> perFrameObserver;
 
     private int cursor;
     private int errorCount;
@@ -54,7 +56,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                                ToleranceConfig tolerances,
                                int initialCursor,
                                Supplier<AbstractPlayableSprite> spriteProvider) {
-        this(trace, tolerances, initialCursor, spriteProvider, null);
+        this(trace, tolerances, initialCursor, spriteProvider, null, null);
     }
 
     public LiveTraceComparator(TraceData trace,
@@ -62,11 +64,21 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                                int initialCursor,
                                Supplier<AbstractPlayableSprite> spriteProvider,
                                Runnable firstErrorCallback) {
+        this(trace, tolerances, initialCursor, spriteProvider, firstErrorCallback, null);
+    }
+
+    public LiveTraceComparator(TraceData trace,
+                               ToleranceConfig tolerances,
+                               int initialCursor,
+                               Supplier<AbstractPlayableSprite> spriteProvider,
+                               Runnable firstErrorCallback,
+                               Consumer<FrameComparison> perFrameObserver) {
         this.trace = trace;
         this.binder = new TraceBinder(tolerances);
         this.cursor = initialCursor;
         this.spriteProvider = spriteProvider;
         this.firstErrorCallback = firstErrorCallback;
+        this.perFrameObserver = perFrameObserver;
     }
 
     @Override
@@ -127,6 +139,9 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                 sprite.getGroundMode().ordinal(),
                 null, null,
                 "sidekick", actualSidekick);
+        if (perFrameObserver != null) {
+            perFrameObserver.accept(result);
+        }
         absorbDivergentFields(result, expected.frame());
         cursor++;
         checkComplete();
