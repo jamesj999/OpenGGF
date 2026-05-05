@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -116,19 +117,37 @@ public class TestSonic1WaterDataProvider {
     // --- getVisualWaterLevelOffset tests ---
 
     @Test
-    public void testLzVisualOffsetMatchesOscillator() {
-        // ROM (LZWaterFeatures.asm): byte at v_oscillate+2, lsr #1, added to v_waterpos2.
+    public void testLzVisualOffsetAtResetIsZero() {
+        // ROM (LZWaterFeatures.asm): byte at v_oscillate+2, lsr #1, added to
+        // v_waterpos2. After resetForSonic1(), oscillator 0's value word is
+        // 0x0080 -> high byte 0x00 -> expected offset = 0 >> 1 = 0.
         OscillationManager.resetForSonic1();
-        int expected = OscillationManager.getByte(0) >> 1;
-        assertEquals(expected, provider.getVisualWaterLevelOffset(ZONE_LZ, 0));
+        assertEquals(0, provider.getVisualWaterLevelOffset(ZONE_LZ, 0));
     }
 
     @Test
-    public void testSbz3VisualOffsetMatchesOscillator() {
-        // SBZ3 reuses LZ water mechanics, so it should produce the same offset formula.
+    public void testLzVisualOffsetTracksOscillatorAfterStepping() {
+        // After stepping the oscillator, getByte(0) moves off zero and the
+        // provider must return getByte(0) >> 1.
         OscillationManager.resetForSonic1();
-        int expected = OscillationManager.getByte(0) >> 1;
-        assertEquals(expected, provider.getVisualWaterLevelOffset(ZONE_SBZ, 2));
+        for (int frame = 1; frame <= 50; frame++) {
+            OscillationManager.update(frame);
+        }
+        int byte0 = OscillationManager.getByte(0);
+        assertNotEquals(0, byte0, "Oscillator 0 should have advanced after 50 update() calls");
+        assertEquals(byte0 >> 1, provider.getVisualWaterLevelOffset(ZONE_LZ, 0));
+    }
+
+    @Test
+    public void testSbz3VisualOffsetTracksOscillatorAfterStepping() {
+        // SBZ3 reuses LZ water mechanics, so it must produce the same formula.
+        OscillationManager.resetForSonic1();
+        for (int frame = 1; frame <= 50; frame++) {
+            OscillationManager.update(frame);
+        }
+        int byte0 = OscillationManager.getByte(0);
+        assertNotEquals(0, byte0, "Oscillator 0 should have advanced after 50 update() calls");
+        assertEquals(byte0 >> 1, provider.getVisualWaterLevelOffset(ZONE_SBZ, 2));
     }
 
     @Test

@@ -21,6 +21,7 @@ Each entry describes what the ROM does, what we do, and why — focusing on *why
 8. [Bonus Stage Game Mode](#bonus-stage-game-mode)
 9. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
 10. [S2 Logical-Input Latch Disabled During Control Lock](#s2-logical-input-latch-disabled-during-control-lock)
+11. [S2 CPZ Visual Water Surface Oscillation](#s2-cpz-visual-water-surface-oscillation)
 
 ---
 
@@ -496,6 +497,50 @@ S2's `Obj01_Control` ROM cite confirms the latch behaviour matches S3K, but S2's
 ### Removal Condition
 
 Remove this entry once the S2/S1 trace fixtures have been re-recorded against ROM-correct `Ctrl_1_logical` semantics, every existing `setControlLocked(true)` S2 call site has been audited to confirm post-lock animation correctness with the latch enabled, and the `controlLockLatchesLogicalInput` flag is flipped to `true` for `SONIC_2` and `SONIC_1`.
+
+---
+
+## S2 CPZ Visual Water Surface Oscillation
+
+**Location:** `Sonic2WaterDataProvider.getVisualWaterLevelOffset` (CPZ branch), `WaterSystem.getOscillatedWaterLevel`
+**ROM Reference:** `docs/s2disasm/s2.asm:5273-5282` (`MoveWater`)
+
+### Original Implementation
+
+For non-ARZ S2 water zones (CPZ Act 2, plus the unused HPZ), `MoveWater` reads the first word of `Oscillating_Data`, shifts it right by 1, and adds the result to `Water_Level_2` to produce the visible water surface position:
+
+```asm
+MoveWater:
+    clr.b   (Water_fullscreen_flag).w
+    moveq   #0,d0
+    cmpi.b  #aquatic_ruin_zone,(Current_Zone).w
+    beq.s   +
+    move.b  (Oscillating_Data).w,d0
+    lsr.w   #1,d0
++
+    add.w   (Water_Level_2).w,d0
+    move.w  d0,(Water_Level_1).w
+```
+
+`Oscillating_Data` is the value-word of oscillator 0 (initial value `$0080`, limit `$10`), so the high byte read by `move.b` ranges 0..16 and the resulting `lsr.w #1` offset is 0..8 — a one-sided positive bob added on top of `Water_Level_2`.
+
+### Engine Implementation
+
+`Sonic2WaterDataProvider.getVisualWaterLevelOffset(ZONE_CPZ, 1)` returns `OscillationManager.getByte(0) - 8`, producing a signed offset in the range `-8..+7` centred around zero. `WaterSystem.getOscillatedWaterLevel` then adds this to the base water level. The shift-by-1 from the ROM is replaced by a subtract-by-8 recentring.
+
+### Rationale
+
+The engine uses this offset purely as a *visual* bob applied on top of the gameplay water level (`baseLevel`) returned by the water system. Centring around zero (`oscillation - 8` in place of the ROM's `oscillation >> 1`) keeps the absolute water gameplay surface anchored at the value owned by `WaterSystem` / the dynamic water handler, while the visible surface oscillates symmetrically `±8` pixels rather than only ever sitting 0..8 pixels *below* its nominal level. The original 0..+8 one-sided bob would otherwise need every base water level returned from `WaterDataProvider.getStartingWaterLevel` (and every dynamic target written by event managers) to be biased down by 4 pixels to hit the same visible mean — an invasive change for a purely cosmetic axis.
+
+The `-8` recentring has been the engine's behaviour since `WaterSystem` was first authored; the `dfbc610c9` test commit / `7cad4c068` provider refactor only moved the existing logic out of `WaterSystem` and onto the per-game `WaterDataProvider`. No commit on this branch introduced the divergence.
+
+### Verification
+
+`TestSonic2WaterDataProvider.testCpz2VisualOffsetAtResetIsMinusEight` pins the post-`OscillationManager.reset()` value at literal `-8`, and `testCpz2VisualOffsetTracksOscillatorAfterStepping` asserts the formula `getByte(0) - 8` after stepping the oscillator (with an explicit `byte0 != 0` precondition so the test would fail if the oscillator never advanced). Trace replay fixtures are unaffected because the comparator covers camera/player position only, not water-level pixel offsets.
+
+### Removal Condition
+
+Remove this entry if the engine is ever re-aligned to the ROM's `lsr.w #1` formula. That would require either biasing every base water level returned from `WaterDataProvider.getStartingWaterLevel` (and every `DynamicWaterHandler` target write) down by 4 pixels, or changing the visual contract so callers expect a one-sided 0..+8 bob layered on top of a slightly higher mean.
 
 ---
 

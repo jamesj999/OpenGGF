@@ -136,11 +136,25 @@ public class TestSonic2WaterDataProvider {
     // =========================================================================
 
     @Test
-    public void testCpz2VisualOffsetMatchesOscillator() {
-        // CPZ centres bob around 0 by subtracting half the limit (8) from oscillator 0.
+    public void testCpz2VisualOffsetAtResetIsMinusEight() {
+        // CPZ centres the bob around 0 by subtracting half the limit (8) from
+        // oscillator 0's high byte. After reset, oscillator 0's value word is
+        // 0x0080 -> high byte 0x00 -> expected offset = 0 - 8 = -8.
         OscillationManager.reset();
-        int expected = OscillationManager.getByte(0) - 8;
-        assertEquals(expected, provider.getVisualWaterLevelOffset(ZONE_CPZ, 1));
+        assertEquals(-8, provider.getVisualWaterLevelOffset(ZONE_CPZ, 1));
+    }
+
+    @Test
+    public void testCpz2VisualOffsetTracksOscillatorAfterStepping() {
+        // After stepping the oscillator several frames, getByte(0) must move
+        // off zero and the provider must return getByte(0) - 8.
+        OscillationManager.reset();
+        for (int frame = 1; frame <= 50; frame++) {
+            OscillationManager.update(frame);
+        }
+        int byte0 = OscillationManager.getByte(0);
+        assertNotEquals(0, byte0, "Oscillator 0 should have advanced after 50 update() calls");
+        assertEquals(byte0 - 8, provider.getVisualWaterLevelOffset(ZONE_CPZ, 1));
     }
 
     @Test
