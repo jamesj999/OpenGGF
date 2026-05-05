@@ -3,11 +3,13 @@ package com.openggf.camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.CameraSnapshot;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
 
-public class Camera {
+public class Camera implements RewindSnapshottable<CameraSnapshot> {
 	private short x = 0;
 	private short y = 0;
 
@@ -940,6 +942,49 @@ public class Camera {
 	/** Returns the current fast vertical scroll cap in pixels/frame. */
 	public int getFastScrollCap() {
 		return fastScrollCap;
+	}
+
+	@Override
+	public String key() {
+		return "camera";
+	}
+
+	@Override
+	public CameraSnapshot capture() {
+		return new CameraSnapshot(
+				x, y, minX, minY, maxX, maxY,
+				shakeOffsetX, shakeOffsetY,
+				minXTarget, minYTarget, maxXTarget, maxYTarget,
+				maxYChanging, horizScrollDelayFrames, frozen, levelStarted,
+				verticalWrapEnabled, verticalWrapRange, verticalWrapMask,
+				lastFrameWrapped, wrapDeltaY, yPosBias, fastScrollCap);
+	}
+
+	@Override
+	public void restore(CameraSnapshot snapshot) {
+		x = snapshot.x();
+		y = snapshot.y();
+		minX = snapshot.minX();
+		minY = snapshot.minY();
+		maxX = snapshot.maxX();
+		maxY = snapshot.maxY();
+		shakeOffsetX = snapshot.shakeOffsetX();
+		shakeOffsetY = snapshot.shakeOffsetY();
+		minXTarget = snapshot.minXTarget();
+		minYTarget = snapshot.minYTarget();
+		maxXTarget = snapshot.maxXTarget();
+		maxYTarget = snapshot.maxYTarget();
+		maxYChanging = snapshot.maxYChanging();
+		horizScrollDelayFrames = snapshot.horizScrollDelayFrames();
+		frozen = snapshot.frozen();
+		levelStarted = snapshot.levelStarted();
+		verticalWrapEnabled = snapshot.verticalWrapEnabled();
+		verticalWrapRange = snapshot.verticalWrapRange();
+		verticalWrapMask = snapshot.verticalWrapMask();
+		lastFrameWrapped = snapshot.lastFrameWrapped();
+		wrapDeltaY = snapshot.wrapDeltaY();
+		yPosBias = snapshot.yPosBias();
+		fastScrollCap = snapshot.fastScrollCap();
 	}
 
 }

@@ -1,5 +1,7 @@
 package com.openggf.game;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.GameStateSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -12,7 +14,7 @@ import java.util.logging.Logger;
  * - Emerald_count: number of emeralds collected (0-7)
  * - Got_Emeralds_array: which specific emeralds have been obtained
  */
-public class GameStateManager {
+public class GameStateManager implements RewindSnapshottable<GameStateSnapshot> {
     private static final Logger LOGGER = Logger.getLogger(GameStateManager.class.getName());
     private static final int DEFAULT_SPECIAL_STAGE_COUNT = 7;
     private static final int DEFAULT_CHAOS_EMERALD_COUNT = 7;
@@ -587,4 +589,40 @@ public class GameStateManager {
      * ROM: move.b #1,(End_of_level_flag).w
      */
     public void setEndOfLevelFlag(boolean flag) { this.endOfLevelFlag = flag; }
+
+    @Override
+    public String key() {
+        return "gamestate";
+    }
+
+    @Override
+    public GameStateSnapshot capture() {
+        return new GameStateSnapshot(
+                score, lives, continues, currentSpecialStageIndex, emeraldCount,
+                gotEmeralds, gotSuperEmeralds, currentBossId,
+                screenShakeActive, backgroundCollisionFlag, bigRingCollected,
+                wfzFireToggle, itemBonus, reverseGravityActive,
+                collectedSpecialRings, endOfLevelActive, endOfLevelFlag);
+    }
+
+    @Override
+    public void restore(GameStateSnapshot snapshot) {
+        this.score = snapshot.score();
+        this.lives = snapshot.lives();
+        this.continues = snapshot.continues();
+        this.currentSpecialStageIndex = snapshot.currentSpecialStageIndex();
+        this.emeraldCount = snapshot.emeraldCount();
+        this.gotEmeralds = snapshot.gotEmeralds().clone();
+        this.gotSuperEmeralds = snapshot.gotSuperEmeralds().clone();
+        this.currentBossId = snapshot.currentBossId();
+        this.screenShakeActive = snapshot.screenShakeActive();
+        this.backgroundCollisionFlag = snapshot.backgroundCollisionFlag();
+        this.bigRingCollected = snapshot.bigRingCollected();
+        this.wfzFireToggle = snapshot.wfzFireToggle();
+        this.itemBonus = snapshot.itemBonus();
+        this.reverseGravityActive = snapshot.reverseGravityActive();
+        this.collectedSpecialRings = snapshot.collectedSpecialRings();
+        this.endOfLevelActive = snapshot.endOfLevelActive();
+        this.endOfLevelFlag = snapshot.endOfLevelFlag();
+    }
 }

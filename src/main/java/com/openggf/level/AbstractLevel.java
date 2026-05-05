@@ -40,6 +40,11 @@ public abstract class AbstractLevel implements Level {
     protected int minY;
     protected int maxY;
 
+    // Snapshot epoch counter for copy-on-write tracking.
+    // Incremented on each snapshot restore; used by Block/Chunk/Map to
+    // detect when to clone internal arrays.
+    private long snapshotEpoch = 0L;
+
     protected AbstractLevel(int zoneIndex) {
         this.zoneIndex = zoneIndex;
     }
@@ -177,5 +182,48 @@ public abstract class AbstractLevel implements Level {
     @Override
     public int getZoneIndex() {
         return zoneIndex;
+    }
+
+    // ===== Snapshot epoch API =====
+
+    /** Returns the current snapshot epoch for copy-on-write tracking. */
+    public long currentEpoch() {
+        return snapshotEpoch;
+    }
+
+    /** Increments the snapshot epoch. Called after restoring a snapshot. */
+    public void bumpEpoch() {
+        snapshotEpoch++;
+    }
+
+    /** Returns a reference to the live blocks array. */
+    public Block[] blocksReference() {
+        return blocks;
+    }
+
+    /** Returns a reference to the live chunks array. */
+    public Chunk[] chunksReference() {
+        return chunks;
+    }
+
+    /** Replaces the live blocks array (used by snapshot restore). */
+    public void replaceBlocks(Block[] newBlocks) {
+        this.blocks = newBlocks;
+        this.blockCount = newBlocks.length;
+    }
+
+    /** Replaces the live chunks array (used by snapshot restore). */
+    public void replaceChunks(Chunk[] newChunks) {
+        this.chunks = newChunks;
+        this.chunkCount = newChunks.length;
+    }
+
+    /**
+     * Marks all level data as dirty for re-upload to GPU.
+     * TODO: wire up dirty-region machinery; LevelManager owns the dirty BitSets.
+     * For v1, this is a no-op placeholder.
+     */
+    public void markAllDirty() {
+        // Placeholder: dirty-region re-upload mechanism to be wired in B.5 if needed.
     }
 }

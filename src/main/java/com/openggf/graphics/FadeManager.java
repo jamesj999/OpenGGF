@@ -1,5 +1,8 @@
 package com.openggf.graphics;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.FadeManagerSnapshot;
+
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL14.*;
 import static org.lwjgl.opengl.GL20.*;
@@ -21,7 +24,7 @@ import static org.lwjgl.opengl.GL20.*;
  * Standard fade-to-black where all RGB channels decrement together.
  * Uses alpha blending with a black overlay quad.
  */
-public class FadeManager {
+public class FadeManager implements RewindSnapshottable<FadeManagerSnapshot> {
 
     /**
      * Fade state enumeration.
@@ -656,5 +659,36 @@ public class FadeManager {
      */
     public float getFadeAlpha() {
         return fadeAlpha;
+    }
+
+    @Override
+    public String key() {
+        return "fademanager";
+    }
+
+    @Override
+    public FadeManagerSnapshot capture() {
+        return new FadeManagerSnapshot(
+                state, frameCount, fadeR, fadeG, fadeB, fadeAlpha,
+                fadeType, holdDuration, holdFrameCount,
+                effectiveFPC, effectiveIncrement, effectiveDuration);
+    }
+
+    @Override
+    public void restore(FadeManagerSnapshot snapshot) {
+        this.state = snapshot.state();
+        this.frameCount = snapshot.frameCount();
+        this.fadeR = snapshot.fadeR();
+        this.fadeG = snapshot.fadeG();
+        this.fadeB = snapshot.fadeB();
+        this.fadeAlpha = snapshot.fadeAlpha();
+        this.fadeType = snapshot.fadeType();
+        this.holdDuration = snapshot.holdDuration();
+        this.holdFrameCount = snapshot.holdFrameCount();
+        this.effectiveFPC = snapshot.effectiveFPC();
+        this.effectiveIncrement = snapshot.effectiveIncrement();
+        this.effectiveDuration = snapshot.effectiveDuration();
+        // Note: onFadeComplete callback is NOT restored (transient)
+        this.onFadeComplete = null;
     }
 }
