@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for the {@link RewindRegistry} integration on
  * {@link GameplayModeContext}.
  *
- * <p>Tests verify that the six always-available atomic adapters are
+ * <p>Tests verify that the seven always-available atomic adapters are
  * registered automatically when {@link GameplayModeContext#attachGameplayManagers}
  * is called, without requiring a full level load or ROM access.
  */
@@ -66,18 +66,19 @@ class TestGameplayModeContextRewindRegistry {
                 "gamerng",
                 "timermanager",
                 "fademanager",
-                "oscillation");
+                "oscillation",
+                "solid-execution");
         assertTrue(snapshot.entries().keySet().containsAll(expectedKeys),
                 "Expected all atomic adapter keys to be present, got: " + snapshot.entries().keySet());
     }
 
     @Test
-    void exactlySixAtomicKeysAfterAttach() {
+    void exactlySevenAtomicKeysAfterAttach() {
         GameplayModeContext ctx = buildAttachedContext();
         RewindRegistry registry = ctx.getRewindRegistry();
         CompositeSnapshot snapshot = registry.capture();
-        assertEquals(6, snapshot.entries().keySet().size(),
-                "Expected exactly 6 atomic adapters, got: " + snapshot.entries().keySet());
+        assertEquals(7, snapshot.entries().keySet().size(),
+                "Expected exactly 7 atomic adapters, got: " + snapshot.entries().keySet());
     }
 
     @Test
@@ -115,7 +116,7 @@ class TestGameplayModeContextRewindRegistry {
         RewindRegistry second = ctx.getRewindRegistry();
         assertNotNull(second);
         assertNotSame(first, second, "Re-attach should produce a new RewindRegistry instance");
-        // New registry should have the same 6 keys
-        assertEquals(6, second.capture().entries().keySet().size());
+        // New registry should have the same 7 keys
+        assertEquals(7, second.capture().entries().keySet().size());
     }
 }
