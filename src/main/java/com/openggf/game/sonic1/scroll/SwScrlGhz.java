@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.scroll;
 
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
 
 import java.util.logging.Logger;
 
@@ -43,6 +44,8 @@ public class SwScrlGhz extends AbstractZoneScrollHandler {
     protected boolean initialized = false;
     private boolean firstFrameLogged = false;
 
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+
     /**
      * Initialize BG camera positions.
      * BgScroll_GHZ (JP1) clears bgscreenposx, bgscreenposy, and cloud counters,
@@ -74,6 +77,7 @@ public class SwScrlGhz extends AbstractZoneScrollHandler {
         }
 
         resetScrollTracking();
+        composer.reset();
 
         // Compute camera movement delta (equivalent to v_scrshiftx)
         int deltaX = cameraX - lastCameraX;
@@ -103,7 +107,7 @@ public class SwScrlGhz extends AbstractZoneScrollHandler {
         if (d4 < 0) {
             d4 = 0;
         }
-        vscrollFactorBG = (short) d4;
+        composer.setVscrollFactorBG((short) d4);
 
         // FG scroll = -screenposx (constant for all lines)
         short fgScroll = negWord(cameraX);
@@ -116,26 +120,18 @@ public class SwScrlGhz extends AbstractZoneScrollHandler {
         short cloud3Offset = (short) (cloudLayer3Counter >> 16);
 
         // Upper clouds: 32-d4 lines
-        lineIndex = fillBand(horizScrollBuf, lineIndex, Math.max(0, 0x20 - d4), fgScroll,
+        lineIndex = fillBand(lineIndex, Math.max(0, 0x20 - d4), fgScroll,
                 negWord(bg3X + cloud1Offset));
         // Middle clouds: 16 lines
-        lineIndex = fillBand(horizScrollBuf, lineIndex, 16, fgScroll, negWord(bg3X + cloud2Offset));
+        lineIndex = fillBand(lineIndex, 16, fgScroll, negWord(bg3X + cloud2Offset));
         // Lower clouds: 16 lines
-        lineIndex = fillBand(horizScrollBuf, lineIndex, 16, fgScroll, negWord(bg3X + cloud3Offset));
+        lineIndex = fillBand(lineIndex, 16, fgScroll, negWord(bg3X + cloud3Offset));
         // Mountains: 48 lines
-        lineIndex = fillBand(horizScrollBuf, lineIndex, 48, fgScroll, negWord(bg3X));
+        lineIndex = fillBand(lineIndex, 48, fgScroll, negWord(bg3X));
 
         // ==================== Section 2: BG2 (distant hills) ====================
         // 40 lines (0x28) with BG = -bg2X
-        {
-            short bgScroll = negWord(bg2X);
-            int packed = packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
-            int limit = Math.min(VISIBLE_LINES, lineIndex + 40);
-            for (; lineIndex < limit; lineIndex++) {
-                horizScrollBuf[lineIndex] = packed;
-            }
-        }
+        lineIndex = fillBand(lineIndex, 40, fgScroll, negWord(bg2X));
 
         // ==================== Section 3: Perspective interpolation ====================
         // (0x48 + d4) lines, interpolating from bg2X to cameraX
@@ -169,15 +165,16 @@ public class SwScrlGhz extends AbstractZoneScrollHandler {
                 int bgPixel = (int) (currentVal >> 16);
                 short bgScroll = negWord(bgPixel);
 
-                horizScrollBuf[lineIndex] = packScrollWords(fgScroll, bgScroll);
-
-                int offset = (bgScroll & 0xFFFF) - (fgScroll & 0xFFFF);
-                if ((short) offset < minScrollOffset) minScrollOffset = (short) offset;
-                if ((short) offset > maxScrollOffset) maxScrollOffset = (short) offset;
+                composer.writePackedScrollWord(lineIndex, fgScroll, bgScroll);
 
                 currentVal += increment16;
             }
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        vscrollFactorBG = composer.getVscrollFactorBG();
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
 
         // One-time diagnostic dump to verify scroll state against ROM
         if (!firstFrameLogged) {
@@ -198,17 +195,13 @@ public class SwScrlGhz extends AbstractZoneScrollHandler {
         }
     }
 
-    private int fillBand(int[] horizScrollBuf, int lineIndex, int lineCount, short fgScroll, short bgScroll) {
+    private int fillBand(int lineIndex, int lineCount, short fgScroll, short bgScroll) {
         if (lineCount <= 0 || lineIndex >= VISIBLE_LINES) {
             return lineIndex;
         }
-        int packed = packScrollWords(fgScroll, bgScroll);
-        trackOffset(fgScroll, bgScroll);
-        int limit = Math.min(VISIBLE_LINES, lineIndex + lineCount);
-        for (; lineIndex < limit; lineIndex++) {
-            horizScrollBuf[lineIndex] = packed;
-        }
-        return lineIndex;
+        int writeCount = Math.min(lineCount, VISIBLE_LINES - lineIndex);
+        composer.fillPackedScrollWords(lineIndex, writeCount, fgScroll, bgScroll);
+        return lineIndex + writeCount;
     }
 
     /**

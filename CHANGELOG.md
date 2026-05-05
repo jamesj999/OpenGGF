@@ -6,6 +6,28 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **F2 phase 3: migrated banded scroll handlers to `ScrollEffectComposer`.**
+  Continues the F2 architectural fix by migrating the next set of scroll
+  handlers - those whose `update()` writes a sequence of constant-bg-per-band
+  fills, possibly with a small per-line section. Migrated: S3K `SwScrlCnz`
+  (boss + normal CNZ paths); S2 `SwScrlEhz`, `SwScrlCpz`, `SwScrlMcz`; S1
+  `SwScrlGhz` (and by inheritance `SwScrlEnd`), `SwScrlMz`, `SwScrlSlz`,
+  `SwScrlSyz`. Each handler now drives its own `ScrollEffectComposer`,
+  building the packed scroll buffer via `fillPackedScrollWords` for constant
+  bands and `writePackedScrollWord` for per-line writes (water surface
+  ripple, perspective interpolation, ARZ-style row variation), then
+  publishes the composed words to the caller's `horizScrollBuf` via
+  `copyPackedScrollWordsTo`. Vscroll factor and min/max scroll-offset
+  bounds now flow through the composer. EHZ preserves its ROM-bug behavior
+  (lines 222-223 left untouched in caller buffer) by copying only the
+  written line range. Output is byte-identical to the prior loops; all
+  zone-specific scroll tests (Ghz, Mz, Cpz, Cnz, Mcz, Ooz,
+  TestScrollEffectComposer, ParallaxMczTest, TestS3kCnzBossScrollHandler,
+  TestSonic3kCnzScroll, TestSwScrlHtzEarthquakeMode, plus the prior-migrated
+  Aiz/Hcz/Mgz/Slots tests) still pass on the prior baseline. Remaining
+  banded handlers (S2 `SwScrlOoz`, `SwScrlArz`, `SwScrlCnz`, `SwScrlDez`,
+  `SwScrlWfz`) and complex handlers (S2 `SwScrlHtz`, S3K `SwScrlSlots`,
+  `SwScrlGumball`) will be migrated in subsequent phases.
 - **F2 phase 2: migrated trivial scroll handlers to `ScrollEffectComposer`.**
   The architectural review found `ScrollEffectComposer` was used by only 3 of
   8 S3K scroll handlers, and 0 of the 11 S2 + 7 S1 handlers. This commit
