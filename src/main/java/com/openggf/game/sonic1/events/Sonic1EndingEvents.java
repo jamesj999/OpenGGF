@@ -35,6 +35,11 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
         endingSonicSpawned = false;
     }
 
+    boolean isBootstrapApplied()  { return bootstrapApplied; }
+    boolean isEndingSonicSpawned() { return endingSonicSpawned; }
+    void setBootstrapApplied(boolean v)   { bootstrapApplied   = v; }
+    void setEndingSonicSpawned(boolean v) { endingSonicSpawned = v; }
+
     @Override
     void update(int act) {
         AbstractPlayableSprite player = camera().getFocusedSprite();

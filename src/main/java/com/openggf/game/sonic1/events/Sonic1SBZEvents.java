@@ -50,6 +50,9 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         fzTransitionRequested = false;
     }
 
+    boolean isFzTransitionRequested() { return fzTransitionRequested; }
+    void setFzTransitionRequested(boolean v) { fzTransitionRequested = v; }
+
     @Override
     void update(int act) {
         switch (act) {

@@ -8,6 +8,8 @@ import com.openggf.level.LevelManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.GameServices;
 
+import java.nio.ByteBuffer;
+
 /**
  * Sonic 1 implementation of dynamic level events.
  * ROM equivalent: DynamicLevelEvents (_inc/DynamicLevelEvents.asm)
@@ -131,6 +133,56 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
         if (handler != null) {
             handler.setEventRoutine(routine);
         }
+    }
+
+    // =========================================================================
+    // RewindSnapshottable extra-state hooks (C.2)
+    // =========================================================================
+
+    /**
+     * Packs S1-specific extra state into a byte array:
+     * <ol>
+     *   <li>1 byte: sbz3TransitionRequested flag</li>
+     *   <li>7 × 4 bytes: per-zone handler eventRoutine (ghz, lz, mz, slz, syz, sbz, ending)</li>
+     *   <li>1 byte: sbzEvents.fzTransitionRequested</li>
+     *   <li>1 byte: endingEvents.bootstrapApplied</li>
+     *   <li>1 byte: endingEvents.endingSonicSpawned</li>
+     * </ol>
+     */
+    @Override
+    protected byte[] captureExtra() {
+        ByteBuffer buf = ByteBuffer.allocate(1 + 7 * 4 + 3);
+        buf.put((byte) (sbz3TransitionRequested ? 1 : 0));
+        buf.putInt(ghzEvents.eventRoutine);
+        buf.putInt(lzEvents.eventRoutine);
+        buf.putInt(mzEvents.eventRoutine);
+        buf.putInt(slzEvents.eventRoutine);
+        buf.putInt(syzEvents.eventRoutine);
+        buf.putInt(sbzEvents.eventRoutine);
+        buf.putInt(endingEvents.eventRoutine);
+        buf.put((byte) (sbzEvents.isFzTransitionRequested() ? 1 : 0));
+        buf.put((byte) (endingEvents.isBootstrapApplied() ? 1 : 0));
+        buf.put((byte) (endingEvents.isEndingSonicSpawned() ? 1 : 0));
+        return buf.array();
+    }
+
+    @Override
+    protected void restoreExtra(byte[] extra) {
+        if (extra == null || extra.length < 1 + 7 * 4 + 3) {
+            return;
+        }
+        ByteBuffer buf = ByteBuffer.wrap(extra);
+        sbz3TransitionRequested         = buf.get() != 0;
+        ghzEvents.eventRoutine          = buf.getInt();
+        lzEvents.eventRoutine           = buf.getInt();
+        mzEvents.eventRoutine           = buf.getInt();
+        slzEvents.eventRoutine          = buf.getInt();
+        syzEvents.eventRoutine          = buf.getInt();
+        sbzEvents.eventRoutine          = buf.getInt();
+        endingEvents.eventRoutine       = buf.getInt();
+        sbzEvents.setFzTransitionRequested(buf.get() != 0);
+        endingEvents.setBootstrapApplied(buf.get() != 0);
+        endingEvents.setEndingSonicSpawned(buf.get() != 0);
     }
 
     private Sonic1ZoneEvents getActiveHandler() {
