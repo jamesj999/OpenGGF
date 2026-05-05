@@ -192,8 +192,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
 
         // Lazily create child display object on first update
         if (childInstance == null) {
-            childInstance = new Sonic1JunctionChildInstance(spawn);
-            services().objectManager().addDynamicObject(childInstance);
+            childInstance = spawnFreeChild(() -> new Sonic1JunctionChildInstance(spawn));
         }
 
         switch (routine) {

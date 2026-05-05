@@ -245,7 +245,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         }
 
         ObjectSpriteSheet sheet = renderManager.getSheet(ObjectArtKeys.BREAKABLE_WALL);
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BREAKABLE_WALL);
+        final PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BREAKABLE_WALL);
         if (sheet == null || renderer == null) {
             return;
         }
@@ -261,17 +261,16 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         }
 
         List<SpriteMappingPiece> pieces = frame.pieces();
-        int wallX = spawn.x();
-        int wallY = spawn.y();
+        final int wallX = spawn.x();
+        final int wallY = spawn.y();
 
         for (int i = 0; i < FRAGMENT_COUNT; i++) {
-            SpriteMappingPiece piece = pieces.get(i);
-            int velX = fragSpeeds[i][0];
-            int velY = fragSpeeds[i][1];
+            final SpriteMappingPiece piece = pieces.get(i);
+            final int velX = fragSpeeds[i][0];
+            final int velY = fragSpeeds[i][1];
 
-            WallFragmentInstance fragment = new WallFragmentInstance(
-                    wallX, wallY, velX, velY, piece, renderer);
-            objectManager.addDynamicObject(fragment);
+            spawnFreeChild(() -> new WallFragmentInstance(
+                    wallX, wallY, velX, velY, piece, renderer));
         }
 
         // From disassembly: move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l

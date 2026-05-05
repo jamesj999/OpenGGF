@@ -6,7 +6,6 @@ import com.openggf.level.Level;
 import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -307,28 +306,21 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         }
         emeraldsSpawned = true;
 
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // ROM: ECha_CreateEms spawns 6 emeralds at player position
         // with angle offsets spaced by $100/6 = $2A
         int angleStep = 0x100 / 6; // $2A
-        setConstructionContext(services());
-        try {
-            for (int i = 0; i < 6; i++) {
-                int angleOffset = (angleStep * i) & 0xFF;
-                int emeraldFrame = i + 1; // frames 1-6
-                Sonic1EndingEmeraldsObjectInstance emerald =
-                        new Sonic1EndingEmeraldsObjectInstance(currentX, currentY, angleOffset, emeraldFrame);
-                objectManager.addDynamicObject(emerald);
-                if (i == 0) {
-                    emeraldMaster = emerald;
-                }
+        for (int i = 0; i < 6; i++) {
+            final int angleOffset = (angleStep * i) & 0xFF;
+            final int emeraldFrame = i + 1; // frames 1-6
+            Sonic1EndingEmeraldsObjectInstance emerald = spawnFreeChild(() ->
+                    new Sonic1EndingEmeraldsObjectInstance(currentX, currentY, angleOffset, emeraldFrame));
+            if (i == 0) {
+                emeraldMaster = emerald;
             }
-        } finally {
-            clearConstructionContext();
         }
     }
 

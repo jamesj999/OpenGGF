@@ -133,8 +133,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         //      move.w obY(a0),obY(a1)
         //      move.b obRender(a0),obRender(a1)
         //      move.b obStatus(a0),obStatus(a1)
-        Fireball fireball = new Fireball(spawn.x(), spawn.y(), facingRight);
-        services().objectManager().addDynamicObject(fireball);
+        spawnFreeChild(() -> new Fireball(spawn.x(), spawn.y(), facingRight));
         // Play fireball sound (ROM: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l)
         services().playSfx(Fireball.SFX_FIREBALL);
     }

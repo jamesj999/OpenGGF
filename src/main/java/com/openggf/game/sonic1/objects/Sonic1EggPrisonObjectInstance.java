@@ -263,24 +263,23 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      */
     private void spawnExplosion() {
         ObjectManager objectManager = services().objectManager();
-        ObjectRenderManager renderManager = services().renderManager();
+        final ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
 
-        int baseX = spawn.x();
-        int baseY = spawn.y();
+        final int baseX = spawn.x();
+        final int baseY = spawn.y();
 
         // ROM: move.b d0,d1 / lsr.b #2,d1 / subi.w #$20,d1 → X offset [-32, +31]
         int random = services().rng().nextWord();
-        int xOff = ((random & 0xFF) >>> 2) - EXPLOSION_X_RANGE;
+        final int xOff = ((random & 0xFF) >>> 2) - EXPLOSION_X_RANGE;
         // ROM: lsr.w #8,d0 / lsr.b #3,d0 → Y offset [0, 31]
-        int yOff = ((random >>> 8) & 0xFF) >>> 3;
+        final int yOff = ((random >>> 8) & 0xFF) >>> 3;
 
         // ROM: Explosion object 0x3F plays sfx_Bomb on init
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                0x3F, baseX + xOff, baseY + yOff, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id);
-        objectManager.addDynamicObject(explosion);
+        spawnFreeChild(() -> new ExplosionObjectInstance(
+                0x3F, baseX + xOff, baseY + yOff, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id));
     }
 
     /**
@@ -288,23 +287,25 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Pri_Explosion .makeanimal loop — d6=7, d5=$9A, d4=-$1C
      */
     private void spawnInitialAnimals() {
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
-        int baseX = spawn.x();
-        int baseY = spawn.y();
+        final int baseX = spawn.x();
+        final int baseY = spawn.y();
         int xOffset = INITIAL_ANIMAL_X_OFFSET_START;
         int delay = INITIAL_ANIMAL_DELAY_BASE;
 
         for (int i = 0; i < INITIAL_ANIMAL_COUNT; i++) {
-            ObjectSpawn animalSpawn = new ObjectSpawn(
-                    baseX + xOffset, baseY,
-                    0x28, 0, 0, false, 0);
-            EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(
-                    animalSpawn, delay, services().rng().nextBits(1));
-            objectManager.addDynamicObject(animal);
+            final int fXOffset = xOffset;
+            final int fDelay = delay;
+            spawnFreeChild(() -> {
+                ObjectSpawn animalSpawn = new ObjectSpawn(
+                        baseX + fXOffset, baseY,
+                        0x28, 0, 0, false, 0);
+                return new EggPrisonAnimalInstance(
+                        animalSpawn, fDelay, services().rng().nextBits(1));
+            });
 
             xOffset += INITIAL_ANIMAL_X_OFFSET_STEP;
             delay -= INITIAL_ANIMAL_DELAY_STEP;
@@ -316,13 +317,12 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Pri_Animals random spawn — andi.w #$1F,d0 / subq.w #6,d0
      */
     private void spawnRandomAnimal() {
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
-        int baseX = spawn.x();
-        int baseY = spawn.y();
+        final int baseX = spawn.x();
+        final int baseY = spawn.y();
 
         // ROM: jsr (RandomNumber).l / andi.w #$1F,d0 / subq.w #6,d0
         int random = services().rng().nextWord();
@@ -331,13 +331,15 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         if ((random & 0x8000) != 0) {
             randomOffset = -randomOffset;
         }
+        final int fOffset = randomOffset;
 
-        ObjectSpawn animalSpawn = new ObjectSpawn(
-                baseX + randomOffset, baseY,
-                0x28, 0, 0, false, 0);
-        EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(
-                animalSpawn, SPAWN_ANIMAL_DELAY, services().rng().nextBits(1));
-        objectManager.addDynamicObject(animal);
+        spawnFreeChild(() -> {
+            ObjectSpawn animalSpawn = new ObjectSpawn(
+                    baseX + fOffset, baseY,
+                    0x28, 0, 0, false, 0);
+            return new EggPrisonAnimalInstance(
+                    animalSpawn, SPAWN_ANIMAL_DELAY, services().rng().nextBits(1));
+        });
     }
 
     /**
@@ -383,15 +385,13 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
 
         // Spawn results screen
         var levelGamestate = services().levelGamestate();
-        int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
-        int ringCount = player.getRingCount();
-        int actNumber = services().currentAct() + 1;
+        final int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
+        final int ringCount = player.getRingCount();
+        final int actNumber = services().currentAct() + 1;
 
-        Sonic1ResultsScreenObjectInstance resultsScreen = new Sonic1ResultsScreenObjectInstance(
-                elapsedSeconds, ringCount, actNumber);
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager != null) {
-            objectManager.addDynamicObject(resultsScreen);
+        if (services().objectManager() != null) {
+            spawnFreeChild(() -> new Sonic1ResultsScreenObjectInstance(
+                    elapsedSeconds, ringCount, actNumber));
         }
 
         // Detach button (keep it alive for visual during results)
