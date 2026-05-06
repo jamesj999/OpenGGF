@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
+import com.openggf.level.objects.PerObjectRewindSnapshot;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
@@ -223,6 +224,31 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
         }
         if (state == State.CLIMBING) {
             animFrame = ((frameCounter / CLIMB_ANIM_SPEED) & 1);
+        }
+    }
+
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        PerObjectRewindSnapshot base = super.captureRewindState();
+        return base.withBadnikSubclassExtra(new PerObjectRewindSnapshot.CoconutsRewindExtra(
+                state.ordinal(),
+                throwState.ordinal(),
+                timer,
+                climbTableIndex,
+                attackTimer,
+                yVelocity));
+    }
+
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+        super.restoreRewindState(snapshot);
+        if (snapshot.badnikSubclassExtra() instanceof PerObjectRewindSnapshot.CoconutsRewindExtra extra) {
+            state = State.values()[extra.stateOrdinal()];
+            throwState = ThrowState.values()[extra.throwStateOrdinal()];
+            timer = extra.timer();
+            climbTableIndex = extra.climbTableIndex();
+            attackTimer = extra.attackTimer();
+            yVelocity = extra.yVelocity();
         }
     }
 
