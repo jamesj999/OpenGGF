@@ -2079,27 +2079,51 @@ public class ObjectManager {
 
 
 
-    private boolean isSpawnVerticallyEligibleForLoad(ObjectSpawn spawn) {
-        if (spawn == null || placement.isCounterBasedRespawn() || camera == null) {
-            return true;
-        }
-        return isNonCounterSpawnVerticallyEligible(spawn, camera.getY(), camera.getMinY());
-    }
-
-    static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY) {
-        if ((spawn.rawYWord() & 0x8000) != 0) {
-            return true;
-        }
-        if ((short) cameraMinY < 0) {
-            return true;
+        private boolean isSpawnVerticallyEligibleForLoad(ObjectSpawn spawn) {
+            if (spawn == null || placement.isCounterBasedRespawn() || camera == null) {
+                return true;
+            }
+            int wrapRange = camera.isVerticalWrapEnabled() ? camera.getVerticalWrapRange() : 0;
+            return isNonCounterSpawnVerticallyEligible(spawn, camera.getY(), camera.getMinY(), wrapRange);
         }
 
-        int cameraChunkY = cameraY & 0xFF80;
-        int windowTop = Math.max(0, cameraChunkY - 0x80);
-        int windowBottom = cameraChunkY + 0x200;
-        int spawnY = spawn.rawYWord() & 0x0FFF;
-        return spawnY >= windowTop && spawnY <= windowBottom;
-    }
+        static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY) {
+            return isNonCounterSpawnVerticallyEligible(spawn, cameraY, cameraMinY, 0);
+        }
+
+        static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY,
+                int verticalWrapRange) {
+            if ((spawn.rawYWord() & 0x8000) != 0) {
+                return true;
+            }
+
+            int cameraChunkY = cameraY & 0xFF80;
+            int windowTop = cameraChunkY - 0x80;
+            int windowBottom = cameraChunkY + 0x200;
+            int spawnY = spawn.rawYWord() & 0x0FFF;
+
+            if ((short) cameraMinY < 0) {
+                // ROM: Load_Sprites selects loc_1BA92 (normal range) while the
+                // vertical load band is inside Screen_Y_wrap_value+1, and selects
+                // loc_1BA40 (split range) only when the band crosses the wrap
+                // boundary (sonic3k.asm:37546-37589, 37803-37843,
+                // 37846-37874). Negative Camera_min_Y_pos does not mean
+                // "load every Y"; MGZ1 F667 depends on the 0x0834 bridge staying
+                // unloaded while the camera band is 0x0580..0x0800.
+                int wrapRange = verticalWrapRange > 0 ? verticalWrapRange : 0x1000;
+                int wrapMask = wrapRange - 1;
+                if (windowTop < 0) {
+                    return spawnY >= (windowTop & wrapMask) || spawnY <= windowBottom;
+                }
+                if (windowBottom > wrapRange) {
+                    return spawnY >= windowTop || spawnY <= (windowBottom & wrapMask);
+                }
+                return spawnY >= windowTop && spawnY <= windowBottom;
+            }
+
+            windowTop = Math.max(0, windowTop);
+            return spawnY >= windowTop && spawnY <= windowBottom;
+        }
 
     /**
      * Enables vertical wrap Y adjustment on GraphicsManager if the camera has
@@ -4703,6 +4727,9 @@ public class ObjectManager {
                         result.kind(), result.standingNow(), result.pushingNow()));
                 cacheHeadroomSnapshot(player, player.getAngle(),
                         getHeadroomDistance(player, player.getAngle()));
+                if (compatibilityCallbacks && instance instanceof SolidObjectListener listener) {
+                    listener.onSolidContactCleared(player, frameCounter);
+                }
             } else {
                 PlayerSolidContactResult result = new PlayerSolidContactResult(
                         toContactKind(contact),
@@ -4834,6 +4861,9 @@ public class ObjectManager {
             if (instance.isSkipSolidContactThisFrame()) {
                 return null;
             }
+            if (shouldSkipOffscreenSidekickFullSolid(player, instance, provider)) {
+                return null;
+            }
 
             if (provider instanceof MultiPieceSolidProvider multiPiece) {
                 MultiPieceContactResult result = processMultiPieceCollision(
@@ -4948,6 +4978,7 @@ public class ObjectManager {
             } else {
                 contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                         provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                        provider.getMonitorSolidObjectVerticalOffset(),
                         useStickyBuffer, instance, true);
             }
 
@@ -5192,6 +5223,7 @@ public class ObjectManager {
                     } else {
                         contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                                 provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                                provider.getMonitorSolidObjectVerticalOffset(),
                                 useStickyBuffer, instance, false);
                     }
                     if (contact != null && contact.standing()) {
@@ -5254,7 +5286,7 @@ public class ObjectManager {
 
                 // Multi-piece solids don't use monitor solidity
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, useStickyBuffer, instance, false);
+                        multiPiece.isTopSolidOnly(), false, 0, useStickyBuffer, instance, false);
                 if (contact != null && contact.standing()) {
                     return true;
                 }
@@ -5666,13 +5698,13 @@ public class ObjectManager {
                 } else {
                     contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                            provider.getMonitorSolidObjectVerticalOffset(),
                             useStickyBuffer, instance, true);
                 }
 
                 if (contact == null) {
-                    if (clearObjectPushingBit(player, instance)) {
-                        player.setPushing(false);
-                        provider.setPlayerPushing(player, false);
+                    if (instance instanceof SolidObjectListener listener) {
+                        listener.onSolidContactCleared(player, frameCounter);
                     }
                     continue;
                 }
@@ -5758,7 +5790,7 @@ public class ObjectManager {
                 // Multi-piece solids don't use monitor solidity
                 // Pass piece index so sticky buffer only applies to the piece being ridden
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, useStickyBuffer, instance, i, true);
+                        multiPiece.isTopSolidOnly(), false, 0, useStickyBuffer, instance, i, true);
 
                 if (contact == null) {
                     continue;
@@ -5809,9 +5841,10 @@ public class ObjectManager {
          */
         private SolidContact resolveContact(PlayableEntity player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
-                boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
+                boolean monitorSolidity, int monitorVerticalOffset,
+                boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
             return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
-                    monitorSolidity, useStickyBuffer, instance, -1, apply);
+                    monitorSolidity, monitorVerticalOffset, useStickyBuffer, instance, -1, apply);
         }
 
         private boolean shouldUseSlopeForContact(ObjectInstance instance, SlopedSolidProvider sloped) {
@@ -5824,9 +5857,22 @@ public class ObjectManager {
          */
         private SolidContact resolveContact(PlayableEntity player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
-                boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, int pieceIndex, boolean apply) {
+                boolean monitorSolidity, int monitorVerticalOffset,
+                boolean useStickyBuffer, ObjectInstance instance, int pieceIndex, boolean apply) {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
+            if (topSolidOnly && instance instanceof SolidObjectProvider provider) {
+                // Provider-specific ROM ports can request a different sampled
+                // player-position phase for top-solid helper geometry. S3K
+                // SolidObjectTop's new-landing check reads x_pos/y_pos/y_radius
+                // before RideObject_SetRide (sonic3k.asm:41982-42015).
+                int historyFrames = Math.max(0,
+                        provider.getTopSolidPlayerPositionHistoryFrames(player));
+                if (historyFrames > 0) {
+                    playerCenterX = player.getCentreX(historyFrames);
+                    playerCenterY = player.getCentreY(historyFrames);
+                }
+            }
 
             int width2 = halfWidth * 2;
             int relXRaw = playerCenterX - anchorX + halfWidth;
@@ -5840,8 +5886,10 @@ public class ObjectManager {
             int totalHeight = usesCurrentYRadiusOnlyForFullSolidBottomOverlap(player)
                     ? maxTop * 2
                     : maxTop + (monitorSolidity ? maxTop : halfHeight + getSolidTopYRadius(player));
-            // SPG: Monitors don't add +4 during vertical overlap check
-            int verticalOffset = monitorSolidity ? 0 : 4;
+            // SPG-style monitor callers keep zero here. S3K monitors branch into
+            // SolidObject_cont, which adds +4 before the d2/y_radius overlap check
+            // (docs/skdisasm/sonic3k.asm:40575-40576, 41429-41432).
+            int verticalOffset = monitorSolidity ? monitorVerticalOffset : 4;
             // ROM: s2.asm:35147 uses andi.w #$7FF,d0 to handle VDP Y-coordinate
             // wrapping near y_pos=0 (16-bit hardware arithmetic). The engine uses
             // 32-bit absolute coordinates with no wrapping, so the mask must NOT be
@@ -6689,6 +6737,42 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.solidObjectOffscreenGate();
+        }
+
+        private boolean shouldSkipOffscreenSidekickFullSolid(PlayableEntity player,
+                                                             ObjectInstance instance,
+                                                             SolidObjectProvider provider) {
+            if (!(player instanceof AbstractPlayableSprite sidekick) || !sidekick.isCpuControlled()) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = sidekick.getPhysicsFeatureSet();
+            if (featureSet == null || !featureSet.solidObjectRequiresSidekickOnScreen()) {
+                return false;
+            }
+            if (provider.bypassesOffscreenSolidGate()
+                    || provider.isTopSolidOnly()
+                    || instance instanceof SlopedSolidProvider) {
+                return false;
+            }
+            boolean onScreen = sidekick.hasRenderFlagOnScreenState()
+                    ? sidekick.isRenderFlagOnScreen()
+                    : isVisibleForRenderFlag(sidekick);
+            if (onScreen) {
+                return false;
+            }
+            // ROM: S2 SolidObject tests Sidekick render_flags.on_screen and
+            // returns before the P2 solid pass when clear
+            // (docs/s2disasm/s2.asm:34800-34804). S3K SolidObjectFull does the
+            // same for Player_2 before adding the P2 standing-bit delta
+            // (docs/skdisasm/sonic3k.asm:41006-41010). This gate belongs only
+            // to the regular full-solid helper; SolidObjectFull2/SolidObject_Always,
+            // top-only, and sloped helpers enter their P2 routines directly.
+            return true;
+        }
+
+        private boolean isVisibleForRenderFlag(AbstractPlayableSprite sprite) {
+            Camera currentCamera = sprite.currentCamera();
+            return currentCamera != null && currentCamera.isVisibleForRenderFlag(sprite);
         }
 
         /**

@@ -8,4 +8,7 @@ public interface SolidObjectListener {
      * PlayerSolidContactResult instead of relying on this callback long-term.
      */
     void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter);
+
+    default void onSolidContactCleared(PlayableEntity player, int frameCounter) {
+    }
 }
