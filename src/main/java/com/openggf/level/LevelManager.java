@@ -3832,7 +3832,8 @@ public class LevelManager {
                         level.currentEpoch(),
                         level.blocksReference().clone(),  // shallow array clone
                         level.chunksReference().clone(),  // shallow array clone
-                        level.getMap().getData()          // share ref; CoW protects
+                        level.getMap().getData(),         // share ref; CoW protects
+                        frameCounter
                 );
             }
 
@@ -3850,6 +3851,7 @@ public class LevelManager {
                 level.bumpEpoch();
                 // TODO: mark dirty regions for re-upload — see L1 LevelManager.processDirtyRegions
                 level.markAllDirty();
+                frameCounter = s.frameCounter();
             }
         };
     }

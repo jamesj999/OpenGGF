@@ -82,7 +82,8 @@ class TestLevelManagerRewindSnapshot {
                             level.currentEpoch(),
                             level.blocksReference().clone(),
                             level.chunksReference().clone(),
-                            level.getMap().getData()
+                            level.getMap().getData(),
+                            0
                     );
                 }
 
