@@ -1,5 +1,6 @@
 package com.openggf.sprites.managers;
 
+import com.openggf.camera.Camera;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRuntime;
@@ -23,6 +24,7 @@ import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
 import com.openggf.game.GroundMode;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
+import com.openggf.sprites.playable.SecondaryAbility;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -67,6 +69,11 @@ public class TestPlayableSpriteMovement {
                         @Override
                         public void draw() {
                         }
+
+                        @Override
+                        public SecondaryAbility getSecondaryAbility() {
+                                return SecondaryAbility.INSTA_SHIELD;
+                        }
                 };
                 manager = new PlayableSpriteMovement(mockSprite);
         }
@@ -89,6 +96,102 @@ public class TestPlayableSpriteMovement {
                 Field field = AbstractPlayableSprite.class.getDeclaredField("physicsFeatureSet");
                 field.setAccessible(true);
                 field.set(sprite, featureSet);
+        }
+
+        private void setMovementField(String name, Object value) throws Exception {
+                Field field = PlayableSpriteMovement.class.getDeclaredField(name);
+                field.setAccessible(true);
+                field.set(manager, value);
+        }
+
+        @Test
+        public void s3kJumpRepressClearsRollingJumpBeforeAirControl() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAir(true);
+                mockSprite.setRolling(true);
+                mockSprite.setRollingJump(true);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setYSpeed((short) 0x07D8);
+                mockSprite.setGSpeed((short) 0x03B0);
+
+                setMovementField("jumpPressed", true);
+                setMovementField("jumpReleasedSinceJump", true);
+                setMovementField("inputJumpPress", true);
+                setMovementField("inputJump", true);
+                setMovementField("inputLeft", true);
+
+                Method jumpHeight = PlayableSpriteMovement.class.getDeclaredMethod("doJumpHeight");
+                jumpHeight.setAccessible(true);
+                jumpHeight.invoke(manager);
+                Method changeJumpDirection = PlayableSpriteMovement.class.getDeclaredMethod("doChgJumpDir");
+                changeJumpDirection.setAccessible(true);
+                changeJumpDirection.invoke(manager);
+
+                assertFalse(mockSprite.getRollingJump(),
+                                "S3K Sonic_ShieldMoves clears Status_RollJump before shield-specific branches");
+                assertEquals((short) -0x18, mockSprite.getXSpeed(),
+                                "Once Status_RollJump is cleared, Sonic_ChgJumpDir applies left air acceleration");
+        }
+
+        @Test
+        public void s3kVerticalWrapMasksYAfterControlEvenWhenObjectControlsMovement() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                Camera camera = GameServices.camera();
+                camera.setMinY((short) -0x100);
+                camera.setMaxY((short) 0x1000);
+                camera.setVerticalWrapEnabled(true, 0x1000);
+
+                mockSprite.setObjectControlled(true);
+                mockSprite.setCentreY((short) 0x1001);
+
+                manager.handleMovement(false, false, false, false, false, false, false, false);
+
+                assertEquals((short) 0x0001, mockSprite.getCentreY(),
+                                "S3K Sonic_Control still applies Screen_Y_wrap_value after object_control skips movement");
+        }
+
+        @Test
+        public void s3kVerticalWrapPreservesYSubpixelLikeRomWordMask() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                Camera camera = GameServices.camera();
+                camera.setMinY((short) -0x100);
+                camera.setMaxY((short) 0x1000);
+                camera.setVerticalWrapEnabled(true, 0x1000);
+
+                mockSprite.setCentreY((short) 0x1022);
+                mockSprite.setSubpixelRaw(0xC000, 0xD000);
+
+                assertTrue(camera.applyScreenYWrapValue(mockSprite));
+                assertEquals((short) 0x0022, mockSprite.getCentreY(),
+                                "S3K Screen_Y_wrap_value masks only the high y_pos word");
+                assertEquals(0xD000, mockSprite.getYSubpixelRaw(),
+                                "S3K and.w d0,y_pos(a0) preserves the low y_sub word");
+        }
+
+        @Test
+        public void s3kCameraUpdateWrapPreservesFocusedSpriteYSubpixelLikeRomWordMask() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                Camera camera = GameServices.camera();
+                camera.setFocusedSprite(mockSprite);
+                camera.setMinY((short) -0x100);
+                camera.setMaxY((short) 0x1000);
+                camera.setY((short) 0x1000);
+                camera.setVerticalWrapEnabled(true, 0x1000);
+
+                mockSprite.setAir(true);
+                mockSprite.setCentreY((short) 0x0083);
+                mockSprite.setSubpixelRaw(0x7000, 0x3000);
+
+                camera.updatePosition();
+
+                assertEquals((short) 0x0083, mockSprite.getCentreY(),
+                                "Camera vertical wrap masks only the high y_pos word");
+                assertEquals(0x3000, mockSprite.getYSubpixelRaw(),
+                                "S3K camera wrap must preserve y_sub like and.w d0,y_pos(a0)");
         }
 
         @Test
@@ -119,7 +222,7 @@ public class TestPlayableSpriteMovement {
                 GameServices.camera().setMaxX((short) 0x2ED0);
                 GameServices.gameState().setCurrentBossId(0);
 
-                int rightBoundary = 0x2ED0 + 320 - 24 + 64;
+                int rightBoundary = 0x2ED0 + 320 - 24;
                 mockSprite.setCentreX((short) rightBoundary);
                 mockSprite.setSubpixelRaw(0, 0);
                 mockSprite.setXSpeed((short) 0x000C);
@@ -518,6 +621,22 @@ public class TestPlayableSpriteMovement {
         }
 
         @Test
+        public void s3kSlopeResistCanStartGroundVelocityFromRest() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setAngle((byte) 0x30);
+                mockSprite.setGSpeed((short) 0);
+
+                Method slopeMethod = PlayableSpriteMovement.class.getDeclaredMethod("doSlopeResist");
+                slopeMethod.setAccessible(true);
+                slopeMethod.invoke(manager);
+
+                assertEquals((short) 0x001D, mockSprite.getGSpeed(),
+                                "S3K Player_SlopeResist starts from rest when abs(slope effect) >= $0D");
+        }
+
+        @Test
         public void testRightInputMaintainHighSpeed() throws Exception {
                 // Setup: Running super fast (3000), holding Right. Flat ground.
                 mockSprite.setGSpeed((short) 3000);
@@ -787,6 +906,30 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 assertEquals((short) 2976, mockSprite.getXSpeed(), "Air drag SHOULD apply at ySpeed = -1024");
+        }
+
+        @Test
+        public void s3kLightningShieldClearsJumpHeightLatchLikeRomJumpingByte() throws Exception {
+                manager.setJumpHeightLatch();
+                mockSprite.setJumping(true);
+                mockSprite.setAir(true);
+                mockSprite.setYSpeed((short) -0x510);
+
+                Method lightningShieldJump = PlayableSpriteMovement.class.getDeclaredMethod("lightningShieldJump");
+                lightningShieldJump.setAccessible(true);
+                lightningShieldJump.invoke(manager);
+
+                assertEquals((short) -0x580, mockSprite.getYSpeed(), "Lightning shield writes the ROM y_vel");
+                assertFalse(mockSprite.isJumping(), "ROM Sonic_LightningShield clears jumping(a0)");
+
+                mockSprite.setYSpeed((short) -0x510);
+                setInputState(false, false, false, false, false);
+                Method doJumpHeight = PlayableSpriteMovement.class.getDeclaredMethod("doJumpHeight");
+                doJumpHeight.setAccessible(true);
+                doJumpHeight.invoke(manager);
+
+                assertEquals((short) -0x510, mockSprite.getYSpeed(),
+                                "After lightning shield, jump release must not reapply the -$400 jump-height cap");
         }
 
         /**
@@ -1215,6 +1358,24 @@ public class TestPlayableSpriteMovement {
                                 "Manual/player DOWN keeps the existing roll behavior during move_lock");
         }
 
+        @Test
+        public void testMoveLockFilteredDirectionStillPreventsRoll() throws Exception {
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setCrouching(false);
+                mockSprite.setGSpeed((short) 500);
+
+                setInputState(false, false, true, false, false);
+                setRawHorizontalInput(true, false);
+
+                Method rollMethod = PlayableSpriteMovement.class.getDeclaredMethod("doCheckStartRoll");
+                rollMethod.setAccessible(true);
+                rollMethod.invoke(manager);
+
+                assertFalse(mockSprite.getRolling(),
+                                "ROM roll entry reads held left/right even when move_lock filtered movement input");
+        }
+
         /**
          * Test that jumpPressed is reset when springing starts.
          */
@@ -1357,6 +1518,15 @@ public class TestPlayableSpriteMovement {
                 Field wasCrouchingField = PlayableSpriteMovement.class.getDeclaredField("wasCrouching");
                 wasCrouchingField.setAccessible(true);
                 wasCrouchingField.set(manager, wasCrouching);
+        }
+
+        private void setRawHorizontalInput(boolean left, boolean right) throws Exception {
+                Field rawLeftField = PlayableSpriteMovement.class.getDeclaredField("inputRawLeft");
+                Field rawRightField = PlayableSpriteMovement.class.getDeclaredField("inputRawRight");
+                rawLeftField.setAccessible(true);
+                rawRightField.setAccessible(true);
+                rawLeftField.set(manager, left);
+                rawRightField.set(manager, right);
         }
 
         // ========================================
@@ -1692,6 +1862,73 @@ public class TestPlayableSpriteMovement {
                 assertTrue(!mockSprite.getRolling(),
                                 "S3K Player_TouchFloor clears Status_Roll without a spin_dash_flag guard");
                 assertTrue(!mockSprite.getPinballMode(), "Landing should clear engine pinball mode");
+        }
+
+        @Test
+        public void testLandingClearingRollUsesCurrentStandingRadiusDelta() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setGroundMode(GroundMode.GROUND);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setRolling(true);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.applyStandingRadii(false);
+                mockSprite.setRollingJump(false);
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0xFC);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) 0x0D40, mockSprite.getCentreY(),
+                                "Player_TouchFloor adjusts ROM centre y_pos by old y_radius - default_y_radius");
+                assertEquals(mockSprite.getStandYRadius(), mockSprite.getYRadius(),
+                                "Landing should restore default y_radius");
+                assertTrue(!mockSprite.getRolling(), "Landing should clear Status_Roll");
+        }
+
+        @Test
+        public void testS2LandingClearingRollUsesFixedLiftEvenWithStandingRadius() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
+                mockSprite.setGroundMode(GroundMode.GROUND);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setRolling(true);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.applyStandingRadii(false);
+                mockSprite.setRollingJump(false);
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0x00);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) 0x0D3B, mockSprite.getCentreY(),
+                                "S2 Sonic_ResetOnFloor applies the fixed -5 centre-y lift when clearing rolling");
+                assertEquals(mockSprite.getStandYRadius(), mockSprite.getYRadius(),
+                                "Landing should restore default y_radius");
+                assertTrue(!mockSprite.getRolling(), "Landing should clear Status_Roll");
+        }
+
+        @Test
+        public void testLandingClearingRollStillLiftsFromRollingRadius() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setGroundMode(GroundMode.GROUND);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setRolling(true);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0x00);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) 0x0D3B, mockSprite.getCentreY(),
+                                "Rolling y_radius 14 landing should apply the -5 centre-y radius delta");
+                assertEquals(mockSprite.getStandYRadius(), mockSprite.getYRadius(),
+                                "Landing should restore default y_radius");
+                assertTrue(!mockSprite.getRolling(), "Landing should clear Status_Roll");
         }
 
         @Test

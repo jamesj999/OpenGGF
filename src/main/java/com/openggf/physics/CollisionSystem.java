@@ -505,9 +505,13 @@ public class CollisionSystem {
                 doTerrainCollisionAir(sprite, groundResult, landingHandler);
             }
             case 0x40 -> {
-                if (doWallCheck(sprite, 0)) {
+                boolean wallHit = doWallCheck(sprite, 0);
+                if (wallHit) {
+                    traceS3kAizAirCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
                     traceS3kCnzCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
-                    return;
+                    if (!airLeftWallHitContinuesIntoCeilingSeparation(sprite)) {
+                        return;
+                    }
                 }
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 boolean ceilingHit = doCeilingCollisionInternal(sprite, ceilingResult);
@@ -548,6 +552,45 @@ public class CollisionSystem {
     private boolean airRightWallHitContinuesIntoCeilingSeparation(AbstractPlayableSprite sprite) {
         PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
         return featureSet != null && featureSet.airRightWallHitContinuesIntoCeilingSeparation();
+    }
+
+    private boolean airLeftWallHitContinuesIntoCeilingSeparation(AbstractPlayableSprite sprite) {
+        PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+        return featureSet != null && featureSet.airLeftWallHitContinuesIntoCeilingSeparation();
+    }
+
+    private void traceS3kAizAirCollisionProbe(AbstractPlayableSprite sprite,
+                                              String stage,
+                                              int quadrant,
+                                              SensorResult[] groundResult,
+                                              SensorResult[] ceilingResult,
+                                              boolean collisionResolved) {
+        if (!Boolean.getBoolean("s3k.aiz.aircollisionprobe")) {
+            return;
+        }
+        com.openggf.level.LevelManager levelManager = com.openggf.game.GameServices.level();
+        if (levelManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        int frameCounter = levelManager.getObjectManager().getFrameCounter();
+        int centreX = sprite.getCentreX() & 0xFFFF;
+        int centreY = sprite.getCentreY() & 0xFFFF;
+        if (centreX < 0x1930 || centreX > 0x1960 || centreY < 0x0380 || centreY > 0x03E0) {
+            return;
+        }
+        System.out.printf(
+                "s3k-aiz-aircollisionprobe frame=%d stage=%s quad=%02X pos=(%04X,%04X) spd=(%04X,%04X,%04X) ground=[%s] ceiling=[%s] resolved=%s%n",
+                frameCounter,
+                stage,
+                quadrant & 0xFF,
+                sprite.getCentreX() & 0xFFFF,
+                sprite.getCentreY() & 0xFFFF,
+                sprite.getXSpeed() & 0xFFFF,
+                sprite.getYSpeed() & 0xFFFF,
+                sprite.getGSpeed() & 0xFFFF,
+                formatProbeResults(groundResult),
+                formatProbeResults(ceilingResult),
+                collisionResolved);
     }
 
     /**
