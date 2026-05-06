@@ -289,7 +289,8 @@ public record PerObjectRewindSnapshot(
             boolean spindash, short spindashCounter,
             boolean crouching, boolean lookingUp, short lookDelayCounter,
             int doubleJumpFlag, byte doubleJumpProperty,
-            boolean shield, boolean instaShieldRegistered,
+            boolean shield, com.openggf.game.ShieldType shieldType,
+            boolean instaShieldRegistered,
             boolean speedShoes, boolean superSonic,
             // Input gating / control
             boolean forceInputRight, int forcedInputMask,
@@ -329,6 +330,8 @@ public record PerObjectRewindSnapshot(
             int forcedAnimationId,
             int animationFrameIndex,
             int animationTick,
+            com.openggf.sprites.managers.PlayableSpriteMovement.RewindState movementState,
+            com.openggf.sprites.managers.SpindashDustController.RewindState spindashDustState,
             SidekickCpuRewindExtra sidekickCpuExtra,
             // Sidekick follow-history circular buffers (read by SidekickCpuController
             // each frame to position the follower; the leader writes new entries every

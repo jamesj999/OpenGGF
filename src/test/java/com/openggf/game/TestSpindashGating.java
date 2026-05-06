@@ -2,6 +2,7 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.session.SessionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +25,7 @@ class TestSpindashGating {
 
     @BeforeEach
     void setUp() {
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         SessionManager.clear();
         RuntimeManager.createGameplay();

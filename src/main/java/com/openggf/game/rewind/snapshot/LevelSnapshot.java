@@ -27,6 +27,10 @@ public record LevelSnapshot(
         Chunk[] chunks,
         byte[] mapData,
         int frameCounter,
+        boolean hasLevelHudState,
+        int levelRings,
+        long levelTimerFrames,
+        boolean levelTimerPaused,
         boolean respawnRequested) {
 
     public LevelSnapshot(
@@ -35,6 +39,18 @@ public record LevelSnapshot(
             Chunk[] chunks,
             byte[] mapData,
             int frameCounter) {
-        this(epochAtCapture, blocks, chunks, mapData, frameCounter, false);
+        this(epochAtCapture, blocks, chunks, mapData, frameCounter,
+                false, 0, 0, false, false);
+    }
+
+    public LevelSnapshot(
+            long epochAtCapture,
+            Block[] blocks,
+            Chunk[] chunks,
+            byte[] mapData,
+            int frameCounter,
+            boolean respawnRequested) {
+        this(epochAtCapture, blocks, chunks, mapData, frameCounter,
+                false, 0, 0, false, respawnRequested);
     }
 }

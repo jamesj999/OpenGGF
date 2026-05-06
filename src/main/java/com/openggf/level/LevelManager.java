@@ -3869,6 +3869,10 @@ public class LevelManager {
                         level.chunksReference(),
                         level.getMap().getData(),
                         frameCounter,
+                        levelGamestate != null,
+                        levelGamestate != null ? levelGamestate.getRings() : 0,
+                        levelGamestate != null ? levelGamestate.getTimerFrames() : 0,
+                        levelGamestate != null && levelGamestate.isTimerPaused(),
                         isRespawnRequestedForRewind()
                 );
             }
@@ -3888,6 +3892,15 @@ public class LevelManager {
                 // TODO: mark dirty regions for re-upload — see L1 LevelManager.processDirtyRegions
                 level.markAllDirty();
                 frameCounter = s.frameCounter();
+                if (s.hasLevelHudState() && levelGamestate != null) {
+                    levelGamestate.setRings(s.levelRings());
+                    levelGamestate.setTimerFrames(s.levelTimerFrames());
+                    if (s.levelTimerPaused()) {
+                        levelGamestate.pauseTimer();
+                    } else {
+                        levelGamestate.resumeTimer();
+                    }
+                }
                 restoreRespawnRequestedForRewind(s.respawnRequested());
             }
         };

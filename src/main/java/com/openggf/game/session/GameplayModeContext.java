@@ -166,12 +166,16 @@ public final class GameplayModeContext implements ModeContext {
             rewindRegistry.deregister("water");
             rewindRegistry.deregister("sprites");
             rewindRegistry.deregisterPostRestoreCallback("parallax-derived-state");
+            rewindRegistry.deregisterPostRestoreCallback("sprite-powerup-derived-state");
             rewindRegistry.register(parallaxManager);
             rewindRegistry.register(waterSystem);
             rewindRegistry.register(spriteManager.rewindSnapshottable());
             rewindRegistry.registerPostRestoreCallback(
                     "parallax-derived-state",
                     levelManager::recomputeParallaxAfterRewindRestore);
+            rewindRegistry.registerPostRestoreCallback(
+                    "sprite-powerup-derived-state",
+                    spriteManager::refreshPowerUpObjectsAfterRewindRestore);
         }
     }
 

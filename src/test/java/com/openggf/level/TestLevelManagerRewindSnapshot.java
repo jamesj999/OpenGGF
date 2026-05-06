@@ -2,6 +2,7 @@ package com.openggf.level;
 
 import com.openggf.game.rewind.RewindSnapshottable;
 import com.openggf.game.rewind.snapshot.LevelSnapshot;
+import com.openggf.game.LevelGamestate;
 import com.openggf.game.mutation.LevelMutationSurface;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +53,7 @@ class TestLevelManagerRewindSnapshot {
      */
     static class StubLevelManager {
         private final Level level;
+        private final LevelGamestate levelGamestate = new LevelGamestate();
 
         StubLevelManager(Level level) {
             this.level = level;
@@ -84,7 +86,12 @@ class TestLevelManagerRewindSnapshot {
                             level.blocksReference(),
                             level.chunksReference(),
                             level.getMap().getData(),
-                            0
+                            0,
+                            true,
+                            levelGamestate.getRings(),
+                            levelGamestate.getTimerFrames(),
+                            levelGamestate.isTimerPaused(),
+                            false
                     );
                 }
 
@@ -101,6 +108,15 @@ class TestLevelManagerRewindSnapshot {
                     level.getMap().restoreData(s.mapData());
                     level.bumpEpoch();
                     level.markAllDirty();
+                    if (s.hasLevelHudState()) {
+                        levelGamestate.setRings(s.levelRings());
+                        levelGamestate.setTimerFrames(s.levelTimerFrames());
+                        if (s.levelTimerPaused()) {
+                            levelGamestate.pauseTimer();
+                        } else {
+                            levelGamestate.resumeTimer();
+                        }
+                    }
                 }
             };
         }
@@ -230,6 +246,39 @@ class TestLevelManagerRewindSnapshot {
 
         // Snapshot should record the epoch at capture time
         assertEquals(2L, snap.epochAtCapture());
+    }
+
+    @Test
+    void snapshotCarriesLevelHudRingsAndTimer() {
+        StubLevel level = new StubLevel();
+        StubLevelManager manager = new StubLevelManager(level);
+        RewindSnapshottable<LevelSnapshot> adapter = manager.levelRewindSnapshottable();
+        manager.levelGamestate.setRings(37);
+        manager.levelGamestate.setTimerFrames(1234);
+        manager.levelGamestate.pauseTimer();
+
+        LevelSnapshot snap = adapter.capture();
+        manager.levelGamestate.setRings(99);
+        manager.levelGamestate.setTimerFrames(5678);
+        manager.levelGamestate.resumeTimer();
+
+        adapter.restore(snap);
+
+        assertEquals(37, manager.levelGamestate.getRings());
+        assertEquals(1234, manager.levelGamestate.getTimerFrames());
+        assertTrue(manager.levelGamestate.isTimerPaused());
+    }
+
+    @Test
+    void snapshotCarriesNoLevelHudStateWhenUnavailable() {
+        LevelSnapshot snap = new LevelSnapshot(
+                0,
+                new Block[0],
+                new Chunk[0],
+                new byte[0],
+                0);
+
+        assertFalse(snap.hasLevelHudState());
     }
 
     @Test

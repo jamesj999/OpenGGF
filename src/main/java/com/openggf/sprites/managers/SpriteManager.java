@@ -1005,6 +1005,14 @@ public class SpriteManager {
 				&& playable.isCpuControlled();
 	}
 
+	public void refreshPowerUpObjectsAfterRewindRestore() {
+		for (Sprite sprite : sprites.values()) {
+			if (sprite instanceof AbstractPlayableSprite playable) {
+				playable.refreshPowerUpObjectsAfterRewindRestore();
+			}
+		}
+	}
+
 	/**
 	 * Runs the canonical per-sprite physics tick: solid contacts, movement,
 	 * post-movement solid pass, plane switchers, animation, and status.

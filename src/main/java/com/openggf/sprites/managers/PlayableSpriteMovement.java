@@ -129,6 +129,62 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		wasCrouching = false;
 	}
 
+	public RewindState captureRewindState() {
+		return new RewindState(
+				jumpPressed,
+				jumpPrevious,
+				jumpReleasedSinceJump,
+				testKeyPressed,
+				inputUp,
+				inputDown,
+				inputLeft,
+				inputRight,
+				inputJump,
+				inputJumpPress,
+				inputRawLeft,
+				inputRawRight,
+				facingFlipForcesPushClearAfterGroundWall,
+				wasCrouching);
+	}
+
+	public void restoreRewindState(RewindState state) {
+		if (state == null) {
+			resetTransientState();
+			return;
+		}
+		jumpPressed = state.jumpPressed();
+		jumpPrevious = state.jumpPrevious();
+		jumpReleasedSinceJump = state.jumpReleasedSinceJump();
+		testKeyPressed = state.testKeyPressed();
+		inputUp = state.inputUp();
+		inputDown = state.inputDown();
+		inputLeft = state.inputLeft();
+		inputRight = state.inputRight();
+		inputJump = state.inputJump();
+		inputJumpPress = state.inputJumpPress();
+		inputRawLeft = state.inputRawLeft();
+		inputRawRight = state.inputRawRight();
+		facingFlipForcesPushClearAfterGroundWall = state.facingFlipForcesPushClearAfterGroundWall();
+		wasCrouching = state.wasCrouching();
+	}
+
+	public record RewindState(
+			boolean jumpPressed,
+			boolean jumpPrevious,
+			boolean jumpReleasedSinceJump,
+			boolean testKeyPressed,
+			boolean inputUp,
+			boolean inputDown,
+			boolean inputLeft,
+			boolean inputRight,
+			boolean inputJump,
+			boolean inputJumpPress,
+			boolean inputRawLeft,
+			boolean inputRawRight,
+			boolean facingFlipForcesPushClearAfterGroundWall,
+			boolean wasCrouching
+	) {}
+
 	public void clearJumpHeightLatch() {
 		jumpPressed = false;
 		jumpReleasedSinceJump = false;

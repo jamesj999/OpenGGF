@@ -859,7 +859,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         spindash, spindashCounter,
                         crouching, lookingUp, lookDelayCounter,
                         doubleJumpFlag, doubleJumpProperty,
-                        shield, instaShieldRegistered,
+                        shield, shieldType, instaShieldRegistered,
                         speedShoes, superSonic,
                         forceInputRight, forcedInputMask,
                         forcedJumpPress, suppressNextJumpPress,
@@ -893,6 +893,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         forcedAnimationId,
                         animationFrameIndex,
                         animationTick,
+                        controller.getMovement().captureRewindState(),
+                        controller.getSpindashDust() != null
+                                ? controller.getSpindashDust().captureRewindState()
+                                : null,
                         sidekickCpuExtra,
                         includeFollowHistory ? xHistory : null,
                         includeFollowHistory ? yHistory : null,
@@ -986,6 +990,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.doubleJumpFlag = extra.doubleJumpFlag();
                 this.doubleJumpProperty = extra.doubleJumpProperty();
                 this.shield = extra.shield();
+                this.shieldType = extra.shieldType();
                 this.instaShieldRegistered = extra.instaShieldRegistered();
                 this.speedShoes = extra.speedShoes();
                 this.superSonic = extra.superSonic();
@@ -1043,6 +1048,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.forcedAnimationId = extra.forcedAnimationId();
                 this.animationFrameIndex = extra.animationFrameIndex();
                 this.animationTick = extra.animationTick();
+                controller.getMovement().restoreRewindState(extra.movementState());
+                if (controller.getSpindashDust() != null) {
+                        controller.getSpindashDust().restoreRewindState(extra.spindashDustState());
+                }
                 if (extra.sidekickCpuExtra() != null) {
                         if (cpuController == null) {
                                 throw new IllegalStateException(
@@ -1072,6 +1081,34 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (extra.statusHistory() != null) {
                         System.arraycopy(extra.statusHistory(), 0, this.statusHistory, 0,
                                 Math.min(extra.statusHistory().length, this.statusHistory.length));
+                }
+        }
+
+        /**
+         * Recreates power-up visuals after all rewind adapters have restored. The
+         * object manager restores after sprites, so visual rebinding must be
+         * deferred until the registry's post-restore phase.
+         */
+        public void refreshPowerUpObjectsAfterRewindRestore() {
+                if (!shield || shieldType == null) {
+                        if (shieldObject != null) {
+                                shieldObject.destroy();
+                                shieldObject = null;
+                        }
+                        shield = false;
+                        shieldType = null;
+                        return;
+                }
+
+                if (shieldObject != null) {
+                        shieldObject.destroy();
+                        shieldObject = null;
+                }
+                if (powerUpSpawner != null) {
+                        shieldObject = powerUpSpawner.spawnShield(this, shieldType);
+                        if (shieldObject != null && invincibleFrames > 0) {
+                                shieldObject.setVisible(false);
+                        }
                 }
         }
 

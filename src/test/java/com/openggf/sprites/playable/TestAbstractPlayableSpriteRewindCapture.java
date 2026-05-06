@@ -1,15 +1,24 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.InstaShieldHandle;
+import com.openggf.game.PlayableEntity;
+import com.openggf.game.PowerUpObject;
+import com.openggf.game.PowerUpSpawner;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.ShieldType;
 import com.openggf.game.session.EngineContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.level.objects.PerObjectRewindSnapshot;
 import com.openggf.level.objects.PerObjectRewindSnapshot.PlayerRewindExtra;
+import com.openggf.sprites.managers.PlayableSpriteMovement;
+import com.openggf.sprites.managers.SpindashDustController;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -510,5 +519,144 @@ class TestAbstractPlayableSpriteRewindCapture {
         assertNotNull(full.inputHistory());
         assertNotNull(full.jumpPressHistory());
         assertNotNull(full.statusHistory());
+    }
+
+    @Test
+    void roundTripRestoresSpindashControllerState() throws Exception {
+        Sonic sonic = new Sonic("sonic", (short) 100, (short) 200);
+        PlayableSpriteMovement movement = (PlayableSpriteMovement) sonic.getMovementManager();
+        SpindashDustController dust = new SpindashDustController(sonic, null);
+        sonic.setSpindashDustController(dust);
+
+        setBooleanField(movement, "jumpPressed", true);
+        setBooleanField(movement, "jumpPrevious", true);
+        setBooleanField(movement, "jumpReleasedSinceJump", true);
+        setBooleanField(movement, "testKeyPressed", true);
+        setBooleanField(movement, "inputDown", true);
+        setBooleanField(movement, "inputJump", true);
+        setBooleanField(movement, "inputJumpPress", true);
+        setBooleanField(movement, "facingFlipForcesPushClearAfterGroundWall", true);
+        setBooleanField(movement, "wasCrouching", true);
+        setIntField(dust, "frameIndex", 4);
+        setIntField(dust, "frameTick", 1);
+        setIntField(dust, "currentFrame", 0x0E);
+        setBooleanField(dust, "activeLastTick", true);
+
+        PerObjectRewindSnapshot snapshot = sonic.captureRewindState();
+
+        movement.resetTransientState();
+        setIntField(dust, "frameIndex", 0);
+        setIntField(dust, "frameTick", 0);
+        setIntField(dust, "currentFrame", 0x0A);
+        setBooleanField(dust, "activeLastTick", false);
+
+        sonic.restoreRewindState(snapshot);
+
+        assertTrue(getBooleanField(movement, "jumpPressed"), "jumpPressed latch not restored");
+        assertTrue(getBooleanField(movement, "jumpPrevious"), "jumpPrevious latch not restored");
+        assertTrue(getBooleanField(movement, "jumpReleasedSinceJump"), "jumpReleasedSinceJump latch not restored");
+        assertTrue(getBooleanField(movement, "testKeyPressed"), "testKeyPressed latch not restored");
+        assertTrue(getBooleanField(movement, "inputDown"), "inputDown not restored");
+        assertTrue(getBooleanField(movement, "inputJump"), "inputJump not restored");
+        assertTrue(getBooleanField(movement, "inputJumpPress"), "inputJumpPress not restored");
+        assertTrue(getBooleanField(movement, "facingFlipForcesPushClearAfterGroundWall"),
+                "facingFlipForcesPushClearAfterGroundWall not restored");
+        assertTrue(getBooleanField(movement, "wasCrouching"), "wasCrouching not restored");
+        assertEquals(4, getIntField(dust, "frameIndex"), "dust frameIndex not restored");
+        assertEquals(1, getIntField(dust, "frameTick"), "dust frameTick not restored");
+        assertEquals(0x0E, getIntField(dust, "currentFrame"), "dust currentFrame not restored");
+        assertTrue(getBooleanField(dust, "activeLastTick"), "dust activeLastTick not restored");
+    }
+
+    @Test
+    void roundTripRestoresShieldTypeAndRebindsShieldObject() {
+        Sonic sonic = new Sonic("sonic", (short) 100, (short) 200);
+        RecordingPowerUpSpawner spawner = new RecordingPowerUpSpawner();
+        sonic.setPowerUpSpawner(spawner);
+        sonic.setShieldState(true, ShieldType.FIRE);
+
+        PerObjectRewindSnapshot snapshot = sonic.captureRewindState();
+        sonic.setShieldState(false, null);
+
+        sonic.restoreRewindState(snapshot);
+        sonic.refreshPowerUpObjectsAfterRewindRestore();
+
+        assertTrue(sonic.hasShield());
+        assertEquals(ShieldType.FIRE, sonic.getShieldType());
+        assertSame(spawner.lastShield, sonic.getShieldObject());
+        assertEquals(ShieldType.FIRE, spawner.lastShieldType);
+        assertFalse(spawner.lastShield.isDestroyed());
+    }
+
+    private static void setBooleanField(Object target, String name, boolean value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.setBoolean(target, value);
+    }
+
+    private static boolean getBooleanField(Object target, String name) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.getBoolean(target);
+    }
+
+    private static void setIntField(Object target, String name, int value) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.setInt(target, value);
+    }
+
+    private static int getIntField(Object target, String name) throws Exception {
+        Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.getInt(target);
+    }
+
+    private static final class RecordingPowerUpSpawner implements PowerUpSpawner {
+        private RecordingPowerUpObject lastShield;
+        private ShieldType lastShieldType;
+
+        @Override
+        public PowerUpObject spawnShield(PlayableEntity player, ShieldType type) {
+            lastShieldType = type;
+            lastShield = new RecordingPowerUpObject();
+            return lastShield;
+        }
+
+        @Override
+        public PowerUpObject spawnInvincibilityStars(PlayableEntity player) {
+            return new RecordingPowerUpObject();
+        }
+
+        @Override
+        public InstaShieldHandle createInstaShield(PlayableEntity player) {
+            return null;
+        }
+
+        @Override
+        public void registerObject(PowerUpObject obj) {
+        }
+
+        @Override
+        public void spawnSplash(PlayableEntity player) {
+        }
+    }
+
+    private static final class RecordingPowerUpObject implements PowerUpObject {
+        private boolean destroyed;
+
+        @Override
+        public void destroy() {
+            destroyed = true;
+        }
+
+        @Override
+        public boolean isDestroyed() {
+            return destroyed;
+        }
+
+        @Override
+        public void setVisible(boolean visible) {
+        }
     }
 }

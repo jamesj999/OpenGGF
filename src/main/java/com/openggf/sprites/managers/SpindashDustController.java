@@ -76,6 +76,28 @@ public class SpindashDustController {
         currentFrame = DASH_FRAMES[0];
     }
 
+    public RewindState captureRewindState() {
+        return new RewindState(frameIndex, frameTick, currentFrame, activeLastTick);
+    }
+
+    public void restoreRewindState(RewindState state) {
+        if (state == null) {
+            reset();
+            return;
+        }
+        frameIndex = state.frameIndex();
+        frameTick = state.frameTick();
+        currentFrame = state.currentFrame();
+        activeLastTick = state.activeLastTick();
+    }
+
+    public record RewindState(
+            int frameIndex,
+            int frameTick,
+            int currentFrame,
+            boolean activeLastTick
+    ) {}
+
     /**
      * Returns the renderer used for dust/splash animation.
      * Used by SplashObjectInstance to share the same art assets.
