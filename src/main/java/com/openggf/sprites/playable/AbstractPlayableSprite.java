@@ -876,7 +876,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         bubbleAnimId,
                         initPhysicsActive,
                         objectMappingFrameControl,
-                        sidekickCpuExtra);
+                        sidekickCpuExtra,
+                        xHistory, yHistory,
+                        inputHistory,
+                        jumpPressHistory, statusHistory);
                 // Player snapshots use a stub PerObjectRewindSnapshot (no badnikExtra; playerExtra holds everything).
                 return new PerObjectRewindSnapshot(
                         false, false,       // destroyed, destroyedRespawnable
@@ -1018,6 +1021,29 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                                         "Cannot restore SidekickCpuController state without a live controller");
                         }
                         cpuController.restoreRewindState(extra.sidekickCpuExtra());
+                }
+                // Sidekick follow-history circular buffers. Without restoring these,
+                // the follower reads stale leader-position history and diverges on
+                // the very first replay step.
+                if (extra.xHistory() != null) {
+                        System.arraycopy(extra.xHistory(), 0, this.xHistory, 0,
+                                Math.min(extra.xHistory().length, this.xHistory.length));
+                }
+                if (extra.yHistory() != null) {
+                        System.arraycopy(extra.yHistory(), 0, this.yHistory, 0,
+                                Math.min(extra.yHistory().length, this.yHistory.length));
+                }
+                if (extra.inputHistory() != null) {
+                        System.arraycopy(extra.inputHistory(), 0, this.inputHistory, 0,
+                                Math.min(extra.inputHistory().length, this.inputHistory.length));
+                }
+                if (extra.jumpPressHistory() != null) {
+                        System.arraycopy(extra.jumpPressHistory(), 0, this.jumpPressHistory, 0,
+                                Math.min(extra.jumpPressHistory().length, this.jumpPressHistory.length));
+                }
+                if (extra.statusHistory() != null) {
+                        System.arraycopy(extra.statusHistory(), 0, this.statusHistory, 0,
+                                Math.min(extra.statusHistory().length, this.statusHistory.length));
                 }
         }
 

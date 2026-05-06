@@ -227,8 +227,25 @@ public record PerObjectRewindSnapshot(
             int bubbleAnimId,
             boolean initPhysicsActive,
             boolean objectMappingFrameControl,
-            SidekickCpuRewindExtra sidekickCpuExtra
-    ) {}
+            SidekickCpuRewindExtra sidekickCpuExtra,
+            // Sidekick follow-history circular buffers (read by SidekickCpuController
+            // each frame to position the follower; the leader writes new entries every
+            // frame). Without snapshotting these, the follower reads stale history
+            // entries after a rewind, producing divergent position/velocity/angle on
+            // the very first replay step. 64 slots each.
+            short[] xHistory, short[] yHistory,
+            short[] inputHistory,
+            byte[] jumpPressHistory, byte[] statusHistory
+    ) {
+        public PlayerRewindExtra {
+            // Defensive copy of the array fields so the record is truly immutable.
+            xHistory = xHistory == null ? null : xHistory.clone();
+            yHistory = yHistory == null ? null : yHistory.clone();
+            inputHistory = inputHistory == null ? null : inputHistory.clone();
+            jumpPressHistory = jumpPressHistory == null ? null : jumpPressHistory.clone();
+            statusHistory = statusHistory == null ? null : statusHistory.clone();
+        }
+    }
 
     /** Returns a copy of this snapshot with the given {@link PlayerRewindExtra} attached. */
     public PerObjectRewindSnapshot withPlayerExtra(PlayerRewindExtra extra) {
