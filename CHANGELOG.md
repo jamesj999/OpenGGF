@@ -6,6 +6,21 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **SLZ Elevator: post-jump rider pull-up.** `Sonic1ElevatorObjectInstance`
+  now opts into `SolidObjectProvider.carriesAirborneRiderAfterExitPlatform`
+  so the inline-riding carry runs after `ExitPlatform` clears the player's
+  on-object bit on the same frame Sonic launches. Mirrors ROM
+  `Elev_Action` (`docs/s1disasm/_incObj/59 SLZ Elevators.asm:84-101`),
+  which calls `ExitPlatform` → `Elev_Move` → unconditional
+  `MvSonicOnPtfm2` (`docs/s1disasm/_incObj/15 Swinging Platforms.asm:177-194`)
+  even when the rider has just jumped. Without the override the engine
+  applied the `Sonic_Jump` `addq.w #5, obY(a0)` rolling-radius adjust but
+  missed the elevator's continued-riding y_pos write, which left the
+  player ~2 px below ROM whenever the elevator moved up at the same
+  time as the jump. Greens the SLZ3 credits demo trace at frame 500
+  (ROM y=0x01F0, ENG was 0x01F2). Adds focused regression
+  `TestS1JumpFromElevator` exercising the same jump-while-riding code
+  path against a live SLZ act-3 fixture.
 - **Architecture cleanup: renamed `EngineServices` → `EngineContext`.**
   Aligns with the design vocabulary in
   `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`,

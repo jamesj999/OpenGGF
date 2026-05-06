@@ -481,6 +481,30 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean carriesAirborneRiderAfterExitPlatform() {
+        // ROM Elev_Action (docs/s1disasm/_incObj/59 SLZ Elevators.asm:84-101)
+        // is structurally identical to MBlock_StandOn (docs/s1disasm/_incObj/52
+        // Moving Blocks.asm:65-83): both call ExitPlatform first, then run their
+        // movement, then unconditionally jump into MvSonicOnPtfm2
+        // (docs/s1disasm/_incObj/15 Swinging Platforms.asm:177-194). The
+        // platform-carry runs even after ExitPlatform has cleared the player's
+        // on-object bit because the player jumped this frame, so the rider's
+        // y_pos still tracks the elevator's post-move position on the launch
+        // frame. The Sonic_Jump rolling-radius adjust (sonic.asm:1166
+        // addq.w #5, obY(a0)) is applied earlier in the player update and is
+        // overwritten by MvSonicOnPtfm2's elevatorY-9-obHeight write.
+        //
+        // Without this opt-in the engine misses the post-jump pull-up while
+        // still applying the +5 adjust, leaving the player a couple of pixels
+        // below ROM whenever the elevator moves up at the same time as the
+        // jump (s1_credits_04_slz3 trace frame 500: ROM y=0x01F0,
+        // ENG y=0x01F2). See ObjectManager.processInlineRidingObject /
+        // applyRidingCarry which already implements the equivalent of
+        // MvSonicOnPtfm2 once the provider opts in.
+        return true;
+    }
+
+    @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed() && !isSpawner;
