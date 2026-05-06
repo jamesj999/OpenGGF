@@ -8,6 +8,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PerObjectRewindSnapshot;
 import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -203,6 +204,31 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
     @Override
     protected void updateAnimation(int frameCounter) {
         animFrame = state == State.SHOOTING ? 1 : 0;
+    }
+
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        PerObjectRewindSnapshot base = super.captureRewindState();
+        return base.withBadnikSubclassExtra(new PerObjectRewindSnapshot.BuzzerRewindExtra(
+                state.ordinal(),
+                moveTimer,
+                turnDelay,
+                shotTimer,
+                shootingDisabled,
+                initPending));
+    }
+
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+        super.restoreRewindState(snapshot);
+        if (snapshot.badnikSubclassExtra() instanceof PerObjectRewindSnapshot.BuzzerRewindExtra extra) {
+            state = State.values()[extra.stateOrdinal()];
+            moveTimer = extra.moveTimer();
+            turnDelay = extra.turnDelay();
+            shotTimer = extra.shotTimer();
+            shootingDisabled = extra.shootingDisabled();
+            initPending = extra.initPending();
+        }
     }
 
     @Override
