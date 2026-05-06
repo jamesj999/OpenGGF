@@ -6,6 +6,28 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **LZ wind tunnels now preserve the player's subpixel fraction across
+  the tunnel's per-frame X push and Y curve/input nudges.** ROM
+  `LZWindTunnels` (`docs/s1disasm/_inc/LZWaterFeatures.asm:338,341,348,353`)
+  applies its `addq.w #4,obX(a1)` X push, `add.w d0,obY(a1)` curve,
+  and `subq.w #1,obY(a1)` / `addq.w #1,obY(a1)` up/down input nudges
+  with word-only writes that touch only the pixel half of `obX`/`obY`,
+  leaving `obSubpixelX`/`obSubpixelY` (offsets 0xA / 0xE) untouched.
+  The engine called `setCentreX` / `setCentreY`, which zero
+  `xSubpixel`/`ySubpixel`, so every frame Sonic stayed inside the
+  tunnel the engine wiped his subpixel fraction. Migrated all four
+  call sites (LZ + SBZ3 wind-tunnel updates) to
+  `setCentreXPreserveSubpixel` / `setCentreYPreserveSubpixel`. The
+  trace-replay sub_x desync of `0x6400` against the LZ3 credits-demo
+  recording now matches ROM. The frame-221 +2 Y bump that remains is
+  a separate, documented REV01 ROM-bug discrepancy (`d0` is overwritten
+  by `move.b (v_vbla_byte).w,d0` then read as if it still held `obX`
+  for the curve check); see `docs/KNOWN_DISCREPANCIES.md`.
+  Also moved the wind-tunnel and water-slide rushing-water sound
+  timers from a local frame counter to the global `v_vbla_byte`
+  (`ObjectManager.getVblaCounter()`) so the sound cadence matches the
+  ROM's global-vblank phasing rather than drifting whenever Sonic
+  enters/exits the tunnel zone.
 - **SBZ Rotating Junction (object 0x66) now preserves the player's
   subpixel fraction across `Jun_ChgPos` and the grab-midpoint adjust.**
   ROM `Jun_ChgPos`

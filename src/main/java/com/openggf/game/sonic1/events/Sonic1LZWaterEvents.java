@@ -76,12 +76,10 @@ public class Sonic1LZWaterEvents {
      */
     private boolean windTunnelDisabled;
 
-    /**
-     * Frame counter for wind tunnel sound timing.
-     * ROM uses (v_vbla_byte & 0x3F) == 0 to play sound every 64 frames.
-     * We maintain a local counter that resets every 64 frames.
-     */
-    private int windTunnelSoundTimer;
+    // ROM's v_vbla_byte (global) is read directly via vblaByte() helper for
+    // sound-timing parity. No local tunnel-stay counter is kept -- it would
+    // diverge from ROM whenever Sonic enters and exits the tunnel zone since
+    // ROM's vblank advances every frame regardless.
 
     // =========================================================================
     // Water slide state (ROM: f_slidemode)
@@ -178,6 +176,12 @@ public class Sonic1LZWaterEvents {
     private static final int LAYOUT_GAP_X = 6;
     private static final int LAYOUT_GAP_Y = 2;
 
+    private int vblaByte() {
+        com.openggf.level.objects.ObjectManager om =
+                levelManager() != null ? levelManager().getObjectManager() : null;
+        return om != null ? (om.getVblaCounter() & 0xFF) : 0;
+    }
+
     public Sonic1LZWaterEvents() {
     }
 
@@ -218,7 +222,6 @@ public class Sonic1LZWaterEvents {
         this.windTunnelActive = false;
         this.windTunnelPreserveGroundContact = false;
         this.windTunnelDisabled = false;
-        this.windTunnelSoundTimer = 0;
         this.waterSlideActive = false;
         this.slideExitGraceFrames = 0;
     }
@@ -763,10 +766,10 @@ public class Sonic1LZWaterEvents {
 
             // Player is inside this tunnel region
 
-            // ROM: play rushing water sound every $40 (64) frames
+            // ROM: play rushing water sound every $40 (64) frames.
+            // Uses the global v_vbla_byte for parity with ROM frame-cycle phasing.
             // move.b (v_vbla_byte).w,d0 / andi.b #$3F,d0 / bne.s .skipsound
-            windTunnelSoundTimer++;
-            if ((windTunnelSoundTimer & 0x3F) == 0) {
+            if ((vblaByte() & 0x3F) == 0) {
                 audio().playSfx(Sonic1Sfx.WATERFALL.id);
             }
 
@@ -791,6 +794,16 @@ public class Sonic1LZWaterEvents {
 
             // ROM: subi.w #$80,d0 / cmp.w (a2),d0 / bhs.s .movesonic
             // Check if player is in the "curve" zone (first $80 pixels of tunnel)
+            //
+            // KNOWN DISCREPANCY: the original ROM REV01 has a bug here -- d0 was
+            // overwritten by `move.b (v_vbla_byte).w,d0` (and possibly `move.w
+            // #sfx_Waterfall,d0` when sound plays), but the curve check still
+            // reads d0 as if it held obX. The disassembly's `if FixBugs` block
+            // adds `move.w d1,d0` to restore the saved obX before the check.
+            // We implement the FIXED behavior, which means the trace-recorded
+            // ROM bumps Y by +2 every ~64 frames in the tunnel that the engine
+            // does not. See docs/KNOWN_DISCREPANCIES.md.
+            // (s1disasm/_inc/LZWaterFeatures.asm:309-331)
             if ((playerX - WIND_TUNNEL_CURVE_OFFSET) < left) {
                 // ROM: moveq #2,d0
                 // In act 2, Y adjustment is negated (Sonic curves upward)
@@ -799,13 +812,17 @@ public class Sonic1LZWaterEvents {
                 if (actId == 1) {
                     yAdjust = -yAdjust;
                 }
-                // ROM: add.w d0,obY(a1)
-                player.setCentreY((short) (player.getCentreY() + yAdjust));
+                // ROM: add.w d0,obY(a1) -- word-only write, preserves obSubpixelY.
+                // (s1disasm/_inc/LZWaterFeatures.asm:338)
+                player.setCentreYPreserveSubpixel((short) (player.getCentreY() + yAdjust));
             }
 
             // ROM: .movesonic:
             // addq.w #4,obX(a1)  - move Sonic 4 pixels rightward
-            player.setCentreX((short) (player.getCentreX() + 4));
+            // ROM uses addq.w (word write), preserving obSubpixelX. Without this
+            // preservation, Sonic's sub_x is zeroed every frame in the tunnel,
+            // accumulating divergence vs the reference trace. (LZWaterFeatures.asm:341)
+            player.setCentreXPreserveSubpixel((short) (player.getCentreX() + 4));
 
             // move.w #$400,obVelX(a1)  - set horizontal velocity
             player.setXSpeed(WIND_TUNNEL_X_VELOCITY);
@@ -821,15 +838,17 @@ public class Sonic1LZWaterEvents {
             player.setAir(true);
 
             // ROM: btst #bitUp,(v_jpadhold2).w / beq.s .down
-            // subq.w #1,obY(a1)  - nudge up
+            // subq.w #1,obY(a1)  - nudge up (word write, preserves obSubpixelY)
+            // (LZWaterFeatures.asm:348)
             if (player.isUpPressed()) {
-                player.setCentreY((short) (player.getCentreY() - 1));
+                player.setCentreYPreserveSubpixel((short) (player.getCentreY() - 1));
             }
 
             // ROM: btst #bitDn,(v_jpadhold2).w / beq.s .end
-            // addq.w #1,obY(a1)  - nudge down
+            // addq.w #1,obY(a1)  - nudge down (word write, preserves obSubpixelY)
+            // (LZWaterFeatures.asm:353)
             if (player.isDownPressed()) {
-                player.setCentreY((short) (player.getCentreY() + 1));
+                player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 1));
             }
 
             return; // Done - Sonic is in a tunnel
@@ -880,9 +899,9 @@ public class Sonic1LZWaterEvents {
                 continue;
             }
 
-            // Player is inside this tunnel region
-            windTunnelSoundTimer++;
-            if ((windTunnelSoundTimer & 0x3F) == 0) {
+            // Player is inside this tunnel region.
+            // Use the global v_vbla_byte for sound timing parity with ROM.
+            if ((vblaByte() & 0x3F) == 0) {
                 audio().playSfx(Sonic1Sfx.WATERFALL.id);
             }
 
@@ -902,11 +921,17 @@ public class Sonic1LZWaterEvents {
             windTunnelPreserveGroundContact = !player.getAir();
 
             // SBZ3 curve: no act-specific negation (not act 2)
+            // ROM uses add.w / addq.w / subq.w word writes, preserving obSubpixelX/Y.
+            // (s1disasm/_inc/LZWaterFeatures.asm:338,341,348,353)
+            //
+            // Same KNOWN DISCREPANCY as LZ wind tunnels: the original REV01 ROM
+            // has a `move.b (v_vbla_byte).w,d0` bug that occasionally fires the
+            // curve outside its intended X range. We implement the FixBugs path.
             if ((playerX - WIND_TUNNEL_CURVE_OFFSET) < region[0]) {
-                player.setCentreY((short) (player.getCentreY() + WIND_TUNNEL_Y_CURVE));
+                player.setCentreYPreserveSubpixel((short) (player.getCentreY() + WIND_TUNNEL_Y_CURVE));
             }
 
-            player.setCentreX((short) (player.getCentreX() + 4));
+            player.setCentreXPreserveSubpixel((short) (player.getCentreX() + 4));
             player.setXSpeed(WIND_TUNNEL_X_VELOCITY);
             player.setYSpeed((short) 0);
             player.setAnimationId(Sonic1AnimationIds.FLOAT2);
@@ -914,10 +939,10 @@ public class Sonic1LZWaterEvents {
             player.setAir(true);
 
             if (player.isUpPressed()) {
-                player.setCentreY((short) (player.getCentreY() - 1));
+                player.setCentreYPreserveSubpixel((short) (player.getCentreY() - 1));
             }
             if (player.isDownPressed()) {
-                player.setCentreY((short) (player.getCentreY() + 1));
+                player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 1));
             }
             return;
         }
@@ -1039,9 +1064,9 @@ public class Sonic1LZWaterEvents {
 
         // ROM: play waterfall SFX every $20 (32) frames
         // move.b (v_vbla_byte).w,d0 / andi.b #$1F,d0 / bne.s locret_3FBE
-        // Note: water slides use $1F mask (every 32 frames), not $3F like tunnels
-        windTunnelSoundTimer++;  // Reuse the same timer (incremented once per frame)
-        if ((windTunnelSoundTimer & 0x1F) == 0) {
+        // Note: water slides use $1F mask (every 32 frames), not $3F like tunnels.
+        // Uses the global v_vbla_byte for parity with ROM frame-cycle phasing.
+        if ((vblaByte() & 0x1F) == 0) {
             audio().playSfx(Sonic1Sfx.WATERFALL.id);
         }
     }
