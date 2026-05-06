@@ -259,6 +259,22 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
      * (which calls onSolidContact). States 4 and 6 are handled here directly.
      */
     private void updateActive(int frameCounter, AbstractPlayableSprite player) {
+        // ROM parity: snapshot the entering solidState so we know which loc_C186
+        // branch ROM would have taken this frame. ROM's state-4 (loc_C1AA) and
+        // state-6 (loc_C1F2) paths return WITHOUT ever calling Solid_ChkEnter,
+        // so the engine must skip the inline solid-contact resolution that frame
+        // — otherwise it establishes a riding state one frame too early and the
+        // platform-rider carry (processInlineRidingObject's shiftX(deltaX)) fires
+        // on the very next frame. ROM's MvSonicOnPtfm only runs once obSolid==2,
+        // which is set by Solid_Landed inside Solid_ChkEnter — and that happens
+        // on a DIFFERENT frame from the state-4 lava landing.
+        //
+        // Reference: docs/s1disasm/_incObj/33 Pushable Blocks.asm
+        //   loc_C1AA (state 4): bsr SpeedToPos / ObjFloorDist / ... / rts
+        //   loc_C1F2 (state 6): bsr SpeedToPos / andi ... / subq #2,obSolid / rts
+        //   loc_C218 (state 0): bsr Solid_ChkEnter (the only path that calls it)
+        boolean enteringStateUsesSolidChkEnter = (solidState == 0);
+
         if (inMotion) {
             // loc_C046: lava sliding physics (only when objoff_32 != 0)
             if (updateLavaMotion(player)) {
@@ -287,9 +303,15 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             checkLavaGeyser();
         }
 
-        SolidCheckpointBatch batch = checkpointAll();
-        if (solidState == 0 && !inMotion) {
-            applyPushContacts(batch, frameCounter);
+        // Only run inline solid resolution when ROM's loc_C186 entry would have
+        // reached loc_C218 → Solid_ChkEnter. Otherwise the state-4/state-6 paths
+        // return without ever testing for the player, so any riding state the
+        // engine would establish here is one frame premature.
+        if (enteringStateUsesSolidChkEnter) {
+            SolidCheckpointBatch batch = checkpointAll();
+            if (solidState == 0 && !inMotion) {
+                applyPushContacts(batch, frameCounter);
+            }
         }
 
         // loc_BFC6 / loc_BFE6: first check current obX; if that fails, the ROM

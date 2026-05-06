@@ -6,6 +6,24 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **MZ Push Block: skip inline solid resolution while in falling/sliding
+  state.** `Sonic1PushBlockObjectInstance.updateActive` now gates its
+  `checkpointAll()` call on the entering `solidState` being 0, mirroring
+  ROM's `loc_C186` dispatch
+  (`docs/s1disasm/_incObj/33 Pushable Blocks.asm:238-289`): only the state-0
+  branch (`loc_C218`) calls `Solid_ChkEnter`. ROM's state-4 (`loc_C1AA`)
+  and state-6 (`loc_C1F2`) paths return without ever testing for the
+  player. Without the gate, the engine published a STANDING contact on
+  the same frame the block transitioned from state 4 (falling) to state
+  0 (lava motion), which established a riding state one frame too early.
+  On the IMMEDIATELY next frame, `processInlineRidingObject`'s
+  `shiftX(deltaX)` platform-rider carry then dragged the player along
+  with the block's lava-slide -1 px movement — one frame ahead of ROM,
+  where `MvSonicOnPtfm` only fires once `obSolid==2` (set on a different
+  frame). Greens the MZ2 credits demo trace at frame 341 (ROM x=0x0E1A,
+  ENG was 0x0E19). Adds focused regression
+  `TestS1PushBlockSideContact` exercising the lava-slide first-frame
+  carry against the live MZ2 credits demo input.
 - **SLZ Elevator: post-jump rider pull-up.** `Sonic1ElevatorObjectInstance`
   now opts into `SolidObjectProvider.carriesAirborneRiderAfterExitPlatform`
   so the inline-riding carry runs after `ExitPlatform` clears the player's
