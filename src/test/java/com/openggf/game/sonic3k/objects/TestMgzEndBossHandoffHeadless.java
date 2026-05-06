@@ -263,7 +263,7 @@ class TestMgzEndBossHandoffHeadless {
     }
 
     @Test
-    void bossTransitionRevivesFallingSonicDeathRoutineForRescue() {
+    void bossTransitionDoesNotReviveFallingSonicDeathRoutineForRescue() {
         mgzEvents().triggerBossCollapseHandoff();
 
         AbstractPlayableSprite player = fixture.sprite();
@@ -274,11 +274,11 @@ class TestMgzEndBossHandoffHeadless {
 
         fixture.stepIdleFrames(1);
 
-        assertFalse(player.getDead(),
-                "Obj_MGZ2_BossTransition writes Player_1 routine=2 when Sonic falls below it, clearing death state");
+        assertTrue(player.getDead(),
+                "Once Sonic has entered a real death routine during the rescue, Obj_MGZ2_BossTransition must not revive him");
 
         StringBuilder samples = new StringBuilder();
-        for (int frame = 0; frame < 0x168 + 16 && !player.isObjectControlled(); frame++) {
+        for (int frame = 0; frame < 0x168 + 16; frame++) {
             fixture.stepIdleFrames(1);
             if (frame % 30 == 0 && samples.length() < 1400) {
                 samples.append(String.format(
@@ -296,11 +296,13 @@ class TestMgzEndBossHandoffHeadless {
             }
         }
 
-        assertTrue(player.isObjectControlled(),
-                "A Sonic who entered the death/fall routine during the boss handoff must still be rescued by Tails: "
+        assertTrue(player.getDead(),
+                "Sonic's death sequence should continue instead of being converted back into the rescue path: "
                         + samples);
-        assertEquals(SidekickCpuController.State.CARRYING, tails.getCpuController().getState(),
-                "Rescue Tails should remain in the MGZ carry routine after reviving Sonic for pickup");
+        assertFalse(player.isObjectControlled(),
+                "Rescue Tails must not regrab Sonic after the death routine starts: " + samples);
+        assertFalse(tails.getCpuController().isFlyingCarrying(),
+                "The MGZ carry flag should stay clear while Sonic is dead");
     }
 
     @Test

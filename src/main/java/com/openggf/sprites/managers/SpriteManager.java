@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Manages collection of available sprites to be provided to renderer and collision manager.
@@ -46,6 +47,8 @@ public class SpriteManager {
 
 	private final List<AbstractPlayableSprite> sidekicks = new ArrayList<>();
 	private final Map<AbstractPlayableSprite, String> sidekickCharacterNames = new IdentityHashMap<>();
+	private final Set<AbstractPlayableSprite> temporarySidekicks =
+			Collections.newSetFromMap(new IdentityHashMap<>());
 
 	private static final SensorConfiguration[][] MOVEMENT_MAPPING_ARRAY = createMovementMappingArray();
 
@@ -132,6 +135,7 @@ public class SpriteManager {
 		if (previous instanceof AbstractPlayableSprite previousPlayable) {
 			sidekicks.remove(previousPlayable);
 			sidekickCharacterNames.remove(previousPlayable);
+			temporarySidekicks.remove(previousPlayable);
 		}
 		if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
 			sidekicks.add(playable);
@@ -150,6 +154,22 @@ public class SpriteManager {
 			// addSprite(Sprite) already added the sprite to the sidekicks list on first
 			// insertion. Just record the character name.
 			sidekickCharacterNames.put(sprite, characterName);
+		}
+	}
+
+	public void addTemporarySidekick(AbstractPlayableSprite sprite, String characterName) {
+		addSprite(sprite, characterName);
+		if (sprite.isCpuControlled()) {
+			temporarySidekicks.add(sprite);
+		}
+	}
+
+	public void removeTemporarySidekicks() {
+		if (temporarySidekicks.isEmpty()) {
+			return;
+		}
+		for (AbstractPlayableSprite sidekick : new ArrayList<>(temporarySidekicks)) {
+			removeSprite(sidekick);
 		}
 	}
 
@@ -172,6 +192,7 @@ public class SpriteManager {
 		sprites.clear();
 		sidekicks.clear();
 		sidekickCharacterNames.clear();
+		temporarySidekicks.clear();
 		bucketsDirty = true;
 	}
 
@@ -891,6 +912,7 @@ public class SpriteManager {
 		if (sprite instanceof AbstractPlayableSprite playable) {
 			sidekicks.remove(playable);
 			sidekickCharacterNames.remove(playable);
+			temporarySidekicks.remove(playable);
 		}
 		return (sprites.remove(sprite.getCode()) != null);
 	}

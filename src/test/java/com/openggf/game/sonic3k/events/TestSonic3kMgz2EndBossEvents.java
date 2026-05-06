@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
+import com.openggf.game.DamageCause;
 import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
@@ -563,6 +564,102 @@ class TestSonic3kMgz2EndBossEvents {
                 "Obj_MGZ2_BossTransition writes Player_1 routine=2 after clamping Sonic below the transition y");
         assertTrue(controller.isFlyingCarrying(),
                 "Sonic must stay latched after routine=2 clears the hurt-state rejection in Tails_Carry_Sonic");
+    }
+
+    @Test
+    void mgz2BossTransitionDoesNotReviveNoRingDamageDeathForRescueRegrab() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
+        SidekickCpuController controller = tails.getCpuController();
+        controller.update(1);
+        assertTrue(controller.isFlyingCarrying());
+
+        sonic.applyHurtOrDeath(0x3D20, DamageCause.NORMAL, false);
+        controller.update(2);
+        assertFalse(controller.isFlyingCarrying(),
+                "Tails_Carry_Sonic must release when Sonic enters a real death routine");
+
+        sonic.setCentreX((short) 0x3CE0);
+        sonic.setCentreY((short) 0x0780);
+        tails.setCentreY((short) 0x0720);
+
+        events.update(1, 3);
+        controller.update(3);
+
+        assertTrue(sonic.getDead(),
+                "A no-ring damage death during the MGZ2 rescue must continue to the normal death sequence");
+        assertFalse(sonic.isObjectControlled(),
+                "Rescue Tails must not regrab Sonic after a real no-ring damage death");
+        assertFalse(controller.isFlyingCarrying(),
+                "The MGZ rescue carry should stay released while Sonic is dead");
+    }
+
+    @Test
+    void mgz2BossTransitionKeepsTemporaryRescueTailsUntilRespawnReloadWhenSonicOnlyPlayerDies() {
+        GameServices.configuration().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+        GameServices.configuration().setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "");
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+        GameServices.sprites().addSprite(sonic);
+
+        events.triggerBossCollapseHandoff();
+
+        assertEquals(1, GameServices.sprites().getSidekicks().size(),
+                "Sonic-only MGZ2 rescue should donate a temporary Tails for the boss transition");
+        assertEquals("mgz2_boss_tails", GameServices.sprites().getSidekicks().getFirst().getCode());
+
+        sonic.applyHurtOrDeath(0x3D20, DamageCause.NORMAL, false);
+        events.update(1, 1);
+
+        assertTrue(sonic.getDead(),
+                "The no-ring damage death should remain active after transition cleanup");
+        assertEquals(1, GameServices.sprites().getSidekicks().size(),
+                "Temporary rescue Tails should remain visible during Sonic's death animation and fade");
+
+        GameServices.level().spawnSidekicks(-32, 4);
+
+        assertEquals(0, GameServices.sprites().getSidekicks().size(),
+                "Temporary rescue Tails must be removed when the respawn reload places the configured team");
+    }
+
+    @Test
+    void mgz2BossTransitionKeepsConfiguredTailsSidekickWhenSonicDies() {
+        GameServices.configuration().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+        GameServices.configuration().setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+        GameServices.sprites().addSprite(sonic);
+        Tails tails = new Tails("tails_p2", (short) 0x0100, (short) 0x0100);
+        tails.setCpuControlled(true);
+        GameServices.sprites().addSprite(tails, "tails");
+
+        events.triggerBossCollapseHandoff();
+        sonic.applyHurtOrDeath(0x3D20, DamageCause.NORMAL, false);
+        events.update(1, 1);
+
+        assertEquals(1, GameServices.sprites().getSidekicks().size(),
+                "Configured Sonic-and-Tails play should keep the real sidekick across Sonic's death");
+        assertEquals("tails_p2", GameServices.sprites().getSidekicks().getFirst().getCode());
+
+        GameServices.level().spawnSidekicks(-32, 4);
+
+        assertEquals(1, GameServices.sprites().getSidekicks().size(),
+                "Respawn sidekick placement should purge temporary rescue sprites without deleting configured Tails");
+        assertEquals("tails_p2", GameServices.sprites().getSidekicks().getFirst().getCode());
     }
 
     @Test

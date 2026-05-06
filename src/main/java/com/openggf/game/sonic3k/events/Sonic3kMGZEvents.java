@@ -198,6 +198,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int BOSS_TRANSITION_WAIT_FRAMES = 0x168;
     private static final int BOSS_TRANSITION_SPAWN_OFFSET_X = 0x40;
     private static final int BOSS_TRANSITION_SPAWN_OFFSET_Y = 0x100;
+    private static final String BOSS_TRANSITION_TEMP_TAILS_CODE = "mgz2_boss_tails";
     private static final int BOSS_TRANSITION_TAILS_ALONE_HOLD_OFFSET_Y = 8;
     private static final int BOSS_TRANSITION_TAILS_INPUT_MASK = 0x07;
     private static final short PIT_DEATH_BOUNCE_Y_SPEED = (short) -0x0700;
@@ -1140,9 +1141,9 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             return;
         }
 
-        Tails tails = new Tails("mgz2_boss_tails", (short) spawnX, (short) spawnY);
+        Tails tails = new Tails(BOSS_TRANSITION_TEMP_TAILS_CODE, (short) spawnX, (short) spawnY);
         prepareBossTransitionTails(tails, player, spawnX, spawnY);
-        spriteManager().addSprite(tails, "tails");
+        spriteManager().addTemporarySidekick(tails, "tails");
         refreshRuntimeTailsArt();
     }
 
@@ -1181,6 +1182,11 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             return;
         }
         if (!usesSonicBossTransitionPath(player, character)) {
+            return;
+        }
+        if (player.getDead()) {
+            bossTransitionActive = false;
+            bossTransitionDeathPlaneDisabled = false;
             return;
         }
 
