@@ -288,8 +288,19 @@ public class ObjectManager {
      * Refreshes the object-state snapshot used by inline-order touch checks.
      * Called at frame start before player physics so ReactToItem sees the
      * current frame's pre-object-update positions.
+     * <p>
+     * Also refreshes the cached camera bounds. ROM parity: BuildSprites runs
+     * at the end of frame N-1 (after DeformLayers), so the obRender bit 7
+     * gate read by ReactToItem at frame N reflects the camera position at
+     * START of frame N. Without this refresh, AbstractObjectInstance's
+     * static cameraBounds would still hold the camera-y from BEFORE frame
+     * N-1's camera step, producing a one-frame-stale gate that drops touch
+     * responses for objects sitting at the new viewport edge (e.g. SYZ3
+     * credits demo ring s74 at frame 233 lands one pixel inside the ROM
+     * viewport but one pixel outside the stale-bounds viewport).
      */
     public void snapshotTouchResponseState() {
+        updateCameraBounds();
         for (ObjectInstance inst : activeObjects.values()) {
             inst.snapshotTouchResponseState();
         }

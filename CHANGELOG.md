@@ -6,6 +6,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Touch-response on-screen gate now checks Y as well as X.**
+  `AbstractObjectInstance.isOnScreenForTouch()` previously returned true
+  for any object whose pre-update X was within the camera viewport,
+  ignoring Y entirely. ROM's gate is `obRender(a1) bit 7`, set by
+  `BuildSprites` (`docs/s1disasm/_inc/BuildSprites.asm:71-78` for the
+  default `.assumeHeight` branch when `obRender` bit 4 is clear, the
+  case for rings and most gameplay objects), which marks an object
+  off-screen when `obY - cameraY` is outside `[-32, 256)` — i.e. the
+  visible 224-line viewport plus a 32 px margin above and below.
+  ROM's `ReactToItem` (`docs/s1disasm/_incObj/sub ReactToItem.asm:26-27`)
+  reads that bit with `tst.b obRender(a1) / bpl.s .next` and skips
+  objects whose bit 7 is clear, so a ring whose Y has scrolled past
+  the camera viewport is not eligible for touch responses. The engine
+  was over-collecting: the SYZ3 credits demo at frame 253 collected an
+  off-screen ring s43 at (0x186E, 0x0662) while the camera was at
+  (0x17C2, 0x0556), giving rings=21 vs ROM rings=20. The fix uses
+  `cameraBounds.contains(preUpdateX, preUpdateY, halfWidth, 32)` so
+  the gate matches the previous frame's BuildSprites pass with the
+  same 32 px Y margin the ROM uses. Greens the SYZ3 credits demo
+  trace replay at frame 253. Adds focused regression
+  `TestS1FreshRingSameFrameTouchSkip` and refreshes the cached
+  `cameraBounds` inside `ObjectManager.snapshotTouchResponseState()` so
+  the inline-physics path's gate sees the post-camera-update bounds
+  matching ROM's BuildSprites-then-ReactToItem ordering.
+  `TestHTZBossTouchResponse` setUp now also pins `camera.setY` to the
+  boss arena Y; previously the test relied on the X-only on-screen
+  gate to bypass a Y mismatch between camera (Y=0) and boss (Y=0x0580).
 - **MZ Push Block: skip inline solid resolution while in falling/sliding
   state.** `Sonic1PushBlockObjectInstance.updateActive` now gates its
   `checkpointAll()` call on the entering `solidState` being 0, mirroring
