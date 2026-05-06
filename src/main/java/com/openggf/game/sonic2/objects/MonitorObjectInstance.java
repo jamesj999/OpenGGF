@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.PlayableEntity;
@@ -53,6 +54,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     private ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
+    @RewindTransient(reason = "live player reference used for icon rendering")
     private AbstractPlayableSprite iconPlayer; // Preserved for rendering (effectTarget gets nulled)
 
     // Falling state (routineSecondary != 0 in ROM)

@@ -71,6 +71,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     private int stateTimer;
     private int spinAngle;
     private int chamberFrame = FRAME_CHAMBER_IDLE;
+    @com.openggf.game.rewind.RewindDeferred(reason = "captured player needs explicit player identity snapshot")
     private AbstractPlayableSprite capturedPlayer;
 
     public CnzCannonInstance(ObjectSpawn spawn) {

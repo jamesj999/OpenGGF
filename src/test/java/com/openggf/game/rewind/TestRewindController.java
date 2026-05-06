@@ -136,6 +136,59 @@ class TestRewindController {
         assertFalse(rc.stepBackward(), "should return false at earliest frame");
     }
 
+    @Test
+    void resetBufferAtBoundaryMakesCurrentFrameEarliestAvailable() {
+        RewindRegistry reg = new RewindRegistry();
+        InMemoryKeyframeStore keyframes = new InMemoryKeyframeStore();
+        InputSource inputs = new FakeInputSource(100);
+        EngineStepper stepper = (in) -> {};
+
+        RewindController rc = new RewindController(reg, keyframes, inputs, stepper, 10);
+        for (int i = 0; i < 25; i++) rc.step();
+
+        rc.resetBufferAtCurrentFrame();
+
+        assertEquals(25, rc.earliestAvailableFrame());
+        assertFalse(rc.stepBackward(), "level and act boundaries must not rewind into the previous buffer");
+    }
+
+    @Test
+    void recordExternalStepAdvancesWithoutInvokingStepper() {
+        RewindRegistry reg = new RewindRegistry();
+        InMemoryKeyframeStore keyframes = new InMemoryKeyframeStore();
+        InputSource inputs = new FakeInputSource(10);
+        AtomicInteger stepInvocations = new AtomicInteger();
+
+        RewindController rc = new RewindController(
+                reg,
+                keyframes,
+                inputs,
+                in -> stepInvocations.incrementAndGet(),
+                3);
+
+        assertTrue(rc.recordExternalStep());
+        assertEquals(1, rc.currentFrame());
+        assertEquals(0, stepInvocations.get(),
+                "external recording must not recurse through the engine stepper");
+    }
+
+    @Test
+    void recordExternalStepCapturesKeyframesAtIntervals() {
+        RewindRegistry reg = new RewindRegistry();
+        InMemoryKeyframeStore keyframes = new InMemoryKeyframeStore();
+        InputSource inputs = new FakeInputSource(10);
+
+        RewindController rc = new RewindController(reg, keyframes, inputs, in -> {}, 3);
+
+        assertTrue(rc.recordExternalStep());
+        assertTrue(rc.recordExternalStep());
+        assertTrue(rc.recordExternalStep());
+
+        assertEquals(3, rc.currentFrame());
+        assertTrue(keyframes.latestAtOrBefore(3).isPresent(),
+                "externally advanced visual playback still needs periodic rewind keyframes");
+    }
+
     private static class FakeInputSource implements InputSource {
         private final int count;
 

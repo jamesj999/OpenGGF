@@ -1,6 +1,7 @@
 package com.openggf.level.objects.boss;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -12,6 +13,7 @@ import com.openggf.debug.DebugColor;
  * Child components are full object instances so they can participate in collision and rendering buckets.
  */
 public abstract class AbstractBossChild extends AbstractObjectInstance implements BossChildComponent {
+    @RewindTransient(reason = "boss child parent link is structural and restored from the live object graph")
     protected final AbstractBossInstance parent;
     protected int currentX;
     protected int currentY;
@@ -20,6 +22,7 @@ public abstract class AbstractBossChild extends AbstractObjectInstance implement
     protected int collisionFlags;
     /** X-flip state, set by parent's updateChildFacing() */
     protected boolean flipX;
+    @com.openggf.game.rewind.RewindDeferred(reason = "boss child dynamic spawn requires dedicated coordinate snapshot before generic capture")
     private ObjectSpawn dynamicSpawn;
     private int lastUpdatedFrame = -1;
 

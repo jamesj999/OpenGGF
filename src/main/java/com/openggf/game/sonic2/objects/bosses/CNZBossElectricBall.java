@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -45,6 +46,7 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
     private static final int FRAME_SPIKED_BALL = 17;
     private static final int FRAME_ORB_1 = 18;
     private static final int FRAME_ORB_2 = 19;
+    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CNZBossInstance mainBoss;
 
     // Position

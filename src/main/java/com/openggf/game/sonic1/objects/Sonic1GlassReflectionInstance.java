@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -48,6 +49,7 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
     // Shine frame index (frame 1 in mappings)
     private static final int SHINE_FRAME = 1;
 
+    @RewindTransient(reason = "parent glass block link; live object graph persists across rewind")
     private final Sonic1GlassBlockObjectInstance parent;
     private final int reflectSubtype;
     private final boolean isTall;

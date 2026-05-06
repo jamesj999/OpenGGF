@@ -617,38 +617,51 @@ public class RingManager implements RewindSnapshottable<RingSnapshot> {
     @Override
     public RingSnapshot capture() {
         // --- RingPlacement state ---
-        BitSet collectedCopy = (BitSet) placement.collected.clone();
-        int[] sparkles = Arrays.copyOf(placement.sparkleStartFrames, placement.sparkleStartFrames.length);
+        long[] collectedWords = placement.collected.toLongArray();
+        List<RingSnapshot.SparkleEntry> sparkleTimers = new ArrayList<>();
+        for (int i = 0; i < placement.sparkleStartFrames.length; i++) {
+            int startFrame = placement.sparkleStartFrames[i];
+            if (startFrame != RingPlacement.NO_SPARKLE) {
+                sparkleTimers.add(new RingSnapshot.SparkleEntry(i, startFrame));
+            }
+        }
         int cursorIndex = placement.cursorIndex;
         int lastCameraX = placement.lastCameraX;
 
         // --- LostRingPool state ---
-        RingSnapshot.LostRingEntry[] lostEntries = new RingSnapshot.LostRingEntry[LostRingPool.MAX_LOST_RINGS];
+        List<RingSnapshot.LostRingEntry> lostEntries = new ArrayList<>(lostRings.activeRingCount);
         for (int i = 0; i < LostRingPool.MAX_LOST_RINGS; i++) {
             LostRing lr = lostRings.ringPool[i];
-            lostEntries[i] = new RingSnapshot.LostRingEntry(
-                    lr.isActive(),
+            if (!lr.isActive()) {
+                continue;
+            }
+            lostEntries.add(new RingSnapshot.LostRingEntry(
+                    true,
                     lr.getXSubpixel(), lr.getYSubpixel(),
                     lr.getXVel(), lr.getYVel(),
                     lr.getLifetime(),
                     lr.isCollected(),
                     lr.getSparkleStartFrame(),
                     lr.getPhaseOffset(),
-                    lr.getSlotIndex());
+                    lr.getSlotIndex(),
+                    i));
         }
 
         // --- AttractedRing state ---
-        RingSnapshot.AttractedRingEntry[] atEntries = new RingSnapshot.AttractedRingEntry[MAX_ATTRACTED_RINGS];
+        List<RingSnapshot.AttractedRingEntry> atEntries = new ArrayList<>();
         for (int i = 0; i < MAX_ATTRACTED_RINGS; i++) {
             AttractedRing ar = attractedRings[i];
-            atEntries[i] = new RingSnapshot.AttractedRingEntry(
-                    ar.active, ar.sourceIndex, ar.x, ar.y,
-                    ar.xSub, ar.ySub, ar.xVel, ar.yVel);
+            if (!ar.active) {
+                continue;
+            }
+            atEntries.add(new RingSnapshot.AttractedRingEntry(
+                    true, ar.sourceIndex, ar.x, ar.y,
+                    ar.xSub, ar.ySub, ar.xVel, ar.yVel, i));
         }
 
         return new RingSnapshot(
-                collectedCopy,
-                sparkles,
+                collectedWords,
+                sparkleTimers.toArray(RingSnapshot.SparkleEntry[]::new),
                 cursorIndex,
                 lastCameraX,
                 lostRings.activeRingCount,
@@ -656,8 +669,8 @@ public class RingManager implements RewindSnapshottable<RingSnapshot> {
                 lostRings.spillAnimAccum,
                 lostRings.spillAnimFrame,
                 lostRings.frameCounter,
-                lostEntries,
-                atEntries);
+                lostEntries.toArray(RingSnapshot.LostRingEntry[]::new),
+                atEntries.toArray(RingSnapshot.AttractedRingEntry[]::new));
     }
 
     @Override
@@ -665,12 +678,13 @@ public class RingManager implements RewindSnapshottable<RingSnapshot> {
         // --- RingPlacement ---
         placement.collected.clear();
         placement.collected.or(snap.collected());
-        int[] snapSparkles = snap.sparkleStartFrames();
-        int copyLen = Math.min(snapSparkles.length, placement.sparkleStartFrames.length);
-        System.arraycopy(snapSparkles, 0, placement.sparkleStartFrames, 0, copyLen);
-        if (copyLen < placement.sparkleStartFrames.length) {
-            Arrays.fill(placement.sparkleStartFrames, copyLen, placement.sparkleStartFrames.length,
-                    RingPlacement.NO_SPARKLE);
+        Arrays.fill(placement.sparkleStartFrames, RingPlacement.NO_SPARKLE);
+        RingSnapshot.SparkleEntry[] snapSparkles = snap.sparkleTimers();
+        for (RingSnapshot.SparkleEntry entry : snapSparkles) {
+            int ringIndex = entry.ringIndex();
+            if (ringIndex >= 0 && ringIndex < placement.sparkleStartFrames.length) {
+                placement.sparkleStartFrames[ringIndex] = entry.startFrame();
+            }
         }
         placement.cursorIndex = snap.placementCursorIndex();
         placement.lastCameraX = snap.placementLastCameraX();
@@ -681,18 +695,38 @@ public class RingManager implements RewindSnapshottable<RingSnapshot> {
         lostRings.spillAnimAccum = snap.spillAnimAccum();
         lostRings.spillAnimFrame = snap.spillAnimFrame();
         lostRings.frameCounter = snap.lostRingFrameCounter();
+        lostRings.releaseReservedSlots();
         RingSnapshot.LostRingEntry[] snapLost = snap.lostRings();
-        for (int i = 0; i < Math.min(snapLost.length, LostRingPool.MAX_LOST_RINGS); i++) {
+        for (int i = 0; i < snapLost.length; i++) {
             RingSnapshot.LostRingEntry entry = snapLost[i];
-            LostRing lr = lostRings.ringPool[i];
+            int poolIndex = entry.poolIndex();
+            if (poolIndex < 0 || poolIndex >= LostRingPool.MAX_LOST_RINGS) {
+                continue;
+            }
+            LostRing lr = lostRings.ringPool[poolIndex];
             lr.restoreFromSnapshot(entry);
         }
 
         // --- AttractedRings ---
-        RingSnapshot.AttractedRingEntry[] snapAt = snap.attractedRings();
-        for (int i = 0; i < Math.min(snapAt.length, MAX_ATTRACTED_RINGS); i++) {
-            RingSnapshot.AttractedRingEntry entry = snapAt[i];
+        for (int i = 0; i < MAX_ATTRACTED_RINGS; i++) {
             AttractedRing ar = attractedRings[i];
+            ar.active = false;
+            ar.sourceIndex = 0;
+            ar.x = 0;
+            ar.y = 0;
+            ar.xSub = 0;
+            ar.ySub = 0;
+            ar.xVel = 0;
+            ar.yVel = 0;
+        }
+        RingSnapshot.AttractedRingEntry[] snapAt = snap.attractedRings();
+        for (int i = 0; i < snapAt.length; i++) {
+            RingSnapshot.AttractedRingEntry entry = snapAt[i];
+            int slotIndex = entry.slotIndex();
+            if (slotIndex < 0 || slotIndex >= MAX_ATTRACTED_RINGS) {
+                continue;
+            }
+            AttractedRing ar = attractedRings[slotIndex];
             ar.active = entry.active();
             ar.sourceIndex = entry.sourceIndex();
             ar.x = entry.x();

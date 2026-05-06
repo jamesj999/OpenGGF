@@ -47,6 +47,7 @@ public class PachinkoFlipperObjectInstance extends AbstractObjectInstance
     private static final int SURFACE_ACCEL = 0x18;
     private static final int SURFACE_ACCEL_FLIPPED = -0x19; // ROM uses NOT.W on 0x18, yielding -25.
 
+    @com.openggf.game.rewind.RewindDeferred(reason = "locked player needs explicit player identity snapshot")
     private AbstractPlayableSprite lockedPlayer;
     private boolean contactThisFrame;
     private int triggerFrame = -1;

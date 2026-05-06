@@ -1202,23 +1202,32 @@ public class SpriteManager {
 
 			@Override
 			public com.openggf.game.rewind.snapshot.SpriteManagerSnapshot capture() {
-				java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap =
-						new java.util.LinkedHashMap<>();
+				boolean includeFollowHistory = true;
+				java.util.List<com.openggf.game.rewind.snapshot.SpriteManagerSnapshot.SpriteEntry> snap =
+						new java.util.ArrayList<>();
 				for (Sprite sprite : sprites.values()) {
 					if (sprite instanceof AbstractPlayableSprite aps) {
-						snap.put(aps.getCode(), aps.captureRewindState());
+						snap.add(new com.openggf.game.rewind.snapshot.SpriteManagerSnapshot.SpriteEntry(
+								aps.getCode(), aps.captureRewindState(includeFollowHistory)));
 					}
 				}
-				return new com.openggf.game.rewind.snapshot.SpriteManagerSnapshot(frameCounter, snap);
+				return new com.openggf.game.rewind.snapshot.SpriteManagerSnapshot(
+						frameCounter,
+						snap.toArray(new com.openggf.game.rewind.snapshot.SpriteManagerSnapshot.SpriteEntry[0]));
 			}
 
 			@Override
 			public void restore(com.openggf.game.rewind.snapshot.SpriteManagerSnapshot s) {
 				frameCounter = s.frameCounter();
-				java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap = s.sprites();
 				for (Sprite sprite : sprites.values()) {
 					if (sprite instanceof AbstractPlayableSprite aps) {
-						com.openggf.level.objects.PerObjectRewindSnapshot perSprite = snap.get(aps.getCode());
+						com.openggf.level.objects.PerObjectRewindSnapshot perSprite = null;
+						for (com.openggf.game.rewind.snapshot.SpriteManagerSnapshot.SpriteEntry entry : s.sprites()) {
+							if (entry.code().equals(aps.getCode())) {
+								perSprite = entry.state();
+								break;
+							}
+						}
 						if (perSprite != null) {
 							aps.restoreRewindState(perSprite);
 						}

@@ -94,7 +94,9 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     private boolean revealed;
     private final SubpixelMotion.State motion;
     private int solidStatusBits;
+    @com.openggf.game.rewind.RewindDeferred(reason = "primary solid contact needs explicit player identity snapshot")
     private PlayableEntity p1SolidContact;
+    @com.openggf.game.rewind.RewindDeferred(reason = "secondary solid contact needs explicit player identity snapshot")
     private PlayableEntity p2SolidContact;
 
     // (Icon rising state is managed by AbstractMonitorObjectInstance)

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -63,6 +64,7 @@ public class SlicerPincerInstance extends AbstractObjectInstance
     private boolean hFlip;
     private int animIndex;
     private int animTimer;
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final SlicerBadnikInstance parent; // ROM: objoff_2C - parent reference for alive check
 
     /**

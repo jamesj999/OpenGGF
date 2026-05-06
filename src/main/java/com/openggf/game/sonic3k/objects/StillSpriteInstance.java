@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -33,6 +34,7 @@ public class StillSpriteInstance extends AbstractObjectInstance {
     private static final SubtypeInfo[] SUBTYPE_TABLE = buildSubtypeTable();
 
     private final SubtypeInfo info;
+    @RewindTransient(reason = "placeholder renderer fallback; recreated from live object state")
     private PlaceholderObjectInstance placeholder;
 
     public StillSpriteInstance(ObjectSpawn spawn) {

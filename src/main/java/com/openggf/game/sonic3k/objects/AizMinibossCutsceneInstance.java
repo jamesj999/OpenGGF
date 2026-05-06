@@ -74,6 +74,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private final AizMinibossSwingMotion swingMotion = new AizMinibossSwingMotion();
 
     private int waitTimer = -1;
+    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController explosionController;
     private Runnable waitCallback;
     private int savedCameraMaxX;

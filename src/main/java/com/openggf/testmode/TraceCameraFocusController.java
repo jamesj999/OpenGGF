@@ -156,6 +156,24 @@ public final class TraceCameraFocusController {
         applyFocus(available.get(activeIndex));
     }
 
+    /**
+     * Synchronizes the DEFAULT focus camera with an external runtime restore
+     * such as rewind. Rewind restores camera state without running a normal
+     * frame-step update, so the pause controller must refresh its saved default
+     * before unpause can safely restore it.
+     */
+    public void syncDefaultCameraToCurrentPosition() {
+        if (!wasPaused) return;
+        Camera cam = cameraSupplier.get();
+        savedCamX = cam.getX();
+        savedCamY = cam.getY();
+        FocusMode prev = available.isEmpty() ? FocusMode.DEFAULT : available.get(activeIndex);
+        buildAvailable();
+        int idx = available.indexOf(prev);
+        activeIndex = idx >= 0 ? idx : 0;
+        applyFocus(available.get(activeIndex));
+    }
+
     private void handleCycleInput(InputHandler inputHandler) {
         if (available.size() <= 1) return;
         int leftKey = configService.getInt(SonicConfiguration.LEFT);

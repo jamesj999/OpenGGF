@@ -64,6 +64,20 @@ public class TestPlaybackTimelineController {
         assertEquals(3, timeline.getCursorFrame());
         assertFalse(timeline.isPlaying());
     }
+
+    @Test
+    public void seekAndPlayMovesCursorAndUpdatesPlayingState() {
+        PlaybackTimelineController timeline = new PlaybackTimelineController(12);
+        timeline.seekAndPlay(8, true);
+
+        assertEquals(8, timeline.getCursorFrame());
+        assertTrue(timeline.isPlaying());
+
+        timeline.seekAndPlay(4, false);
+
+        assertEquals(4, timeline.getCursorFrame());
+        assertFalse(timeline.isPlaying());
+    }
 }
 
 

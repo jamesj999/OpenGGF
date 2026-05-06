@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -37,6 +38,7 @@ public class BalkiryJetObjectInstance extends AbstractObjectInstance {
     // From Obj9C_SubObjData
     private static final int PRIORITY = 5;
 
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final BalkiryBadnikInstance parent;
     private int animTimer;
     private int animFrame;

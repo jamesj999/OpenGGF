@@ -110,6 +110,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
      * allows the launch sequence to continue in update() independently.
      */
     private boolean launchSequenceActive;
+    @com.openggf.game.rewind.RewindDeferred(reason = "pending launch player needs explicit player identity snapshot")
     private AbstractPlayableSprite launchPlayer;
     private boolean initialized;
 

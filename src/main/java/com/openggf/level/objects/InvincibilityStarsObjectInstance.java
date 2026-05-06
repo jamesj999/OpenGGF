@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.GameModule;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -26,7 +27,9 @@ import java.util.List;
  * both sign-extended. Index is a byte value masked by 0x3E (0-62 even = 32 entries).
  */
 public class InvincibilityStarsObjectInstance extends AbstractObjectInstance implements PowerUpObject {
+    @RewindTransient(reason = "power-up owner is a live runtime player reference")
     private final PlayableEntity player;
+    @RewindTransient(reason = "renderer cache is runtime-owned and rebuilt from object art services")
     private final PatternSpriteRenderer renderer;
     private Boolean sonic1TrailMode;
 

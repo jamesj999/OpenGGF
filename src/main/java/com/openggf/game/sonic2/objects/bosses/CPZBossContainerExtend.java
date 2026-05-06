@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -19,7 +20,9 @@ import java.util.List;
  * Extends from container and eventually becomes gunk.
  */
 public class CPZBossContainerExtend extends AbstractObjectInstance {
+    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
+    @RewindTransient(reason = "linked boss child relationship; restored by live object graph")
     private final CPZBossContainer container;
 
     private int x;

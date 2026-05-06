@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
@@ -85,6 +86,7 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
     private boolean playerStanding;
 
     // Child spikeball reference
+    @RewindTransient(reason = "seesaw ball child link; live object graph persists across rewind")
     private Sonic1SeesawBallObjectInstance ball;
     private boolean ballSpawned;
 

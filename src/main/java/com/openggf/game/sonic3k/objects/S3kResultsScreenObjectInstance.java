@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.data.Rom;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
@@ -84,12 +85,14 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     // Rendering
     private ObjectSpriteSheet spriteSheet;
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from live art data")
     private PatternSpriteRenderer renderer;
 
     // Music flag
     private boolean musicPlayed;
 
     // Player reference for control restoration on exit
+    @com.openggf.game.rewind.RewindDeferred(reason = "results-screen player reference needs explicit player identity snapshot")
     private AbstractPlayableSprite playerRef;
 
     // Elements

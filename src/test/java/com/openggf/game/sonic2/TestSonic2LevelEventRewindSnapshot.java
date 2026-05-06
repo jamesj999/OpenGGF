@@ -1,6 +1,11 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.rewind.snapshot.LevelEventSnapshot;
+import com.openggf.game.session.EngineContext;
+import com.openggf.game.session.SessionManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -12,6 +17,18 @@ import static org.junit.jupiter.api.Assertions.*;
  * and the per-handler eventRoutine / bossSpawnDelay scalars.
  */
 class TestSonic2LevelEventRewindSnapshot {
+
+    @BeforeEach
+    void setUp() {
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
+        RuntimeManager.createGameplay();
+    }
+
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+    }
 
     @Test
     void keyIsLevelEvent() {

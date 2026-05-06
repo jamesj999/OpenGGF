@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -190,6 +191,7 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     private int displayFrame;
 
     /** Reference to the main wall piece (used by TRAIL role). */
+    @RewindTransient(reason = "lava wall trail parent link; live object graph persists across rewind")
     private Sonic1LavaWallObjectInstance mainWall;
 
     /** Whether the trailing child has been spawned (prevents double-spawn). */

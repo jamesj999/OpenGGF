@@ -9,10 +9,10 @@ import java.util.BitSet;
  * <ul>
  *   <li>Ring placement: which rings have been collected, sparkle timers, and the
  *       camera-window cursor so the window can be restored without a full rescan.</li>
- *   <li>Lost-ring pool: per-ring physics state and the shared spill animation
- *       counters.</li>
- *   <li>Attracted rings: the short-lived attractor array used when a shield draws
- *       rings toward the player.</li>
+ *   <li>Lost-ring pool: active per-ring physics state and the shared spill
+ *       animation counters.</li>
+ *   <li>Attracted rings: active slots from the short-lived attractor array used
+ *       when a shield draws rings toward the player.</li>
  * </ul>
  *
  * <p>Excluded: spawn list, sprite-sheet/pattern references, and any rendering-only
@@ -20,8 +20,8 @@ import java.util.BitSet;
  */
 public record RingSnapshot(
         // --- RingPlacement ---
-        BitSet collected,
-        int[] sparkleStartFrames,
+        long[] collectedWords,
+        SparkleEntry[] sparkleTimers,
         int placementCursorIndex,
         int placementLastCameraX,
 
@@ -36,9 +36,76 @@ public record RingSnapshot(
         // --- AttractedRings ---
         AttractedRingEntry[] attractedRings
 ) {
+    public RingSnapshot(
+            BitSet collected,
+            SparkleEntry[] sparkleTimers,
+            int placementCursorIndex,
+            int placementLastCameraX,
+            int lostRingActiveCount,
+            int spillAnimCounter,
+            int spillAnimAccum,
+            int spillAnimFrame,
+            int lostRingFrameCounter,
+            LostRingEntry[] lostRings,
+            AttractedRingEntry[] attractedRings
+    ) {
+        this(collected.toLongArray(), sparkleTimers, placementCursorIndex,
+                placementLastCameraX, lostRingActiveCount, spillAnimCounter,
+                spillAnimAccum, spillAnimFrame, lostRingFrameCounter,
+                lostRings, attractedRings);
+    }
+
+    public RingSnapshot(
+            BitSet collected,
+            int[] sparkleStartFrames,
+            int placementCursorIndex,
+            int placementLastCameraX,
+            int lostRingActiveCount,
+            int spillAnimCounter,
+            int spillAnimAccum,
+            int spillAnimFrame,
+            int lostRingFrameCounter,
+            LostRingEntry[] lostRings,
+            AttractedRingEntry[] attractedRings
+    ) {
+        this(collected, sparseSparkleTimers(sparkleStartFrames), placementCursorIndex,
+                placementLastCameraX, lostRingActiveCount, spillAnimCounter,
+                spillAnimAccum, spillAnimFrame, lostRingFrameCounter,
+                lostRings, attractedRings);
+    }
+
+    public BitSet collected() {
+        return BitSet.valueOf(collectedWords);
+    }
+
+    private static SparkleEntry[] sparseSparkleTimers(int[] sparkleStartFrames) {
+        int count = 0;
+        for (int startFrame : sparkleStartFrames) {
+            if (startFrame >= 0) {
+                count++;
+            }
+        }
+        SparkleEntry[] entries = new SparkleEntry[count];
+        int out = 0;
+        for (int i = 0; i < sparkleStartFrames.length; i++) {
+            int startFrame = sparkleStartFrames[i];
+            if (startFrame >= 0) {
+                entries[out++] = new SparkleEntry(i, startFrame);
+            }
+        }
+        return entries;
+    }
+
     /**
-     * Snapshot of a single {@link com.openggf.level.rings.LostRing} instance.
-     * All 32 pool slots are captured; inactive entries have {@code active=false}.
+     * Sparse snapshot of one active placed-ring sparkle timer.
+     */
+    public record SparkleEntry(
+            int ringIndex,
+            int startFrame
+    ) {}
+
+    /**
+     * Snapshot of a single active {@link com.openggf.level.rings.LostRing} pool slot.
      */
     public record LostRingEntry(
             boolean active,
@@ -50,11 +117,28 @@ public record RingSnapshot(
             boolean collected,
             int sparkleStartFrame,
             int phaseOffset,
-            int slotIndex
-    ) {}
+            int slotIndex,
+            int poolIndex
+    ) {
+        public LostRingEntry(
+                boolean active,
+                int xSubpixel,
+                int ySubpixel,
+                int xVel,
+                int yVel,
+                int lifetime,
+                boolean collected,
+                int sparkleStartFrame,
+                int phaseOffset,
+                int slotIndex
+        ) {
+            this(active, xSubpixel, ySubpixel, xVel, yVel, lifetime, collected,
+                    sparkleStartFrame, phaseOffset, slotIndex, 0);
+        }
+    }
 
     /**
-     * Snapshot of one attracted-ring slot in the attractor array.
+     * Snapshot of one active attracted-ring slot in the attractor array.
      */
     public record AttractedRingEntry(
             boolean active,
@@ -64,6 +148,20 @@ public record RingSnapshot(
             int xSub,
             int ySub,
             int xVel,
-            int yVel
-    ) {}
+            int yVel,
+            int slotIndex
+    ) {
+        public AttractedRingEntry(
+                boolean active,
+                int sourceIndex,
+                int x,
+                int y,
+                int xSub,
+                int ySub,
+                int xVel,
+                int yVel
+        ) {
+            this(active, sourceIndex, x, y, xSub, ySub, xVel, yVel, 0);
+        }
+    }
 }

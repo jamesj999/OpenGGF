@@ -2,6 +2,7 @@ package com.openggf.level.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -23,6 +24,7 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
         FLY
     }
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and rebuilt from object art services")
     private final PatternSpriteRenderer renderer;
     private int currentX;
     private int currentY;

@@ -276,6 +276,7 @@ public class SonicConfigurationService {
 		putDefaultKey(SonicConfiguration.PLAYBACK_FAST_RATE_KEY, GLFW_KEY_SLASH);
 		putDefaultKey(SonicConfiguration.PLAYBACK_RESET_TO_START_KEY, GLFW_KEY_BACKSLASH);
 		putDefault(SonicConfiguration.PLAYBACK_START_OFFSET_FRAME, 0);
+		putDefaultKey(SonicConfiguration.TRACE_REWIND_KEY, GLFW_KEY_R);
 		putDefaultKey(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
 		putDefaultKey(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
 		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, true);

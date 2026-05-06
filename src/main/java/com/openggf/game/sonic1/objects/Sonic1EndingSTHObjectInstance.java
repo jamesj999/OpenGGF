@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -59,6 +60,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
     // State
     // ========================================================================
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private PatternSpriteRenderer renderer;
     private int routine;
     private int screenX;

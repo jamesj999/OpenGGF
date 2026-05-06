@@ -22,10 +22,12 @@ class TestSonic3kLevelEventRewindSnapshot {
     @BeforeEach
     void setUp() {
         RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
+        RuntimeManager.createGameplay();
     }
 
     @AfterEach
     void tearDown() {
+        RuntimeManager.destroyCurrent();
         SessionManager.clear();
     }
 

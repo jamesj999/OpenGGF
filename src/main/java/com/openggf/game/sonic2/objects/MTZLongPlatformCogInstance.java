@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
@@ -41,6 +42,7 @@ public class MTZLongPlatformCogInstance extends AbstractObjectInstance {
     private final boolean xFlip;
 
     // Parent reference (null for standalone cogs)
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final MTZLongPlatformObjectInstance parent;
 
     // Whether this is a standalone cog (reads MTZ_Platform_Cog_X) vs child (reads parent)

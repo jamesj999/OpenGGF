@@ -9,11 +9,57 @@ package com.openggf.game.rewind.snapshot;
  * empty at capture time and is excluded. The {@code owners} array is captured as
  * a flat {@code String[]} to preserve any ownership that was committed after
  * {@code resolveInto} ran during the preceding frame (relevant when future code
- * queries ownership before the next {@code beginFrame}).
+ * queries ownership before the next {@code beginFrame}). Owner strings are
+ * stored once in {@code ownerTable}; each palette cell stores a compact id.
  */
-public record PaletteOwnershipSnapshot(String[] owners) {
-    /** owners is a defensive copy: surface x line x color flattened to 1-D. */
+public record PaletteOwnershipSnapshot(byte[] ownerIds, String[] ownerTable) {
     public PaletteOwnershipSnapshot {
-        owners = owners.clone();
+        ownerIds = ownerIds.clone();
+        ownerTable = ownerTable.clone();
+    }
+
+    public PaletteOwnershipSnapshot(String[] owners) {
+        this(packOwnerIds(owners), packOwnerTable(owners));
+    }
+
+    public String[] owners() {
+        String[] owners = new String[ownerIds.length];
+        for (int i = 0; i < ownerIds.length; i++) {
+            int id = Byte.toUnsignedInt(ownerIds[i]);
+            owners[i] = id == 0 ? "none" : ownerTable[id - 1];
+        }
+        return owners;
+    }
+
+    private static byte[] packOwnerIds(String[] owners) {
+        java.util.LinkedHashMap<String, Integer> ids = buildOwnerIds(owners);
+        byte[] packed = new byte[owners.length];
+        for (int i = 0; i < owners.length; i++) {
+            String owner = owners[i];
+            packed[i] = owner == null || "none".equals(owner)
+                    ? 0
+                    : (byte) ids.get(owner).intValue();
+        }
+        return packed;
+    }
+
+    private static String[] packOwnerTable(String[] owners) {
+        java.util.LinkedHashMap<String, Integer> ids = buildOwnerIds(owners);
+        return ids.keySet().toArray(String[]::new);
+    }
+
+    private static java.util.LinkedHashMap<String, Integer> buildOwnerIds(String[] owners) {
+        java.util.LinkedHashMap<String, Integer> ids = new java.util.LinkedHashMap<>();
+        for (String owner : owners) {
+            if (owner == null || "none".equals(owner) || ids.containsKey(owner)) {
+                continue;
+            }
+            int id = ids.size() + 1;
+            if (id > 255) {
+                throw new IllegalArgumentException("too many palette owners in snapshot: " + id);
+            }
+            ids.put(owner, id);
+        }
+        return ids;
     }
 }

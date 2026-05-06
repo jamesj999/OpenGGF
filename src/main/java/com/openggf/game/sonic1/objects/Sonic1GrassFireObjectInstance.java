@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -127,6 +128,7 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
     private final byte[] slopeData;
 
     /** Reference to parent platform for child registration and sink tracking. */
+    @RewindTransient(reason = "parent platform link; live object graph persists across rewind")
     private final Sonic1LargeGrassyPlatformObjectInstance parentPlatform;
 
     /** Animation timer. */

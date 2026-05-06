@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.credits.Sonic1CreditsMappings;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -63,7 +64,9 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
     };
     private static final int[] ANIM_DELAYS = {5, 5, 7};
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private final PatternSpriteRenderer renderer;
+    @RewindTransient(reason = "try-again emerald child link; live ending object graph persists across rewind")
     private final Sonic1TryAgainEmeraldsObjectInstance emeralds;
     private final Sonic1CreditsTextRendererRef textRenderer;
     private int routine;

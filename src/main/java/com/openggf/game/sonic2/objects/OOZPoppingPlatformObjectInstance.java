@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -101,6 +102,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
     private boolean sidekickLocked;
 
     // Flame child
+    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private OOZBurnerFlameObjectInstance flameChild;
 
     public OOZPoppingPlatformObjectInstance(ObjectSpawn spawn, String name) {

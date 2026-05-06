@@ -426,8 +426,20 @@ public class GameLoop {
             paletteRegistry.beginFrame();
         }
         playbackDebugManager.handleInput(inputHandler);
-        syncPlaybackInputBridge();
         playbackDebugManager.setObservedMode(currentGameMode);
+
+        // Trace realtime rewind must run before the playback input bridge.
+        // On the release frame it seeks the BK2 timeline back to PLAY; sampling
+        // forced input before that would feed the resumed gameplay tick a
+        // zero/stale mask while the comparator advances the rewound movie row.
+        if (currentGameMode == GameMode.LEVEL
+                && TraceSessionLauncher.active() != null
+                && TraceSessionLauncher.active().handleRealtimeRewindInput(inputHandler)) {
+            inputHandler.update();
+            return;
+        }
+
+        syncPlaybackInputBridge();
 
         // Master title screen mode - runs before any ROM/game systems are loaded.
         // Must be checked before pause handling since Enter is both confirm and pause.
@@ -714,6 +726,10 @@ public class GameLoop {
                 // cursor after applySeamlessTransition(); keep the live
                 // comparator cursor aligned with the same ordering.
                 playbackDebugManager.onLevelFrameAdvanced();
+                TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+                if (traceSession != null) {
+                    traceSession.recordExternalRewindFrame();
+                }
                 return;
             }
 
@@ -786,6 +802,10 @@ public class GameLoop {
                 // cursor always matches the BK2 cursor. onLevelFrameAdvanced
                 // is a no-op when no playback session is active.
                 playbackDebugManager.onLevelFrameAdvanced();
+                TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+                if (traceSession != null) {
+                    traceSession.recordExternalRewindFrame();
+                }
 
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
@@ -799,7 +819,7 @@ public class GameLoop {
                 }
 
                 // Drive the trace session completion-hold + auto-fade state.
-                TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+                traceSession = TraceSessionLauncher.active();
                 if (traceSession != null) {
                     traceSession.tick();
                 }

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -57,6 +58,7 @@ public final class MantisBadnikInstance extends AbstractS3kBadnikInstance {
     private int animIndex = -1;
     private int animTimer;
     private int restY;
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private MantisChild child;
 
     public MantisBadnikInstance(ObjectSpawn spawn) {
@@ -238,6 +240,7 @@ public final class MantisBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     private static final class MantisChild extends AbstractObjectInstance {
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final MantisBadnikInstance parent;
         private int currentX;
         private int currentY;

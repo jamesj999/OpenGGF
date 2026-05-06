@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -41,6 +42,7 @@ public class Sonic3kStarPostStarChild extends AbstractObjectInstance {
     // ROM: move.b #2,mapping_frame(a1) (line 61632)
     private static final int STAR_FRAME = 2;
 
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final Sonic3kStarPostObjectInstance parent;
     private final int centerX;
     private final int centerY;

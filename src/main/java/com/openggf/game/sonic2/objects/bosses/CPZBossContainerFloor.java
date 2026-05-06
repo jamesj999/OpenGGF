@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -18,7 +19,9 @@ import java.util.List;
  * Follows container position and shows floor animations.
  */
 public class CPZBossContainerFloor extends AbstractObjectInstance {
+    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
+    @RewindTransient(reason = "linked boss child relationship; restored by live object graph")
     private final CPZBossContainer container;
     private final boolean isFloor2;
 

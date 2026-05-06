@@ -31,6 +31,7 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
     protected int iconVelY;
     protected int iconWaitFrames;
     protected boolean effectApplied;
+    @com.openggf.game.rewind.RewindDeferred(reason = "pending monitor recipient needs explicit player identity snapshot")
     protected PlayableEntity effectTarget;
     protected boolean iconPendingInit;
 

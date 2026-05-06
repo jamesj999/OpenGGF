@@ -2,6 +2,7 @@ package com.openggf.level;
 
 import com.openggf.game.rewind.RewindSnapshottable;
 import com.openggf.game.rewind.snapshot.LevelSnapshot;
+import com.openggf.game.mutation.LevelMutationSurface;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -80,8 +81,8 @@ class TestLevelManagerRewindSnapshot {
 
                     return new LevelSnapshot(
                             level.currentEpoch(),
-                            level.blocksReference().clone(),
-                            level.chunksReference().clone(),
+                            level.blocksReference(),
+                            level.chunksReference(),
                             level.getMap().getData(),
                             0
                     );
@@ -229,6 +230,55 @@ class TestLevelManagerRewindSnapshot {
 
         // Snapshot should record the epoch at capture time
         assertEquals(2L, snap.epochAtCapture());
+    }
+
+    @Test
+    void unchangedCapturesShareLevelArrayReferences() {
+        StubLevel level = new StubLevel();
+        StubLevelManager manager = new StubLevelManager(level);
+        RewindSnapshottable<LevelSnapshot> adapter = manager.levelRewindSnapshottable();
+
+        LevelSnapshot snap1 = adapter.capture();
+        LevelSnapshot snap2 = adapter.capture();
+
+        assertSame(snap1.blocks(), snap2.blocks());
+        assertSame(snap1.chunks(), snap2.chunks());
+    }
+
+    @Test
+    void directBlockMutationAfterCaptureReplacesLiveArray() {
+        StubLevel level = new StubLevel();
+        StubLevelManager manager = new StubLevelManager(level);
+        RewindSnapshottable<LevelSnapshot> adapter = manager.levelRewindSnapshottable();
+        int[] originalState = level.getBlock(0).saveState();
+        int[] changedState = originalState.clone();
+        changedState[0] = 0x1234;
+
+        LevelSnapshot snap = adapter.capture();
+
+        LevelMutationSurface.forLevel(level).restoreBlockState(0, changedState);
+
+        assertNotSame(snap.blocks(), level.blocksReference());
+        assertArrayEquals(originalState, snap.blocks()[0].saveState());
+        assertArrayEquals(changedState, level.getBlock(0).saveState());
+    }
+
+    @Test
+    void directChunkMutationAfterCaptureReplacesLiveArray() {
+        StubLevel level = new StubLevel();
+        StubLevelManager manager = new StubLevelManager(level);
+        RewindSnapshottable<LevelSnapshot> adapter = manager.levelRewindSnapshottable();
+        int[] originalState = level.getChunk(0).saveState();
+        int[] changedState = originalState.clone();
+        changedState[0] = 0x1234;
+
+        LevelSnapshot snap = adapter.capture();
+
+        LevelMutationSurface.forLevel(level).restoreChunkState(0, changedState);
+
+        assertNotSame(snap.chunks(), level.chunksReference());
+        assertArrayEquals(originalState, snap.chunks()[0].saveState());
+        assertArrayEquals(changedState, level.getChunk(0).saveState());
     }
 
     @Test

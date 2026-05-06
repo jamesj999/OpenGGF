@@ -55,7 +55,7 @@ class TestRingManagerRewindSnapshot {
         bits.set(0); bits.set(2); bits.set(5);
         RingSnapshot modified = new RingSnapshot(
                 bits,
-                base.sparkleStartFrames(),
+                base.sparkleTimers(),
                 base.placementCursorIndex(),
                 base.placementLastCameraX(),
                 base.lostRingActiveCount(),
@@ -74,17 +74,25 @@ class TestRingManagerRewindSnapshot {
     }
 
     @Test
+    void captureStoresUncollectedRingsAsEmptyWordArray() {
+        RingManager mgr = buildManager(8);
+
+        RingSnapshot snapshot = mgr.capture();
+
+        assertEquals(0, snapshot.collectedWords().length);
+    }
+
+    @Test
     void roundTripSparkleTimers() {
         RingManager mgr = buildManager(4);
-        // Manually drive placement to set sparkle frame for index 1
         RingSnapshot beforeAny = mgr.capture();
-        int[] sparkles = beforeAny.sparkleStartFrames().clone();
-        sparkles[1] = 42;
 
-        // Build a snapshot with the modified sparkle array
+        // Build a sparse snapshot with the modified sparkle timer.
         RingSnapshot modified = new RingSnapshot(
                 beforeAny.collected(),
-                sparkles,
+                new RingSnapshot.SparkleEntry[] {
+                        new RingSnapshot.SparkleEntry(1, 42)
+                },
                 beforeAny.placementCursorIndex(),
                 beforeAny.placementLastCameraX(),
                 beforeAny.lostRingActiveCount(),
@@ -97,8 +105,60 @@ class TestRingManagerRewindSnapshot {
         mgr.restore(modified);
 
         RingSnapshot after = mgr.capture();
-        assertEquals(42, after.sparkleStartFrames()[1],
+        assertEquals(1, after.sparkleTimers().length);
+        assertEquals(1, after.sparkleTimers()[0].ringIndex());
+        assertEquals(42, after.sparkleTimers()[0].startFrame(),
                 "Sparkle timer at index 1 must survive restore");
+    }
+
+    @Test
+    void captureOmitsInactiveSparkleTimers() {
+        RingManager mgr = buildManager(4);
+
+        RingSnapshot snapshot = mgr.capture();
+
+        assertEquals(0, snapshot.sparkleTimers().length);
+    }
+
+    @Test
+    void restoreSparseSparkleTimersClearsPreviousTimers() {
+        RingManager mgr = buildManager(4);
+        RingSnapshot base = mgr.capture();
+
+        RingSnapshot withSparkle = new RingSnapshot(
+                base.collected(),
+                new RingSnapshot.SparkleEntry[] {
+                        new RingSnapshot.SparkleEntry(1, 42)
+                },
+                base.placementCursorIndex(),
+                base.placementLastCameraX(),
+                base.lostRingActiveCount(),
+                base.spillAnimCounter(),
+                base.spillAnimAccum(),
+                base.spillAnimFrame(),
+                base.lostRingFrameCounter(),
+                base.lostRings(),
+                base.attractedRings());
+
+        mgr.restore(withSparkle);
+
+        RingSnapshot withoutSparkles = new RingSnapshot(
+                base.collected(),
+                new RingSnapshot.SparkleEntry[0],
+                base.placementCursorIndex(),
+                base.placementLastCameraX(),
+                base.lostRingActiveCount(),
+                base.spillAnimCounter(),
+                base.spillAnimAccum(),
+                base.spillAnimFrame(),
+                base.lostRingFrameCounter(),
+                base.lostRings(),
+                base.attractedRings());
+
+        mgr.restore(withoutSparkles);
+        RingSnapshot after = mgr.capture();
+
+        assertEquals(0, after.sparkleTimers().length);
     }
 
     @Test
@@ -109,7 +169,7 @@ class TestRingManagerRewindSnapshot {
         // Inject custom spill-anim state via a crafted snapshot
         RingSnapshot modified = new RingSnapshot(
                 base.collected(),
-                base.sparkleStartFrames(),
+                base.sparkleTimers(),
                 base.placementCursorIndex(),
                 base.placementLastCameraX(),
                 3,      // lostRingActiveCount
@@ -131,22 +191,76 @@ class TestRingManagerRewindSnapshot {
     }
 
     @Test
+    void captureOmitsInactiveLostRingSlots() {
+        RingManager mgr = buildManager(0);
+
+        RingSnapshot snapshot = mgr.capture();
+
+        assertEquals(0, snapshot.lostRings().length);
+    }
+
+    @Test
+    void restoreSparseLostRingsClearsPreviousActiveSlots() {
+        RingManager mgr = buildManager(0);
+        RingSnapshot base = mgr.capture();
+
+        RingSnapshot withActiveLostRing = new RingSnapshot(
+                base.collected(),
+                base.sparkleTimers(),
+                base.placementCursorIndex(),
+                base.placementLastCameraX(),
+                1,
+                base.spillAnimCounter(),
+                base.spillAnimAccum(),
+                base.spillAnimFrame(),
+                base.lostRingFrameCounter(),
+                new RingSnapshot.LostRingEntry[] {
+                        new RingSnapshot.LostRingEntry(
+                                true, 0x1234_00, 0x0800_00, 0x300, -0x200,
+                                120, false, -1, 0, 5)
+                },
+                base.attractedRings());
+
+        mgr.restore(withActiveLostRing);
+
+        RingSnapshot withoutLostRings = new RingSnapshot(
+                base.collected(),
+                base.sparkleTimers(),
+                base.placementCursorIndex(),
+                base.placementLastCameraX(),
+                0,
+                base.spillAnimCounter(),
+                base.spillAnimAccum(),
+                base.spillAnimFrame(),
+                base.lostRingFrameCounter(),
+                new RingSnapshot.LostRingEntry[0],
+                base.attractedRings());
+
+        mgr.restore(withoutLostRings);
+        RingSnapshot after = mgr.capture();
+
+        assertEquals(0, after.lostRings().length);
+        assertEquals(0, after.lostRingActiveCount());
+    }
+
+    @Test
     void roundTripLostRingSlot() {
         RingManager mgr = buildManager(0);
         RingSnapshot base = mgr.capture();
 
-        // Inject an active LostRing entry at slot 0
-        RingSnapshot.LostRingEntry[] lostRings = base.lostRings().clone();
-        lostRings[0] = new RingSnapshot.LostRingEntry(
-                true, 0x1234_00, 0x0800_00, 0x300, -0x200,
-                120, false, -1, 0, 5);
+        // Inject an active LostRing entry at pool slot 3 with source slot 5.
+        RingSnapshot.LostRingEntry[] lostRings = {
+                new RingSnapshot.LostRingEntry(
+                        true, 0x1234_00, 0x0800_00, 0x300, -0x200,
+                        120, false, -1, 0, 5, 3)
+        };
 
         RingSnapshot modified = new RingSnapshot(
                 base.collected(),
-                base.sparkleStartFrames(),
+                base.sparkleTimers(),
                 base.placementCursorIndex(),
                 base.placementLastCameraX(),
-                1,
+                4,
                 base.spillAnimCounter(),
                 base.spillAnimAccum(),
                 base.spillAnimFrame(),
@@ -164,6 +278,7 @@ class TestRingManagerRewindSnapshot {
         assertEquals(-0x200,    after.lostRings()[0].yVel());
         assertEquals(120,       after.lostRings()[0].lifetime());
         assertEquals(5,         after.lostRings()[0].slotIndex());
+        assertEquals(3,         after.lostRings()[0].poolIndex());
     }
 
     @Test
@@ -171,13 +286,14 @@ class TestRingManagerRewindSnapshot {
         RingManager mgr = buildManager(0);
         RingSnapshot base = mgr.capture();
 
-        RingSnapshot.AttractedRingEntry[] atRings = base.attractedRings().clone();
-        atRings[0] = new RingSnapshot.AttractedRingEntry(
-                true, 3, 0x200, 0x180, 0x80, 0x40, 0x100, -0x50);
+        RingSnapshot.AttractedRingEntry[] atRings = {
+                new RingSnapshot.AttractedRingEntry(
+                        true, 3, 0x200, 0x180, 0x80, 0x40, 0x100, -0x50, 7)
+        };
 
         RingSnapshot modified = new RingSnapshot(
                 base.collected(),
-                base.sparkleStartFrames(),
+                base.sparkleTimers(),
                 base.placementCursorIndex(),
                 base.placementLastCameraX(),
                 base.lostRingActiveCount(),
@@ -197,5 +313,57 @@ class TestRingManagerRewindSnapshot {
         assertEquals(0x180,  after.attractedRings()[0].y());
         assertEquals(0x100,  after.attractedRings()[0].xVel());
         assertEquals(-0x50,  after.attractedRings()[0].yVel());
+        assertEquals(7,      after.attractedRings()[0].slotIndex());
+    }
+
+    @Test
+    void captureOmitsInactiveAttractedRingSlots() {
+        RingManager mgr = buildManager(0);
+
+        RingSnapshot snapshot = mgr.capture();
+
+        assertEquals(0, snapshot.attractedRings().length);
+    }
+
+    @Test
+    void restoreSparseAttractedRingsClearsPreviousActiveSlots() {
+        RingManager mgr = buildManager(0);
+        RingSnapshot base = mgr.capture();
+
+        RingSnapshot withActiveAttractedRing = new RingSnapshot(
+                base.collected(),
+                base.sparkleTimers(),
+                base.placementCursorIndex(),
+                base.placementLastCameraX(),
+                base.lostRingActiveCount(),
+                base.spillAnimCounter(),
+                base.spillAnimAccum(),
+                base.spillAnimFrame(),
+                base.lostRingFrameCounter(),
+                base.lostRings(),
+                new RingSnapshot.AttractedRingEntry[] {
+                        new RingSnapshot.AttractedRingEntry(
+                                true, 3, 0x200, 0x180, 0x80, 0x40, 0x100, -0x50)
+                });
+
+        mgr.restore(withActiveAttractedRing);
+
+        RingSnapshot withoutAttractedRings = new RingSnapshot(
+                base.collected(),
+                base.sparkleTimers(),
+                base.placementCursorIndex(),
+                base.placementLastCameraX(),
+                base.lostRingActiveCount(),
+                base.spillAnimCounter(),
+                base.spillAnimAccum(),
+                base.spillAnimFrame(),
+                base.lostRingFrameCounter(),
+                base.lostRings(),
+                new RingSnapshot.AttractedRingEntry[0]);
+
+        mgr.restore(withoutAttractedRings);
+        RingSnapshot after = mgr.capture();
+
+        assertEquals(0, after.attractedRings().length);
     }
 }

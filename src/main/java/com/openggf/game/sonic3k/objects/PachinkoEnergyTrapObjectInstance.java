@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -41,6 +42,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
     private int riseDelayFrames = INITIAL_RISE_DELAY;
     private boolean exitArmed;
     private boolean exitRequested;
+    @com.openggf.game.rewind.RewindDeferred(reason = "captured player needs explicit player identity snapshot")
     private AbstractPlayableSprite capturedPlayer;
     private int currentX;
     private int currentY;
@@ -274,6 +276,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
     private static final class EnergyTrapColumnChild extends AbstractObjectInstance {
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final PachinkoEnergyTrapObjectInstance parent;
         private int currentX;
         private int currentY;
@@ -322,6 +325,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
         private static final int[] ANIMATION = {0, 1, 2, 3, 4, 3, 2, 1};
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final PachinkoEnergyTrapObjectInstance parent;
         private int beamAngle;
         private int currentX;

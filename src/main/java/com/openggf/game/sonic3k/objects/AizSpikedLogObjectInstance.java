@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -70,6 +71,7 @@ public class AizSpikedLogObjectInstance extends AbstractObjectInstance
     private int animFrameTimer;           // countdown timer between frame changes
     private int currentY;                 // current Y position (after swing calc)
     private boolean initialized;
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private SpikedLogCollisionChild spikeChild;
 
     public AizSpikedLogObjectInstance(ObjectSpawn spawn) {
@@ -324,6 +326,7 @@ public class AizSpikedLogObjectInstance extends AbstractObjectInstance
         // collision_flags = 0x9C: HURT type (bit 7), size index 0x1C (sonic3k.asm:60051)
         private static final int COLLISION_FLAGS_ACTIVE = 0x9C;
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final AizSpikedLogObjectInstance parent;
         private int currentX;
         private int currentY;

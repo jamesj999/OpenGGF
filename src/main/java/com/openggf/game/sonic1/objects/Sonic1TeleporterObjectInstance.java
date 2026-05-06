@@ -148,6 +148,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
     // pixel position and the next 8 bits are subpixel. We emulate this as 24-bit (16.8).
     private int posX_16_8;
     private int posY_16_8;
+    @com.openggf.game.rewind.RewindDeferred(reason = "teleporter controlled player needs explicit player identity snapshot")
     private AbstractPlayableSprite controlledPlayer;
 
     public Sonic1TeleporterObjectInstance(ObjectSpawn spawn) {

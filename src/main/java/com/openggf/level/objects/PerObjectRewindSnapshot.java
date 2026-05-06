@@ -1,5 +1,7 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.rewind.snapshot.GenericObjectSnapshot;
+
 /**
  * Immutable capture of the standard mutable field surface of
  * {@link AbstractObjectInstance} for rewind snapshots.
@@ -56,12 +58,56 @@ public record PerObjectRewindSnapshot(
         // with private AI timers, substates, or movement helpers)
         BadnikSubclassRewindExtra badnikSubclassExtra,
 
+        // Concrete object subclass state (nullable; only present for objects
+        // with private state not covered by the base object fields)
+        ObjectSubclassRewindExtra objectSubclassExtra,
+
         // Player gameplay state (nullable; only present when capturing
         // AbstractPlayableSprite or subclass)
-        PlayerRewindExtra playerExtra
+        PlayerRewindExtra playerExtra,
+
+        // Optional generic sidecar for explicitly eligible classes. Legacy
+        // extras remain authoritative until parity tests migrate each class.
+        GenericObjectSnapshot genericState
 ) {
+    public PerObjectRewindSnapshot(
+            boolean destroyed,
+            boolean destroyedRespawnable,
+            boolean hasDynamicSpawn,
+            int dynamicSpawnX,
+            int dynamicSpawnY,
+            int preUpdateX,
+            int preUpdateY,
+            boolean preUpdateValid,
+            int preUpdateCollisionFlags,
+            boolean skipTouchThisFrame,
+            boolean solidContactFirstFrame,
+            int slotIndex,
+            int respawnStateIndex,
+            BadnikRewindExtra badnikExtra,
+            BadnikSubclassRewindExtra badnikSubclassExtra,
+            PlayerRewindExtra playerExtra
+    ) {
+        this(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                badnikSubclassExtra,
+                null,
+                playerExtra,
+                null
+        );
+    }
+
     public sealed interface BadnikSubclassRewindExtra
             permits MasherRewindExtra, BuzzerRewindExtra, CoconutsRewindExtra {
+    }
+
+    public sealed interface ObjectSubclassRewindExtra
+            permits ArzPlatformRewindExtra, BadnikProjectileRewindExtra, BuzzerFlameRewindExtra {
     }
 
     /**
@@ -105,6 +151,51 @@ public record PerObjectRewindSnapshot(
             int attackTimer,
             int yVelocity
     ) implements BadnikSubclassRewindExtra {}
+
+    public record ArzPlatformRewindExtra(
+            int x,
+            int y,
+            int baseX,
+            int baseY,
+            int baseYFixed,
+            int widthPixels,
+            int mappingFrame,
+            int subtype,
+            int routine,
+            int bobAngle,
+            int angle,
+            int timer,
+            int yVel,
+            int yRadius
+    ) implements ObjectSubclassRewindExtra {}
+
+    public record BadnikProjectileRewindExtra(
+            String projectileType,
+            int currentX,
+            int currentY,
+            int xSub,
+            int ySub,
+            int xVelocity,
+            int yVelocity,
+            boolean applyGravity,
+            int gravity,
+            int collisionSizeIndex,
+            int animFrame,
+            boolean hFlip,
+            int initialDelay,
+            int fixedFrame,
+            boolean paletteBlink,
+            int cluckerAnimTimer,
+            int cluckerAnimIndex
+    ) implements ObjectSubclassRewindExtra {}
+
+    public record BuzzerFlameRewindExtra(
+            int parentSlotIndex,
+            int currentX,
+            int currentY,
+            boolean facingLeft,
+            int animFrame
+    ) implements ObjectSubclassRewindExtra {}
 
     /**
      * Mutable scalar gameplay state on a sidekick's CPU controller. Structural
@@ -158,16 +249,22 @@ public record PerObjectRewindSnapshot(
 
     /**
      * Mutable gameplay state on AbstractPlayableSprite that AbstractObjectInstance's
-     * default 11-field capture surface does NOT cover. Per the
-     * v1.5.1 plan, render-only state, character physics constants, animation
-     * state, and collision radii are excluded — they are derived from these
-     * fields and regenerate within one forward frame of replay.
+     * default 11-field capture surface does NOT cover. Character physics
+     * constants and render-service references are excluded. Animation cursor
+     * state is included because visual rewind can render immediately after
+     * restore, before any forward frame can regenerate mapping_frame from the
+     * animation scripts.
      */
     public record PlayerRewindExtra(
             // AbstractSprite base position fields (not in AbstractObjectInstance hierarchy)
             short xPixel, short yPixel,
             short xSubpixel, short ySubpixel,
             int width, int height,
+            com.openggf.physics.Direction direction,
+            byte layer,
+            com.openggf.game.GroundMode runningMode,
+            short xRadius,
+            short yRadius,
             // Movement / physics
             short gSpeed, short xSpeed, short ySpeed, short jump,
             byte angle, byte statusTertiary, boolean loopLowPlane,
@@ -227,6 +324,11 @@ public record PerObjectRewindSnapshot(
             int bubbleAnimId,
             boolean initPhysicsActive,
             boolean objectMappingFrameControl,
+            int mappingFrame,
+            int animationId,
+            int forcedAnimationId,
+            int animationFrameIndex,
+            int animationTick,
             SidekickCpuRewindExtra sidekickCpuExtra,
             // Sidekick follow-history circular buffers (read by SidekickCpuController
             // each frame to position the follower; the leader writes new entries every
@@ -257,7 +359,9 @@ public record PerObjectRewindSnapshot(
                 slotIndex, respawnStateIndex,
                 badnikExtra,
                 badnikSubclassExtra,
-                extra
+                objectSubclassExtra,
+                extra,
+                genericState
         );
     }
 
@@ -271,7 +375,41 @@ public record PerObjectRewindSnapshot(
                 slotIndex, respawnStateIndex,
                 badnikExtra,
                 extra,
-                playerExtra
+                objectSubclassExtra,
+                playerExtra,
+                genericState
+        );
+    }
+
+    /** Returns a copy of this snapshot with concrete object subclass state attached. */
+    public PerObjectRewindSnapshot withObjectSubclassExtra(ObjectSubclassRewindExtra extra) {
+        return new PerObjectRewindSnapshot(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                badnikSubclassExtra,
+                extra,
+                playerExtra,
+                genericState
+        );
+    }
+
+    /** Returns a copy of this snapshot with the optional generic sidecar attached. */
+    public PerObjectRewindSnapshot withGenericState(GenericObjectSnapshot genericState) {
+        return new PerObjectRewindSnapshot(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                badnikSubclassExtra,
+                objectSubclassExtra,
+                playerExtra,
+                genericState
         );
     }
 }

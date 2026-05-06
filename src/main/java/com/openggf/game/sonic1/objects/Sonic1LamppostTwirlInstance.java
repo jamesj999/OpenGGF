@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.graphics.GLCommand;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -41,6 +42,7 @@ public class Sonic1LamppostTwirlInstance extends AbstractObjectInstance {
     // Mapping frame for red ball only
     private static final int TWIRL_FRAME = 2;
 
+    @RewindTransient(reason = "lamppost parent link; live object graph persists across rewind")
     private final Sonic1LamppostObjectInstance parent;
     private final int centerX;
     private final int centerY;

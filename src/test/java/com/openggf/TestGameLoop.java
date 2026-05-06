@@ -127,6 +127,17 @@ public class TestGameLoop {
     }
 
     @Test
+    public void traceRealtimeRewindRunsBeforePlaybackInputBridge() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/openggf/GameLoop.java"));
+        int rewind = source.indexOf("handleRealtimeRewindInput(inputHandler)");
+        int bridge = source.indexOf("syncPlaybackInputBridge();");
+        assertTrue(rewind >= 0, "GameLoop must handle trace realtime rewind");
+        assertTrue(bridge >= 0, "GameLoop must bridge playback input");
+        assertTrue(rewind < bridge,
+                "Rewind release must seek/play the playback timeline before forced input is sampled");
+    }
+
+    @Test
     public void testMasterTitleScreenStepDoesNotRequireGameplayRuntime() {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
@@ -1619,5 +1630,4 @@ public class TestGameLoop {
         }
     }
 }
-
 

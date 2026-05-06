@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.objects.ObjectAnimationState;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -51,6 +52,7 @@ public class OOZBurnerFlameObjectInstance extends AbstractObjectInstance
         ));
     }
 
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final OOZPoppingPlatformObjectInstance parent;
     private final ObjectAnimationState animationState;
     private boolean flameActive;

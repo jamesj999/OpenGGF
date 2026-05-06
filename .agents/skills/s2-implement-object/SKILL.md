@@ -372,6 +372,12 @@ registerFactory(Sonic2ObjectIds.OBJECT_NAME,
     (spawn, registry) -> new ObjectNameBadnikInstance(spawn));
 ```
 
+#### 2.7 Rewind Synchronization Fields
+
+Before finalizing a new object or badnik, classify every instance field for rewind. Key synchronization-relevant fields must remain captured: routine/state variables, timers/counters, subpixel positions, velocities, movement helper state, animation frame/timer when it drives gameplay, cooldown/reload flags, subtype-derived mutable state, per-player latches, rider/carry/contact maps, and child-spawn phase state. Do not add `@RewindTransient` to these fields just to satisfy `GenericFieldCapturer` or audit tests.
+
+Use `@RewindTransient(reason = "...")` only for structural or derived fields: `ObjectServices`, stable `ObjectSpawn` identity, renderers/art caches, listeners/callbacks, immutable config, debug-only state, or values rebuilt from ROM data/live managers. If a field is synchronization-relevant but not generically capturable, convert it to a primitive/record/supported array, add an explicit snapshot/codec, or keep the class on its legacy/manual rewind path. Dynamic spawn coordinates are gameplay state; capture them explicitly rather than treating the live `ObjectSpawn` reference as structural.
+
 ### Phase 3: Code Quality
 
 Ensure the implementation:

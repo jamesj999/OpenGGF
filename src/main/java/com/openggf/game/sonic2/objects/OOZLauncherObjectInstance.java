@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -499,6 +500,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         private int velX;   // 8.8 fixed point
         private int velY;   // 8.8 fixed point
         private final SpriteMappingPiece piece;
+        @RewindTransient(reason = "renderer cache; resolved from live render manager")
         private final PatternSpriteRenderer renderer;
         private final List<SpriteMappingPiece> pieceList;
 

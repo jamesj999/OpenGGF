@@ -6,6 +6,7 @@ import com.openggf.game.rewind.snapshot.ObjectManagerSnapshot;
 import com.openggf.game.session.EngineContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
+import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,8 @@ class TestObjectManagerRewindSnapshot {
     // ------------------------------------------------------------------
 
     /** Minimal subclass with a trackable "moved" position. */
-    private static final class TrackableObject extends AbstractObjectInstance {
+    private static final class TrackableObject extends AbstractObjectInstance implements SolidObjectProvider {
+        private final SolidObjectParams params = new SolidObjectParams(16, 8, 8);
 
         TrackableObject(ObjectSpawn spawn) {
             super(spawn, "TrackableObject");
@@ -58,6 +60,11 @@ class TestObjectManagerRewindSnapshot {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             // no-op
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return params;
         }
     }
 
@@ -227,5 +234,43 @@ class TestObjectManagerRewindSnapshot {
         ObjectInstance restored = active.iterator().next();
         assertEquals(10, restored.getX(), "X should match captured spawn X");
         assertEquals(20, restored.getY(), "Y should match captured spawn Y");
+    }
+
+    @Test
+    void restoreRebindsRidingStateToRecreatedSolidObject() {
+        ObjectSpawn sp = spawn(100, 100);
+        TrackingRegistry registry = new TrackingRegistry();
+        ObjectManager manager = makeManager(List.of(sp), registry);
+
+        manager.reset(0);
+        manager.update(0, null, null, 1);
+
+        TrackableObject original = registry.instances.get(sp);
+        assertNotNull(original);
+
+        Sonic player = new Sonic("sonic", (short) 0, (short) 0);
+        player.setCentreX((short) 100);
+        int maxTop = original.getSolidParams().groundHalfHeight() + player.getYRadius();
+        player.setCentreY((short) (100 - 4 - maxTop + 8));
+        player.setAir(true);
+        player.setYSpeed((short) 0x100);
+
+        manager.updateSolidContacts(player);
+        assertTrue(manager.isRidingObject(player), "precondition: player should be riding before capture");
+        assertSame(original, manager.getRidingObject(player));
+
+        RewindSnapshottable<ObjectManagerSnapshot> snap = manager.rewindSnapshottable();
+        ObjectManagerSnapshot ridingSnapshot = snap.capture();
+
+        manager.clearRidingObject(player);
+        assertFalse(manager.isRidingObject(player), "test must mutate riding state before restore");
+
+        snap.restore(ridingSnapshot);
+
+        assertTrue(manager.isRidingObject(player), "restore must preserve riding state");
+        assertNotSame(original, manager.getRidingObject(player),
+                "restore recreates object instances, so riding must be rebound to the recreated platform");
+        assertEquals(100, manager.getRidingObject(player).getX());
+        assertEquals(100, manager.getRidingObject(player).getY());
     }
 }

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PlayableEntity;
@@ -30,6 +31,7 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance implements I
     private static final int ATTACK_ANIM = 1;
     private static final int FINAL_FRAME = 7;
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from live art data")
     private PlayerSpriteRenderer dplcRenderer;
     private SpriteAnimationSet animSet;
     private int currentAnimId;

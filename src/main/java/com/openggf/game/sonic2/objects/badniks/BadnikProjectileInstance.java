@@ -7,6 +7,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PerObjectRewindSnapshot;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -326,5 +327,56 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         }
 
         renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false, paletteOverride);
+    }
+
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        return super.captureRewindState().withObjectSubclassExtra(
+                new PerObjectRewindSnapshot.BadnikProjectileRewindExtra(
+                        type.name(),
+                        currentX,
+                        currentY,
+                        motionState.xSub,
+                        motionState.ySub,
+                        xVelocity,
+                        yVelocity,
+                        applyGravity,
+                        gravity,
+                        collisionSizeIndex,
+                        animFrame,
+                        hFlip,
+                        initialDelay,
+                        fixedFrame,
+                        paletteBlink,
+                        cluckerAnimTimer,
+                        cluckerAnimIndex));
+    }
+
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+        super.restoreRewindState(snapshot);
+        if (snapshot.objectSubclassExtra()
+                instanceof PerObjectRewindSnapshot.BadnikProjectileRewindExtra extra) {
+            currentX = extra.currentX();
+            currentY = extra.currentY();
+            xVelocity = extra.xVelocity();
+            yVelocity = extra.yVelocity();
+            applyGravity = extra.applyGravity();
+            gravity = extra.gravity();
+            collisionSizeIndex = extra.collisionSizeIndex();
+            animFrame = extra.animFrame();
+            hFlip = extra.hFlip();
+            initialDelay = extra.initialDelay();
+            fixedFrame = extra.fixedFrame();
+            paletteBlink = extra.paletteBlink();
+            cluckerAnimTimer = extra.cluckerAnimTimer();
+            cluckerAnimIndex = extra.cluckerAnimIndex();
+            motionState.x = currentX;
+            motionState.y = currentY;
+            motionState.xSub = extra.xSub();
+            motionState.ySub = extra.ySub();
+            motionState.xVel = xVelocity;
+            motionState.yVel = yVelocity;
+        }
     }
 }

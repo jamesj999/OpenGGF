@@ -28,27 +28,44 @@ public final class TraceHudOverlay {
     private final Supplier<String> pauseKeyLabelSupplier;
     private final BooleanSupplier pausedSupplier;
     private final Supplier<String> focusLabelSupplier;
+    private final Supplier<String> rewindStatusSupplier;
     private boolean desyncPauseMessageShown;
     private boolean desyncPauseMessageDismissed;
 
     public TraceHudOverlay(LiveTraceComparator comparator) {
         this(comparator, TraceHudOverlay::configuredPauseKeyLabel,
-                TraceHudOverlay::isGameLoopPaused, () -> null);
+                TraceHudOverlay::isGameLoopPaused, () -> null, () -> null);
     }
 
     public TraceHudOverlay(LiveTraceComparator comparator, Supplier<String> focusLabelSupplier) {
         this(comparator, TraceHudOverlay::configuredPauseKeyLabel,
-                TraceHudOverlay::isGameLoopPaused, focusLabelSupplier);
+                TraceHudOverlay::isGameLoopPaused, focusLabelSupplier, () -> null);
+    }
+
+    public TraceHudOverlay(LiveTraceComparator comparator,
+                           Supplier<String> focusLabelSupplier,
+                           Supplier<String> rewindStatusSupplier) {
+        this(comparator, TraceHudOverlay::configuredPauseKeyLabel,
+                TraceHudOverlay::isGameLoopPaused, focusLabelSupplier, rewindStatusSupplier);
+    }
+
+    TraceHudOverlay(LiveTraceComparator comparator,
+                    Supplier<String> pauseKeyLabelSupplier,
+                    BooleanSupplier pausedSupplier,
+                    Supplier<String> focusLabelSupplier,
+                    Supplier<String> rewindStatusSupplier) {
+        this.comparator = comparator;
+        this.pauseKeyLabelSupplier = pauseKeyLabelSupplier;
+        this.pausedSupplier = pausedSupplier;
+        this.focusLabelSupplier = focusLabelSupplier;
+        this.rewindStatusSupplier = rewindStatusSupplier;
     }
 
     TraceHudOverlay(LiveTraceComparator comparator,
                     Supplier<String> pauseKeyLabelSupplier,
                     BooleanSupplier pausedSupplier,
                     Supplier<String> focusLabelSupplier) {
-        this.comparator = comparator;
-        this.pauseKeyLabelSupplier = pauseKeyLabelSupplier;
-        this.pausedSupplier = pausedSupplier;
-        this.focusLabelSupplier = focusLabelSupplier;
+        this(comparator, pauseKeyLabelSupplier, pausedSupplier, focusLabelSupplier, () -> null);
     }
 
     private static final float SCALE = 0.5f;
@@ -102,6 +119,12 @@ public final class TraceHudOverlay {
             active.append(start ? 'S' : '.');
             text.drawShadowedText(active.toString(), X, y, DebugColor.GREEN, SCALE);
             y += SECTION_GAP;
+
+            String rewindStatus = rewindStatusSupplier.get();
+            if (rewindStatus != null && !rewindStatus.isBlank()) {
+                text.drawShadowedText(rewindStatus, X, y, DebugColor.CYAN, SCALE);
+                y += SECTION_GAP;
+            }
 
             text.drawShadowedText("Last mismatches:", X, y, DebugColor.LIGHT_GRAY, SCALE);
             y += LINE_HEIGHT;

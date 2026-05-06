@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -28,6 +29,7 @@ public class CheckpointDongleInstance extends AbstractObjectInstance {
     private static final int SWING_RADIUS = 0x0C00;
     private static final int DONGLE_FRAME = 2; // Mapping frame for dongle
 
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final CheckpointObjectInstance parent;
     private final int centerX;
     private final int centerY;

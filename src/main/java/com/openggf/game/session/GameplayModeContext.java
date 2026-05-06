@@ -165,9 +165,13 @@ public final class GameplayModeContext implements ModeContext {
             rewindRegistry.deregister("parallax");
             rewindRegistry.deregister("water");
             rewindRegistry.deregister("sprites");
+            rewindRegistry.deregisterPostRestoreCallback("parallax-derived-state");
             rewindRegistry.register(parallaxManager);
             rewindRegistry.register(waterSystem);
             rewindRegistry.register(spriteManager.rewindSnapshottable());
+            rewindRegistry.registerPostRestoreCallback(
+                    "parallax-derived-state",
+                    levelManager::recomputeParallaxAfterRewindRestore);
         }
     }
 
@@ -311,9 +315,13 @@ public final class GameplayModeContext implements ModeContext {
         rewindRegistry.deregister("level");
         rewindRegistry.deregister("object-manager");
         rewindRegistry.deregister("level-event");
+        rewindRegistry.deregister("solid-execution");
         rewindRegistry.register(levelManager.levelRewindSnapshottable());
         if (levelManager.getObjectManager() != null) {
             rewindRegistry.register(levelManager.getObjectManager().rewindSnapshottable());
+        }
+        if (solidExecutionRegistry instanceof DefaultSolidExecutionRegistry dser) {
+            rewindRegistry.register(dser);
         }
         // Register level-event manager adapter (available after gameModule is set).
         if (levelManager.getGameModule() != null) {

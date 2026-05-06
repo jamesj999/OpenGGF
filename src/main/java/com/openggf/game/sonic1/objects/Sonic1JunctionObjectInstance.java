@@ -8,6 +8,7 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
@@ -164,6 +165,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     private int grabFrame;
 
     /** Child display object. */
+    @RewindTransient(reason = "junction child link; live object graph persists across rewind")
     private Sonic1JunctionChildInstance childInstance;
 
     public Sonic1JunctionObjectInstance(ObjectSpawn spawn) {

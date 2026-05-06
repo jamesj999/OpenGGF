@@ -102,6 +102,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
     private boolean playerStanding;
     private int savedPreContactYSpeed;
     private boolean savedPreContactRolling;
+    @com.openggf.game.rewind.RewindDeferred(reason = "rolling break player needs explicit player identity snapshot")
     private AbstractPlayableSprite rollingBreakPlayer;
 
     public CorkFloorObjectInstance(ObjectSpawn spawn) {

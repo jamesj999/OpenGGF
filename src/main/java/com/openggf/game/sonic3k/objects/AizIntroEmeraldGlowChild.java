@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -23,6 +24,7 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
 
     private static final Logger LOG = Logger.getLogger(AizIntroEmeraldGlowChild.class.getName());
 
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizIntroPlaneChild parent;
     private final int xOffset;
     private final int yOffset;

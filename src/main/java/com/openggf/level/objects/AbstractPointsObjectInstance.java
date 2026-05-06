@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
 
@@ -23,6 +24,7 @@ public abstract class AbstractPointsObjectInstance extends AbstractObjectInstanc
     /** ROM: addi.w #$18,y_vel(a0) */
     protected static final int GRAVITY = 0x18;
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and rebuilt from object art services")
     protected final PatternSpriteRenderer renderer;
     protected int currentX;
     protected int ySubpixel;   // 8.8 fixed-point Y position (high byte = pixel)

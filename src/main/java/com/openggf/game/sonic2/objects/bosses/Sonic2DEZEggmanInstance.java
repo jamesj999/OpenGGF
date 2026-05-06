@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -116,9 +117,11 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     private int puffTimer;
 
     // Reference to the Death Egg Robot for boarding signal
+    @RewindTransient(reason = "linked boss relationship; restored by live object graph")
     private Sonic2DeathEggRobotInstance deathEggRobot;
 
     // Barrier wall child (ObjC6 subtype $A8)
+    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private BarrierWall barrierWall;
 
     // ========================================================================

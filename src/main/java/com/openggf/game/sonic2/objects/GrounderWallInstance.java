@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.objects.badniks.GrounderBadnikInstance;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -81,6 +82,7 @@ public class GrounderWallInstance extends AbstractObjectInstance {
     private int xSubpixel;
     private int ySubpixel;
     private boolean activated;
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final GrounderBadnikInstance parent;
 
     /**

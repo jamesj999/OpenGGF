@@ -10,6 +10,7 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PerObjectRewindSnapshot;
 import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -369,6 +370,41 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         ctx.drawLine(right, top, right, bottom, 0.35f, 0.7f, 1.0f);
         ctx.drawLine(right, bottom, left, bottom, 0.35f, 0.7f, 1.0f);
         ctx.drawLine(left, bottom, left, top, 0.35f, 0.7f, 1.0f);
+    }
+
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        return super.captureRewindState().withObjectSubclassExtra(
+                new PerObjectRewindSnapshot.ArzPlatformRewindExtra(
+                        x, y,
+                        baseX, baseY, baseYFixed,
+                        widthPixels, mappingFrame,
+                        subtype, routine,
+                        bobHelper.getAngle(),
+                        angle, timer, yVel, yRadius));
+    }
+
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+        super.restoreRewindState(snapshot);
+        if (!(snapshot.objectSubclassExtra()
+                instanceof PerObjectRewindSnapshot.ArzPlatformRewindExtra extra)) {
+            return;
+        }
+        this.x = extra.x();
+        this.y = extra.y();
+        this.baseX = extra.baseX();
+        this.baseY = extra.baseY();
+        this.baseYFixed = extra.baseYFixed();
+        this.widthPixels = extra.widthPixels();
+        this.mappingFrame = extra.mappingFrame();
+        this.subtype = extra.subtype();
+        this.routine = extra.routine();
+        this.bobHelper.restoreAngle(extra.bobAngle());
+        this.angle = extra.angle();
+        this.timer = extra.timer();
+        this.yVel = extra.yVel();
+        this.yRadius = extra.yRadius();
     }
 
 }

@@ -137,6 +137,11 @@ class TestAbstractPlayableSpriteRewindCapture {
         sonic.wasInWater = true;
         sonic.waterSkimActive = true;
         sonic.preventTailsRespawn = true;
+        sonic.setMappingFrame(17);
+        sonic.setAnimationId(8);
+        sonic.setForcedAnimationId(11);
+        sonic.setAnimationFrameIndex(3);
+        sonic.setAnimationTick(6);
 
         // ---- Capture ----
         PerObjectRewindSnapshot snap1 = sonic.captureRewindState();
@@ -321,6 +326,11 @@ class TestAbstractPlayableSpriteRewindCapture {
         sonic.wasInWater = false;
         sonic.waterSkimActive = false;
         sonic.preventTailsRespawn = false;
+        sonic.setMappingFrame(0);
+        sonic.setAnimationId(0);
+        sonic.setForcedAnimationId(-1);
+        sonic.setAnimationFrameIndex(0);
+        sonic.setAnimationTick(0);
 
         // ---- Restore from snap1 ----
         sonic.restoreRewindState(snap1);
@@ -442,6 +452,11 @@ class TestAbstractPlayableSpriteRewindCapture {
         assertEquals(e1.bubbleAnimId(), e2.bubbleAnimId(), "bubbleAnimId not restored");
         assertEquals(e1.initPhysicsActive(), e2.initPhysicsActive(), "initPhysicsActive not restored");
         assertEquals(e1.objectMappingFrameControl(), e2.objectMappingFrameControl(), "objectMappingFrameControl not restored");
+        assertEquals(e1.mappingFrame(), e2.mappingFrame(), "mappingFrame not restored");
+        assertEquals(e1.animationId(), e2.animationId(), "animationId not restored");
+        assertEquals(e1.forcedAnimationId(), e2.forcedAnimationId(), "forcedAnimationId not restored");
+        assertEquals(e1.animationFrameIndex(), e2.animationFrameIndex(), "animationFrameIndex not restored");
+        assertEquals(e1.animationTick(), e2.animationTick(), "animationTick not restored");
     }
 
     // -------------------------------------------------------------------------
@@ -476,5 +491,24 @@ class TestAbstractPlayableSpriteRewindCapture {
         assertTrue(sonic.air, "air not restored directly");
         assertTrue(sonic.rolling, "rolling not restored directly");
         assertEquals((byte) 0x20, sonic.angle, "angle not restored directly");
+    }
+
+    @Test
+    void compactCaptureCanOmitFollowHistoryWhenNoSidekickDependsOnIt() {
+        Sonic sonic = new Sonic("sonic", (short) 0, (short) 0);
+
+        PlayerRewindExtra compact = sonic.captureRewindState(false).playerExtra();
+        PlayerRewindExtra full = sonic.captureRewindState(true).playerExtra();
+
+        assertNull(compact.xHistory());
+        assertNull(compact.yHistory());
+        assertNull(compact.inputHistory());
+        assertNull(compact.jumpPressHistory());
+        assertNull(compact.statusHistory());
+        assertNotNull(full.xHistory());
+        assertNotNull(full.yHistory());
+        assertNotNull(full.inputHistory());
+        assertNotNull(full.jumpPressHistory());
+        assertNotNull(full.statusHistory());
     }
 }

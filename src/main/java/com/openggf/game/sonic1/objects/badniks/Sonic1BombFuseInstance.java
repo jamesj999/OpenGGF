@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -37,6 +38,7 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     // From disassembly: move.b #3,obPriority(a0)
     private static final int RENDER_PRIORITY = 3;
 
+    @RewindTransient(reason = "parent/child object link; live object graph persists across rewind")
     private final Sonic1BombBadnikInstance parent;
     private int currentX;
     private int currentY;

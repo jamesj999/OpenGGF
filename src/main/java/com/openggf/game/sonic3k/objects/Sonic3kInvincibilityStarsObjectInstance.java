@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PowerUpObject;
 import com.openggf.graphics.GLCommand;
@@ -30,7 +31,9 @@ import java.util.List;
  */
 public class Sonic3kInvincibilityStarsObjectInstance extends AbstractObjectInstance implements PowerUpObject {
 
+    @com.openggf.game.rewind.RewindDeferred(reason = "power-up owner needs explicit player identity snapshot")
     private final PlayableEntity player;
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from live art data")
     private final PatternSpriteRenderer renderer;
 
     /** Orbit offset table (byte_189A0): 32 signed X,Y pairs forming ~16px radius circle. */

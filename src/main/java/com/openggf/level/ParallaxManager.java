@@ -465,41 +465,12 @@ public class ParallaxManager implements RewindSnapshottable<ParallaxSnapshot> {
 
     @Override
     public ParallaxSnapshot capture() {
-        return new ParallaxSnapshot(
-                currentShakeOffsetX,
-                currentShakeOffsetY,
-                cachedBgCameraX,
-                cachedBgPeriodWidth,
-                java.util.Arrays.copyOf(hScroll, hScroll.length),
-                java.util.Arrays.copyOf(vScrollPerLineBG, vScrollPerLineBG.length),
-                java.util.Arrays.copyOf(vScrollPerColumnBG, vScrollPerColumnBG.length),
-                java.util.Arrays.copyOf(vScrollPerColumnFG, vScrollPerColumnFG.length),
-                hasPerLineVScrollBG,
-                hasPerColumnVScrollBG,
-                hasPerColumnVScrollFG,
-                minScroll,
-                maxScroll,
-                vscrollFactorFG,
-                vscrollFactorBG
-        );
+        return new ParallaxSnapshot();
     }
 
     @Override
     public void restore(ParallaxSnapshot s) {
-        currentShakeOffsetX = s.currentShakeOffsetX();
-        currentShakeOffsetY = s.currentShakeOffsetY();
-        cachedBgCameraX = s.cachedBgCameraX();
-        cachedBgPeriodWidth = s.cachedBgPeriodWidth();
-        System.arraycopy(s.hScroll(), 0, hScroll, 0, hScroll.length);
-        System.arraycopy(s.vScrollPerLineBG(), 0, vScrollPerLineBG, 0, vScrollPerLineBG.length);
-        System.arraycopy(s.vScrollPerColumnBG(), 0, vScrollPerColumnBG, 0, vScrollPerColumnBG.length);
-        System.arraycopy(s.vScrollPerColumnFG(), 0, vScrollPerColumnFG, 0, vScrollPerColumnFG.length);
-        hasPerLineVScrollBG = s.hasPerLineVScrollBG();
-        hasPerColumnVScrollBG = s.hasPerColumnVScrollBG();
-        hasPerColumnVScrollFG = s.hasPerColumnVScrollFG();
-        minScroll = s.minScroll();
-        maxScroll = s.maxScroll();
-        vscrollFactorFG = s.vscrollFactorFG();
-        vscrollFactorBG = s.vscrollFactorBG();
+        // Parallax is derived from restored camera, frame, zone and handler
+        // state. GameplayModeContext recomputes it after the registry restore.
     }
 }

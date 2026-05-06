@@ -234,6 +234,11 @@ public enum SonicConfiguration {
 	PLAYBACK_START_OFFSET_FRAME,
 
 	/**
+	 * Key held in visual Trace Test Mode to rewind deterministic engine state.
+	 */
+	TRACE_REWIND_KEY,
+
+	/**
 	 * Key to teleport player to the last checkpoint (debug).
 	 */
 	DEBUG_LAST_CHECKPOINT_KEY,

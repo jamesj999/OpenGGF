@@ -10,11 +10,14 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PowerUpObject;
+import com.openggf.game.rewind.RewindTransient;
 
 import java.util.List;
 
 public class ShieldObjectInstance extends AbstractObjectInstance implements PowerUpObject {
+    @RewindTransient(reason = "power-up owner is a live runtime player reference")
     private final PlayableEntity player;
+    @RewindTransient(reason = "renderer cache is runtime-owned and rebuilt from object art services")
     private final PatternSpriteRenderer renderer;
 
     // S2 animation from disassembly (Ani_obj38): 5, 0, 5, 1, 5, 2, 5, 3, 5, 4

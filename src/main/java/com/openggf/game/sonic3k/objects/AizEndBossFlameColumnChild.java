@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -22,6 +23,7 @@ public class AizEndBossFlameColumnChild extends AbstractObjectInstance {
     private static final int[] FRAMES = {0x21, 0x21, 0x22, 0x23};
     private static final int[] FRAME_DURATIONS = {1, 4, 5, 6};
 
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
     private int sequenceIndex;
     private int frameTimer;

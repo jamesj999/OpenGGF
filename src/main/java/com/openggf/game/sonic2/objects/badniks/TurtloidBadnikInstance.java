@@ -4,6 +4,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.level.objects.AnimalObjectInstance;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -80,7 +81,9 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     private final SubpixelMotion.State motionState;
 
     // Child references
+    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private TurtloidRiderInstance rider;
+    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private TurtloidJetInstance jet;
 
     private final SolidObjectParams platformParams;

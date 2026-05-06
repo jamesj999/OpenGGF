@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AnimalObjectInstance;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -120,6 +121,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
         DEATH_DROP
     }
 
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final RexonBadnikInstance parent;
     private final int headIndex;  // 0, 2, 4, 6, or 8
     private final int headNumber; // 0-4 for array indexing
@@ -147,6 +149,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
     // Each head controls the NEXT head's position during oscillation
     // Head 0 (anchor) → Head 1 → Head 2 → Head 3 → Head 4 (tip)
     // Head 0 stays at base position; oscillation ripples toward tip
+    @RewindTransient(reason = "linked child relationship; restored by live object graph")
     private RexonHeadObjectInstance linkedHead;
 
     public RexonHeadObjectInstance(ObjectSpawn spawn,

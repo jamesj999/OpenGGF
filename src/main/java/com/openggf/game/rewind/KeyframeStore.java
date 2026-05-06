@@ -20,6 +20,9 @@ public interface KeyframeStore {
     /** Earliest-stored frame, or {@code -1} if empty. */
     int earliestFrame();
 
+    /** Removes all stored keyframes. */
+    void clear();
+
     /** Stored entry record. */
     record Entry(int frame, CompositeSnapshot snapshot) {}
 }

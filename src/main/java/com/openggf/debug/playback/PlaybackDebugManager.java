@@ -257,6 +257,24 @@ public final class PlaybackDebugManager {
         timeline.advanceIfPlaying();
     }
 
+    /**
+     * Programmatic seek used by Trace Test Mode rewind. Keeps the BK2 cursor
+     * aligned with the restored engine snapshot without invoking comparator
+     * callbacks or moving gameplay state.
+     */
+    public synchronized void seekSessionFrame(int frame, boolean playing) {
+        if (!enabled || movie == null || timeline == null) {
+            return;
+        }
+        timeline.seekAndPlay(frame, playing);
+        int cursor = timeline.getCursorFrame();
+        previousActionMask = cursor > 0 ? movie.getFrame(cursor - 1).p1ActionMask() : 0;
+        lastAppliedMask = 0;
+        lastAppliedStart = false;
+        currentForcedJumpPress = false;
+        currentTickSuppressed = false;
+    }
+
     public synchronized void clearLastAppliedState() {
         lastAppliedMask = 0;
         lastAppliedStart = false;

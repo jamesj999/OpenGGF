@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -270,6 +271,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private State state = State.IDLE;
     private int spinTimer;
     private int currentFrame = IDLE_MAPPING_FRAME;
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private DispenserChild dispenser;
 
     // ROM $38 field bit flags — shared state with children for ball-ejection chain.
@@ -902,6 +904,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         private enum State { DORMANT, ANIMATING }
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final GumballMachineObjectInstance parent;
         private final int offsetFromMachine; // Y offset (ROM: +$24)
         private State state = State.DORMANT;
@@ -1259,7 +1262,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         private static final int IDLE_FRAME = 0;
         private static final int COMPRESSED_FRAME = 1;
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final GumballMachineObjectInstance parent;
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final DispenserChild dispenser;
         private boolean triggered;
         private int crumbleTimer;

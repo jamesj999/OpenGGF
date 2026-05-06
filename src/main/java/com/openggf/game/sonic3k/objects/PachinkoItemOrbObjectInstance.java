@@ -36,6 +36,7 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
 
     private int animationFrameCounter;
     private boolean pendingRewardConversion;
+    @com.openggf.game.rewind.RewindDeferred(reason = "reward item proxy needs stable object identity snapshot")
     private GumballItemObjectInstance rewardItem;
 
     public PachinkoItemOrbObjectInstance(ObjectSpawn spawn) {

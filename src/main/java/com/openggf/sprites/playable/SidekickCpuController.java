@@ -9,6 +9,7 @@ import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
@@ -97,8 +98,11 @@ public class SidekickCpuController {
 
     private static final int SETTLED_FRAME_THRESHOLD = 15;
 
+    @RewindTransient(reason = "owning sidekick reference is structural and restored from the live playable graph")
     private final AbstractPlayableSprite sidekick;
+    @RewindTransient(reason = "sidekick leader link is structural and persists in the live daisy-chain graph")
     private AbstractPlayableSprite leader;
+    @RewindTransient(reason = "respawn strategy is structural runtime behavior selected by the live controller setup")
     private SidekickRespawnStrategy respawnStrategy;
 
     private State state = State.INIT;
@@ -134,6 +138,7 @@ public class SidekickCpuController {
     // =====================================================================
     // Tails-carry-Sonic support (S3K-only; null trigger = feature disabled)
     // =====================================================================
+    @RewindTransient(reason = "carry trigger is level/runtime-owned behavior installed by the live game module")
     private SidekickCarryTrigger carryTrigger;
     private short carryLatchX;
     private short carryLatchY;

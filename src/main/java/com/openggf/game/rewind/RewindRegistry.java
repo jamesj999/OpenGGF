@@ -21,6 +21,7 @@ import java.util.Objects;
 public final class RewindRegistry {
 
     private final Map<String, RewindSnapshottable<?>> entries = new LinkedHashMap<>();
+    private final Map<String, Runnable> postRestoreCallbacks = new LinkedHashMap<>();
 
     public void register(RewindSnapshottable<?> s) {
         Objects.requireNonNull(s, "s");
@@ -32,6 +33,19 @@ public final class RewindRegistry {
 
     public void deregister(String key) {
         entries.remove(key);
+    }
+
+    public void registerPostRestoreCallback(String key, Runnable callback) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(callback, "callback");
+        if (postRestoreCallbacks.putIfAbsent(key, callback) != null) {
+            throw new IllegalStateException(
+                    "Post-restore callback already registered: " + key);
+        }
+    }
+
+    public void deregisterPostRestoreCallback(String key) {
+        postRestoreCallbacks.remove(key);
     }
 
     public CompositeSnapshot capture() {
@@ -50,6 +64,9 @@ public final class RewindRegistry {
             @SuppressWarnings({"rawtypes", "unchecked"})
             RewindSnapshottable raw = e.getValue();
             raw.restore(snap);
+        }
+        for (Runnable callback : postRestoreCallbacks.values()) {
+            callback.run();
         }
     }
 }

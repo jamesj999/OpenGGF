@@ -58,6 +58,11 @@ public final class PlaybackTimelineController {
         playing = false;
     }
 
+    public void seekAndPlay(int frame, boolean playing) {
+        seek(frame);
+        this.playing = playing;
+    }
+
     public void stepForward() {
         seek(cursorFrame + 1);
     }

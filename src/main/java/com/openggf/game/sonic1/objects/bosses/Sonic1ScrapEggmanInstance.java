@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -129,6 +130,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     private boolean floorSignalled;
 
     /** The button child object */
+    @RewindTransient(reason = "boss button child link; live object graph persists across rewind")
     private ScrapEggmanButton button;
 
     public Sonic1ScrapEggmanInstance(ObjectSpawn spawn) {
@@ -430,6 +432,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
         private static final int BUTTON_PHASE_WAITING = 0;
         private static final int BUTTON_PHASE_PRESSED = 2;
 
+        @RewindTransient(reason = "parent boss link; live object graph persists across rewind")
         private final Sonic1ScrapEggmanInstance parent;
         private int buttonPhase;
         private int buttonFrame; // 0 = unpressed, 1 = pressed

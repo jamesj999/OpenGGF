@@ -190,6 +190,7 @@ public class HczMinibossInstance extends AbstractBossInstance {
     private int waterEffectFrame;
     private int lastFrameCounter;
     private List<VortexBubbleChild> vortexBubbles;
+    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
 
     private static final class RocketState {

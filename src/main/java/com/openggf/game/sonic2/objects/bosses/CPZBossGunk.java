@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2Rng;
@@ -34,6 +35,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
     private static final int FLOOR_Y = 0x0518;
     private static final int COLLISION_FLAGS = 0x87;
     private static final int GRAVITY = 0x38;
+    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;

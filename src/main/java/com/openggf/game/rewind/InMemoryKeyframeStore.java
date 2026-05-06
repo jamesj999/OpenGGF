@@ -27,4 +27,9 @@ public final class InMemoryKeyframeStore implements KeyframeStore {
     public int earliestFrame() {
         return entries.isEmpty() ? -1 : entries.firstKey();
     }
+
+    @Override
+    public void clear() {
+        entries.clear();
+    }
 }

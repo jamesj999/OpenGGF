@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.debug.DebugColor;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
@@ -125,6 +126,7 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
     private boolean latchedOn;         // $42(a0): set by platform child when player is above
 
     // Platform child reference
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private FanPlatformChild platformChild;
 
     public HCZCGZFanObjectInstance(ObjectSpawn spawn) {
@@ -505,6 +507,7 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         // ROM: cmpi.w #-$30,d0 — above threshold
         private static final int ABOVE_THRESHOLD = -0x30;
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final HCZCGZFanObjectInstance fanParent;
         private final int maxSlideDistance;   // $3A(a0): max slide offset
         private final boolean facingLeft;

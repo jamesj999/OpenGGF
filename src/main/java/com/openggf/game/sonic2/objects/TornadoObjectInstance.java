@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.save.SaveReason;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.solid.PlayerSolidContactResult;
@@ -151,6 +152,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     // ------------------------------------------------------------------------
 
     private final int subtype;
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final TornadoObjectInstance parent;
 
     private int routine;
@@ -196,6 +198,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     private boolean grabberTriggered;
     private boolean blinkerVisible;
 
+    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private TornadoObjectInstance thrusterFollowerChild;
 
     public TornadoObjectInstance(ObjectSpawn spawn) {

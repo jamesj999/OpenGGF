@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -256,6 +257,7 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
     }
 
     private static final class BuzzerFlameChild extends AbstractObjectInstance {
+        @RewindTransient(reason = "parent-child relationship; restored by live object graph")
         private final BuzzerBadnikInstance parent;
         private final int parentSlotIndex;
         private int currentX;
@@ -336,6 +338,29 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
         @Override
         public boolean isHighPriority() {
             return false;
+        }
+
+        @Override
+        public PerObjectRewindSnapshot captureRewindState() {
+            return super.captureRewindState().withObjectSubclassExtra(
+                    new PerObjectRewindSnapshot.BuzzerFlameRewindExtra(
+                            parentSlotIndex,
+                            currentX,
+                            currentY,
+                            facingLeft,
+                            animFrame));
+        }
+
+        @Override
+        public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+            super.restoreRewindState(snapshot);
+            if (snapshot.objectSubclassExtra()
+                    instanceof PerObjectRewindSnapshot.BuzzerFlameRewindExtra extra) {
+                currentX = extra.currentX();
+                currentY = extra.currentY();
+                facingLeft = extra.facingLeft();
+                animFrame = extra.animFrame();
+            }
         }
     }
 }

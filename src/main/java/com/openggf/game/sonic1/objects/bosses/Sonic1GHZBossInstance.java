@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 
 import com.openggf.level.objects.ObjectSpawn;
@@ -57,6 +58,7 @@ public class Sonic1GHZBossInstance extends AbstractS1EggmanBossInstance {
     private int timer; // objoff_3C
 
     // Wrecking ball child
+    @RewindTransient(reason = "boss child component link; live object graph persists across rewind")
     private GHZBossWreckingBall wreckingBall;
 
     public Sonic1GHZBossInstance(ObjectSpawn spawn) {

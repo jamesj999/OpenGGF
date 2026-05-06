@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects.bosses;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -122,6 +123,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     // =========================================================================
     // Instance state
     // =========================================================================
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final HczEndBossInstance boss;
     /**
      * ROM subtype: 0 = bottom (fires), 2 = middle, 4 = top.

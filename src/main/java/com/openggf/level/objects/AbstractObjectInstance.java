@@ -7,6 +7,9 @@ import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.GameServices;
+import com.openggf.game.rewind.GenericFieldCapturer;
+import com.openggf.game.rewind.GenericRewindEligibility;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
@@ -48,7 +51,9 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
 
+    @RewindTransient(reason = "structural spawn identity; placement/respawn state is captured separately")
     protected final ObjectSpawn spawn;
+    @RewindTransient(reason = "object name is immutable type identity")
     protected final String name;
     private boolean destroyed;
     /**
@@ -63,7 +68,9 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * latched destroy in the ROM and must be respawnable.
      */
     private boolean destroyedRespawnable;
+    @RewindTransient(reason = "dynamic spawn position is captured explicitly as scalar coordinates")
     private ObjectSpawn dynamicSpawn;
+    @RewindTransient(reason = "object services are runtime-owned and reattached by ObjectManager")
     private ObjectServices services;
 
     /**
@@ -794,7 +801,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * @return immutable snapshot of this object's standard mutable field surface
      */
     public PerObjectRewindSnapshot captureRewindState() {
-        return new PerObjectRewindSnapshot(
+        PerObjectRewindSnapshot snapshot = new PerObjectRewindSnapshot(
                 destroyed,
                 destroyedRespawnable,
                 dynamicSpawn != null,
@@ -812,6 +819,10 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 null,  // Base class does not capture badnik subclass extra
                 null   // Base class does not capture player extra; subclass overrides if needed
         );
+        if (GenericRewindEligibility.isEligible(getClass())) {
+            snapshot = snapshot.withGenericState(GenericFieldCapturer.capture(this));
+        }
+        return snapshot;
     }
 
     /**
@@ -837,6 +848,9 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         this.solidContactFirstFrame = s.solidContactFirstFrame();
         this.slotIndex = s.slotIndex();
         this.respawnStateIndex = s.respawnStateIndex();
+        if (s.genericState() != null) {
+            GenericFieldCapturer.restore(this, s.genericState());
+        }
         // badnikExtra is handled by subclass overrides; base class does nothing
     }
 

@@ -262,6 +262,26 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         }
     }
 
+    /**
+     * Repositions the visual/comparison cursor after an engine-state rewind.
+     * Existing mismatch counters are retained; no comparison is performed for
+     * the seek itself.
+     */
+    public void seekForRewind(int targetCursor) {
+        if (trace.frameCount() == 0) {
+            cursor = 0;
+            currentVisualFrame = null;
+            complete = true;
+            return;
+        }
+        cursor = Math.max(0, Math.min(targetCursor, trace.frameCount() - 1));
+        int visualCursor = targetCursor <= 0
+                ? 0
+                : Math.min(targetCursor - 1, trace.frameCount() - 1);
+        currentVisualFrame = trace.getFrame(visualCursor);
+        complete = false;
+    }
+
     public int errorCount() { return errorCount; }
     public int warningCount() { return warningCount; }
     public int laggedFrames() { return laggedFrames; }

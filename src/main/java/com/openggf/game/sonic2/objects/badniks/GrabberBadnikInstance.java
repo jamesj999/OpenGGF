@@ -62,6 +62,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
     private int lastDirectionBits;          // Last direction pressed as bitmask (objoff_36)
     private boolean paletteFlipped;         // Palette bit toggle for blink effect (not visibility)
     private int anchorY;            // Y position of anchor point (where Grabber starts)
+    @com.openggf.game.rewind.RewindDeferred(reason = "grabbed player needs explicit player identity snapshot")
     private AbstractPlayableSprite grabbedPlayer;
 
     // Sub-object positions

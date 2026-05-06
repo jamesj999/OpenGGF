@@ -503,6 +503,7 @@ public class ObjectManager {
             populateDynamicFallbackScratch();
             for (ObjectInstance inst : dynamicFallbackScratch) {
                 if (inst.isDestroyed()) {
+                    releaseSlotIfManaged(inst);
                     inst.onUnload();
                     dynamicObjects.remove(inst);
                     objectsRemoved = true;
@@ -515,6 +516,7 @@ public class ObjectManager {
                     continue;
                 }
                 if (inst.isDestroyed()) {
+                    releaseSlotIfManaged(inst);
                     inst.onUnload();
                     dynamicObjects.remove(inst);
                     objectsRemoved = true;
@@ -655,6 +657,7 @@ public class ObjectManager {
             populateDynamicFallbackScratch();
             for (ObjectInstance inst : dynamicFallbackScratch) {
                 if (inst.isDestroyed()) {
+                    releaseSlotIfManaged(inst);
                     inst.onUnload();
                     dynamicObjects.remove(inst);
                     objectsRemoved = true;
@@ -668,6 +671,7 @@ public class ObjectManager {
                     continue;
                 }
                 if (inst.isDestroyed()) {
+                    releaseSlotIfManaged(inst);
                     inst.onUnload();
                     dynamicObjects.remove(inst);
                     objectsRemoved = true;
@@ -1099,6 +1103,10 @@ public class ObjectManager {
         return placement.getAllSpawns();
     }
 
+    public ObjectInstance getActiveObjectForRewind(ObjectSpawn spawn) {
+        return activeObjects.get(spawn);
+    }
+
     public void addDynamicObject(ObjectInstance object) {
         addDynamicObjectInternal(object, false, true);
     }
@@ -1255,6 +1263,15 @@ public class ObjectManager {
     private void releaseSlot(int slotIndex) {
         if (isManagedDynamicSlot(slotIndex)) {
             usedSlots.clear(execIndexForSlot(slotIndex));
+        }
+    }
+
+    private void releaseSlotIfManaged(ObjectInstance instance) {
+        if (instance instanceof AbstractObjectInstance aoi) {
+            int slot = aoi.getSlotIndex();
+            if (isManagedDynamicSlot(slot)) {
+                releaseSlot(slot);
+            }
         }
     }
 
@@ -2260,9 +2277,6 @@ public class ObjectManager {
 
             @Override
             public com.openggf.game.rewind.snapshot.ObjectManagerSnapshot capture() {
-                // Capture usedSlots
-                long[] bits = usedSlots.toLongArray();
-
                 // Capture per-active-slot state
                 List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PerSlotEntry> slots = new ArrayList<>();
                 for (Map.Entry<ObjectSpawn, ObjectInstance> entry : activeObjects.entrySet()) {
@@ -2287,6 +2301,40 @@ public class ObjectManager {
                     ));
                 }
 
+                List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry> dynamicEntries =
+                        new ArrayList<>();
+                for (ObjectInstance inst : dynamicObjects) {
+                    if (inst instanceof AbstractObjectInstance aoi
+                            && isRewindRestorableDynamicObject(inst)) {
+                        dynamicEntries.add(
+                                new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry(
+                                        inst.getClass().getName(),
+                                        inst.getSpawn(),
+                                        aoi.getSlotIndex(),
+                                        aoi.captureRewindState()));
+                    }
+                }
+
+                BitSet capturedSlots = new BitSet(slotLayout.dynamicSlotCount());
+                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PerSlotEntry entry : slots) {
+                    if (isManagedDynamicSlot(entry.slotIndex())) {
+                        capturedSlots.set(execIndexForSlot(entry.slotIndex()));
+                    }
+                }
+                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry : dynamicEntries) {
+                    if (isManagedDynamicSlot(entry.slotIndex())) {
+                        capturedSlots.set(execIndexForSlot(entry.slotIndex()));
+                    }
+                }
+                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.ChildSpawnEntry entry : childSpawns) {
+                    for (int slot : entry.reservedSlots()) {
+                        if (isManagedDynamicSlot(slot)) {
+                            capturedSlots.set(execIndexForSlot(slot));
+                        }
+                    }
+                }
+                long[] bits = capturedSlots.toLongArray();
+
                 return new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot(
                         bits,
                         List.copyOf(slots),
@@ -2295,7 +2343,10 @@ public class ObjectManager {
                         currentExecSlot,
                         peakSlotCount,
                         bucketsDirty,
-                        List.copyOf(childSpawns)
+                        List.copyOf(childSpawns),
+                        List.copyOf(dynamicEntries),
+                        placement.captureRewindState(),
+                        solidContacts.captureRewindState()
                 );
             }
 
@@ -2358,10 +2409,111 @@ public class ObjectManager {
                             Arrays.copyOf(ce.reservedSlots(), ce.reservedSlots().length));
                 }
 
+                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry
+                        : s.dynamicObjects()) {
+                    ObjectInstance inst = recreateDynamicObject(entry);
+                    if (inst instanceof AbstractObjectInstance aoi) {
+                        aoi.setServices(objectServices);
+                        aoi.restoreRewindState(entry.state());
+                        dynamicObjects.add(aoi);
+                        int execIdx = execIndexForSlot(aoi.getSlotIndex());
+                        if (execIdx >= 0 && execIdx < execOrder.length) {
+                            execOrder[execIdx] = aoi;
+                        }
+                    }
+                }
+
+                if (s.placement() != null) {
+                    placement.restoreRewindState(s.placement());
+                }
+
+                solidContacts.restoreRewindState(s.solidContactRiding());
+
                 bucketsDirty = true;
                 activeObjectsCacheDirty = true;
             }
         };
+    }
+
+    private static boolean isRewindRestorableDynamicObject(ObjectInstance inst) {
+        return inst instanceof com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance
+                || inst.getClass().getName().equals(
+                        "com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance$BuzzerFlameChild");
+    }
+
+    private ObjectInstance recreateDynamicObject(
+            com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
+        try {
+            if (entry.className().equals(
+                    com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance.class.getName())) {
+                var extra = (PerObjectRewindSnapshot.BadnikProjectileRewindExtra)
+                        entry.state().objectSubclassExtra();
+                return new com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance(
+                        entry.spawn(),
+                        com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance.ProjectileType.valueOf(
+                                extra.projectileType()),
+                        extra.currentX(),
+                        extra.currentY(),
+                        extra.xVelocity(),
+                        extra.yVelocity(),
+                        extra.applyGravity(),
+                        extra.hFlip(),
+                        extra.initialDelay(),
+                        extra.fixedFrame());
+            }
+            if (entry.className().equals(
+                    "com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance$BuzzerFlameChild")) {
+                var extra = (PerObjectRewindSnapshot.BuzzerFlameRewindExtra)
+                        entry.state().objectSubclassExtra();
+                com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance parent =
+                        findBuzzerParentForRewind(extra.parentSlotIndex());
+                if (parent == null) {
+                    return null;
+                }
+                Class<?> cls = Class.forName(entry.className());
+                var ctor = cls.getDeclaredConstructor(
+                        ObjectSpawn.class,
+                        com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance.class);
+                ctor.setAccessible(true);
+                return (ObjectInstance) ctor.newInstance(entry.spawn(), parent);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(
+                    "Failed to recreate dynamic rewind object " + entry.className(), e);
+        }
+        return null;
+    }
+
+    private com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance findBuzzerParentForRewind(
+            int parentSlotIndex) {
+        for (ObjectInstance inst : activeObjects.values()) {
+            if (inst instanceof com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance buzzer
+                    && buzzer.getSlotIndex() == parentSlotIndex) {
+                return buzzer;
+            }
+        }
+        return null;
+    }
+
+    private ObjectInstance findRestoredRidingObject(ObjectSpawn spawn, int slotIndex) {
+        if (spawn != null) {
+            ObjectInstance active = activeObjects.get(spawn);
+            if (active != null) {
+                return active;
+            }
+            for (ObjectInstance dynamic : dynamicObjects) {
+                if (dynamic != null && dynamic.getSpawn() == spawn) {
+                    return dynamic;
+                }
+            }
+        }
+        if (isManagedDynamicSlot(slotIndex)) {
+            int execIdx = execIndexForSlot(slotIndex);
+            if (execIdx >= 0 && execIdx < execOrder.length) {
+                return execOrder[execIdx];
+            }
+        }
+        return null;
     }
 
     static final class Placement extends AbstractPlacementManager<ObjectSpawn> {
@@ -2498,6 +2650,97 @@ public class ObjectManager {
 
         void enforceSlotLimit(java.util.function.IntSupplier counter) {
             this.usedSlotCounter = counter;
+        }
+
+        com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PlacementSnapshot captureRewindState() {
+            int[] activeIndices = active.stream()
+                    .mapToInt(this::getSpawnIndex)
+                    .filter(index -> index >= 0)
+                    .toArray();
+
+            List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SpawnCounterEntry> counters =
+                    new ArrayList<>();
+            for (Map.Entry<ObjectSpawn, Integer> entry : spawnToCounter.entrySet()) {
+                int index = getSpawnIndex(entry.getKey());
+                if (index >= 0) {
+                    counters.add(new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SpawnCounterEntry(
+                            index, entry.getValue()));
+                }
+            }
+            counters.sort(Comparator.comparingInt(
+                    com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SpawnCounterEntry::spawnIndex));
+
+            return new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PlacementSnapshot(
+                    activeIndices,
+                    remembered.toLongArray(),
+                    stayActive.toLongArray(),
+                    destroyedInWindow.toLongArray(),
+                    dormant.toLongArray(),
+                    cursorIndex,
+                    lastCameraX,
+                    lastCameraChunk,
+                    counterBasedRespawn,
+                    execThenLoadPlacement,
+                    permanentDestroyLatch,
+                    maxDynamicSlots,
+                    lastScrollBackward,
+                    leftCursorIndex,
+                    fwdCounter,
+                    bwdCounter,
+                    compactObjState(),
+                    counters);
+        }
+
+        void restoreRewindState(
+                com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PlacementSnapshot snapshot) {
+            active.clear();
+            for (int index : snapshot.activeSpawnIndices()) {
+                if (index >= 0 && index < spawns.size()) {
+                    active.add(spawns.get(index));
+                }
+            }
+
+            remembered.clear();
+            remembered.or(BitSet.valueOf(snapshot.rememberedBits()));
+            stayActive.clear();
+            stayActive.or(BitSet.valueOf(snapshot.stayActiveBits()));
+            destroyedInWindow.clear();
+            destroyedInWindow.or(BitSet.valueOf(snapshot.destroyedInWindowBits()));
+            dormant.clear();
+            dormant.or(BitSet.valueOf(snapshot.dormantBits()));
+
+            cursorIndex = snapshot.cursorIndex();
+            lastCameraX = snapshot.lastCameraX();
+            lastCameraChunk = snapshot.lastCameraChunk();
+            counterBasedRespawn = snapshot.counterBasedRespawn();
+            execThenLoadPlacement = snapshot.execThenLoadPlacement();
+            permanentDestroyLatch = snapshot.permanentDestroyLatch();
+            maxDynamicSlots = snapshot.maxDynamicSlots();
+            lastScrollBackward = snapshot.lastScrollBackward();
+            leftCursorIndex = snapshot.leftCursorIndex();
+            fwdCounter = snapshot.fwdCounter();
+            bwdCounter = snapshot.bwdCounter();
+            Arrays.fill(objState, 0);
+            for (int i = 0; i < snapshot.objState().length && i < objState.length; i++) {
+                objState[i] = snapshot.objState()[i] & 0xFF;
+            }
+
+            spawnToCounter.clear();
+            for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SpawnCounterEntry entry
+                    : snapshot.spawnCounters()) {
+                int index = entry.spawnIndex();
+                if (index >= 0 && index < spawns.size()) {
+                    spawnToCounter.put(spawns.get(index), entry.counter() & 0xFF);
+                }
+            }
+        }
+
+        private byte[] compactObjState() {
+            byte[] compact = new byte[objState.length];
+            for (int i = 0; i < objState.length; i++) {
+                compact[i] = (byte) objState[i];
+            }
+            return compact;
         }
 
         /** Replaces spawns and clears all tracking state. */
@@ -4458,6 +4701,48 @@ public class ObjectManager {
             objectStandingBitSet.clear();
             objectPushingBitSet.clear();
             objectStandingBitSnapshot.clear();
+        }
+
+        List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SolidContactRidingEntry> captureRewindState() {
+            List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SolidContactRidingEntry> entries =
+                    new ArrayList<>();
+            for (var entry : ridingStates.entrySet()) {
+                PlayableEntity player = entry.getKey();
+                RidingState state = entry.getValue();
+                if (player == null || state == null || state.object == null) {
+                    continue;
+                }
+                entries.add(new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SolidContactRidingEntry(
+                        player,
+                        state.object.getSpawn(),
+                        state.object instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1,
+                        state.x,
+                        state.y,
+                        state.pieceIndex));
+            }
+            return List.copyOf(entries);
+        }
+
+        void restoreRewindState(
+                List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.SolidContactRidingEntry> entries) {
+            ridingStates.clear();
+            latestStandingSnapshots.clear();
+            forceAirOnStaleSupportLoss.clear();
+            if (entries == null || entries.isEmpty()) {
+                return;
+            }
+            for (var entry : entries) {
+                PlayableEntity player = entry.player();
+                ObjectInstance object = objectManager.findRestoredRidingObject(
+                        entry.objectSpawn(), entry.objectSlotIndex());
+                if (player != null && object != null) {
+                    ridingStates.put(player, new RidingState(
+                            object,
+                            entry.x(),
+                            entry.y(),
+                            entry.pieceIndex()));
+                }
+            }
         }
 
         private void cacheStandingSnapshot(PlayableEntity player, PlayerStandingState snapshot) {

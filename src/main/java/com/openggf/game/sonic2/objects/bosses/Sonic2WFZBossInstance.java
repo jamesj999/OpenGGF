@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -159,11 +160,17 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     private boolean childrenSpawned;
 
     // Child component references
+    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private WFZLaserWall leftWall;
+    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private WFZLaserWall rightWall;
+    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private WFZPlatformReleaser platformReleaser;
+    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private WFZLaserShooter laserShooter;
+    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private WFZLaser laser;
+    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private WFZRobotnik robotnik;
 
     public Sonic2WFZBossInstance(ObjectSpawn spawn) {
@@ -977,6 +984,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         private int xFixed;
         private int yFixed;
         private int baseY; // ROM: objoff_34 - Y reference for spring oscillation
+        @RewindTransient(reason = "child object relationship; restored by live boss graph")
         private WFZPlatformHurt hurtChild;
 
         WFZFloatingPlatform(Sonic2WFZBossInstance parent, int startX, int startY) {
@@ -1126,6 +1134,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         private static final int Y_OFFSET = 0x0C;
         private static final int COLLISION_FLAGS = 0x98;
 
+        @RewindTransient(reason = "parent-child relationship; restored by live object graph")
         private final WFZFloatingPlatform platformParent;
 
         WFZPlatformHurt(Sonic2WFZBossInstance bossParent, WFZFloatingPlatform platformParent) {
@@ -1412,6 +1421,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
 
         private boolean defeatSignaled;
         private int defeatTimer;
+        @RewindTransient(reason = "child object relationship; restored by live boss graph")
         private WFZRobotnikPlatform robotnikPlatform;
         private int animFrameIndex; // Index into ROBOTNIK_ANIM_FRAMES
         private int animSpeedCounter; // Counts down for animation speed
@@ -1518,6 +1528,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
      */
     static class WFZRobotnikPlatform extends AbstractBossChild {
         private static final int Y_OFFSET = 0x26;
+        @RewindTransient(reason = "parent-child relationship; restored by live object graph")
         private final WFZRobotnik robotnikParent;
 
         WFZRobotnikPlatform(Sonic2WFZBossInstance bossParent, WFZRobotnik robotnikParent) {

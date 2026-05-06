@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -35,6 +36,7 @@ public class CheckpointStarInstance extends AbstractObjectInstance {
     private static final int DELETE_AT = 0x200; // Delete when lifetime reaches this
     private static final int ANGLE_INCREMENT = 0xA; // Add to angle each frame
 
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final CheckpointObjectInstance parentCheckpoint; // Reference to parent for marking as used
     private final int centerX; // objoff_30
     private final int centerY; // objoff_32

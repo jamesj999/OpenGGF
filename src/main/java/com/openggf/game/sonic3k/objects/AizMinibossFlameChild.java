@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -36,6 +37,7 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
         EXPLODE
     }
 
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AbstractBossInstance parent;
     private final int xOffset;
     private final int yOffset;

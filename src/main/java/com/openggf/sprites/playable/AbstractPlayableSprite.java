@@ -20,6 +20,7 @@ import com.openggf.game.DamageCause;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.timer.TimerManager;
 
 import com.openggf.audio.GameAudioProfile;
@@ -61,6 +62,7 @@ import com.openggf.timer.timers.SpeedShoesTimer;
 public abstract class AbstractPlayableSprite extends AbstractSprite implements com.openggf.game.PlayableEntity {
         private static final Logger LOGGER = Logger.getLogger(AbstractPlayableSprite.class.getName());
 
+        @RewindTransient(reason = "playable controller is structural; mutable controller state is captured explicitly")
         protected final PlayableSpriteController controller;
 
         protected GroundMode runningMode = GroundMode.GROUND;
@@ -141,6 +143,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         private boolean cpuControlled = false;
 
         /** The CPU controller for AI-driven sprites */
+        @RewindTransient(reason = "sidekick CPU controller is structural; mutable CPU state is captured explicitly")
         private SidekickCpuController cpuController;
 
         /**
@@ -408,6 +411,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected int rightWallPenetrationTimer = 0;
 
+        @RewindTransient(reason = "player sprite renderer is runtime-owned and rebuilt from live render services")
         private PlayerSpriteRenderer spriteRenderer;
         private int mappingFrame = 0;
         private int renderFlagWidthPixels = 0x18;
@@ -450,6 +454,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         // Physics provider fields — populated from GameModule when available
         private PhysicsProfile physicsProfile;
+        @RewindTransient(reason = "game module binding is runtime-owned and re-resolved from the active game module")
         private GameModule runtimeBoundStateModule;
         private PhysicsModifiers physicsModifiers;
         private PhysicsFeatureSet physicsFeatureSet;
@@ -526,6 +531,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * ownership but still needs SolidObject side/top feedback from its controlling
          * platform instance while the carry is active.
          */
+        @com.openggf.game.rewind.RewindDeferred(reason = "active carried solid contact needs stable object identity snapshot")
         protected ObjectInstance mgzTopPlatformCarrySolidContactObject;
         protected boolean mgzTopPlatformSpringHandoffPending;
         protected int mgzTopPlatformSpringHandoffXVel;
@@ -814,11 +820,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * players) and carries all sprite base fields (position, subpixel, dimensions)
          * plus the full {@code AbstractPlayableSprite} mutable surface.
          *
-         * <p>Render-only state, character physics constants, animation state, and
-         * collision radii are excluded — they are derived from the captured fields
-         * and regenerate within one forward replay frame (v1.5.1 plan scope).
+         * <p>Render-service references and character physics constants are
+         * excluded. Animation cursor state is captured so a restored frame can
+         * render exactly even when rewind happens while paused.
          */
         public PerObjectRewindSnapshot captureRewindState() {
+                return captureRewindState(true);
+        }
+
+        public PerObjectRewindSnapshot captureRewindState(boolean includeFollowHistory) {
                 SidekickCpuRewindExtra sidekickCpuExtra =
                         cpuController != null ? cpuController.captureRewindState() : null;
                 PlayerRewindExtra extra = new PlayerRewindExtra(
@@ -826,6 +836,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         xPixel, yPixel,
                         xSubpixel, ySubpixel,
                         width, height,
+                        direction, layer,
+                        runningMode, xRadius, yRadius,
                         // Movement / physics
                         gSpeed, xSpeed, ySpeed, jump,
                         angle, statusTertiary, loopLowPlane,
@@ -876,10 +888,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         bubbleAnimId,
                         initPhysicsActive,
                         objectMappingFrameControl,
+                        mappingFrame,
+                        animationId,
+                        forcedAnimationId,
+                        animationFrameIndex,
+                        animationTick,
                         sidekickCpuExtra,
-                        xHistory, yHistory,
-                        inputHistory,
-                        jumpPressHistory, statusHistory);
+                        includeFollowHistory ? xHistory : null,
+                        includeFollowHistory ? yHistory : null,
+                        includeFollowHistory ? inputHistory : null,
+                        includeFollowHistory ? jumpPressHistory : null,
+                        includeFollowHistory ? statusHistory : null);
                 // Player snapshots use a stub PerObjectRewindSnapshot (no badnikExtra; playerExtra holds everything).
                 return new PerObjectRewindSnapshot(
                         false, false,       // destroyed, destroyedRespawnable
@@ -912,6 +931,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.ySubpixel = extra.ySubpixel();
                 this.width = extra.width();
                 this.height = extra.height();
+                this.direction = extra.direction();
+                this.layer = extra.layer();
+                this.runningMode = extra.runningMode();
+                setCollisionRadii(extra.xRadius(), extra.yRadius(), false);
                 // Movement / physics
                 this.gSpeed = extra.gSpeed();
                 this.xSpeed = extra.xSpeed();
@@ -1015,6 +1038,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.bubbleAnimId = extra.bubbleAnimId();
                 this.initPhysicsActive = extra.initPhysicsActive();
                 this.objectMappingFrameControl = extra.objectMappingFrameControl();
+                this.mappingFrame = extra.mappingFrame();
+                this.animationId = extra.animationId();
+                this.forcedAnimationId = extra.forcedAnimationId();
+                this.animationFrameIndex = extra.animationFrameIndex();
+                this.animationTick = extra.animationTick();
                 if (extra.sidekickCpuExtra() != null) {
                         if (cpuController == null) {
                                 throw new IllegalStateException(
@@ -1601,6 +1629,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * detection. The reference is cleared when the controller despawns,
          * inits, or the engine clears latched state.
          */
+        @com.openggf.game.rewind.RewindDeferred(reason = "latched solid contact needs stable object identity snapshot")
         protected com.openggf.level.objects.ObjectInstance latchedSolidObjectInstance;
 
         public com.openggf.level.objects.ObjectInstance getLatchedSolidObjectInstance() {

@@ -2,8 +2,6 @@ package com.openggf.game.rewind.snapshot;
 
 import com.openggf.level.objects.PerObjectRewindSnapshot;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -22,10 +20,17 @@ import java.util.Map;
  */
 public record SpriteManagerSnapshot(
         int frameCounter,
-        Map<String, PerObjectRewindSnapshot> sprites) {
+        SpriteEntry[] sprites) {
 
     public SpriteManagerSnapshot {
-        // Defensive copy so the record is truly immutable.
-        sprites = Collections.unmodifiableMap(new LinkedHashMap<>(sprites));
+        sprites = sprites == null ? new SpriteEntry[0] : sprites.clone();
     }
+
+    public SpriteManagerSnapshot(int frameCounter, Map<String, PerObjectRewindSnapshot> sprites) {
+        this(frameCounter, sprites.entrySet().stream()
+                .map(entry -> new SpriteEntry(entry.getKey(), entry.getValue()))
+                .toArray(SpriteEntry[]::new));
+    }
+
+    public record SpriteEntry(String code, PerObjectRewindSnapshot state) {}
 }

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -20,7 +21,9 @@ import java.util.List;
  * Follows parent pipe position with Y offset.
  */
 public class CPZBossPipeSegment extends AbstractObjectInstance {
+    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
+    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final CPZBossPipe parentPipe;
 
     private int x;

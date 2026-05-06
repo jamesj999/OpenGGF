@@ -128,6 +128,7 @@ The tables below list each key's name, default code, and the human-readable key 
 | `JUMP` | `32` | Space | Jump / action button. |
 | `PAUSE_KEY` | `257` | Enter | Pause / unpause the game. |
 | `FRAME_STEP_KEY` | `81` | Q | Advance one frame while paused. |
+| `TRACE_REWIND_KEY` | `82` | R | Hold during visual Trace Test Mode replay to rewind deterministic engine state in real time. |
 
 ### Debug Navigation
 

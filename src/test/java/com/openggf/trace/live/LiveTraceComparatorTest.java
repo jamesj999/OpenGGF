@@ -110,6 +110,46 @@ class LiveTraceComparatorTest {
         verify(onFirstError, times(1)).run();
     }
 
+    @Test
+    void rewindSeekShowsLastAppliedFrameButKeepsNextComparisonCursor() {
+        AbstractPlayableSprite sprite = mock(AbstractPlayableSprite.class);
+        when(sprite.getCentreX()).thenReturn((short) 300);
+        when(sprite.getCentreY()).thenReturn((short) 0);
+        when(sprite.getXSpeed()).thenReturn((short) 0);
+        when(sprite.getYSpeed()).thenReturn((short) 0);
+        when(sprite.getGSpeed()).thenReturn((short) 0);
+        when(sprite.getAngle()).thenReturn((byte) 0);
+        when(sprite.getAir()).thenReturn(false);
+        when(sprite.getRolling()).thenReturn(false);
+        when(sprite.getGroundMode()).thenReturn(GroundMode.GROUND);
+
+        LiveTraceComparator c = new LiveTraceComparator(
+                stubTrace(List.of(
+                        TraceFrame.of(0, 0, (short) 100, (short) 0,
+                                (short) 0, (short) 0, (short) 0,
+                                (byte) 0, false, false, 0),
+                        TraceFrame.of(1, 0, (short) 200, (short) 0,
+                                (short) 0, (short) 0, (short) 0,
+                                (byte) 0, false, false, 0),
+                        TraceFrame.of(2, 0, (short) 300, (short) 0,
+                                (short) 0, (short) 0, (short) 0,
+                                (byte) 0, false, false, 0))),
+                ToleranceConfig.DEFAULT,
+                0,
+                () -> sprite);
+
+        c.seekForRewind(2);
+
+        assertEquals(1, c.currentVisualFrame().frame(),
+                "restored frame boundary 2 should draw the last applied trace frame");
+
+        c.afterFrameAdvanced(new Bk2FrameInput(2, 0, 0, false, "0"), false);
+
+        assertEquals(0, c.errorCount(),
+                "the next live comparison after releasing rewind should still use cursor 2");
+        assertEquals(2, c.currentVisualFrame().frame());
+    }
+
     private static TraceData stubTrace(List<TraceFrame> frames) {
         return TraceFixtures.trace(TraceFixtures.metadata("s2", 0, 0), frames);
     }

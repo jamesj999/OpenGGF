@@ -69,4 +69,21 @@ class TestRewindRegistry {
         reg.restore(new CompositeSnapshot(entries));
         // No exception — pass.
     }
+    @Test
+    void restoreRunsPostRestoreCallbacksAfterSubsystems() {
+        RewindRegistry reg = new RewindRegistry();
+        AtomicInteger state = new AtomicInteger(7);
+        AtomicInteger callbackSaw = new AtomicInteger(-1);
+        reg.register(intSnap("state", state));
+        reg.registerPostRestoreCallback("observer", () -> callbackSaw.set(state.get()));
+
+        CompositeSnapshot cs = reg.capture();
+        state.set(99);
+
+        reg.restore(cs);
+
+        assertEquals(7, state.get());
+        assertEquals(7, callbackSaw.get(),
+                "post-restore callbacks must see fully restored subsystem state");
+    }
 }

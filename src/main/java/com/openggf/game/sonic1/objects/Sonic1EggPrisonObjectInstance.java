@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -101,9 +102,11 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
     private boolean resultsTriggered;
 
     // Button sub-object
+    @RewindTransient(reason = "capsule button child link; live object graph persists across rewind")
     private Sonic1EggPrisonButtonObjectInstance buttonObject;
 
     // Player reference for results screen
+    @com.openggf.game.rewind.RewindDeferred(reason = "capsule release player needs explicit player identity snapshot")
     private AbstractPlayableSprite lastPlayer;
 
     public Sonic1EggPrisonObjectInstance(ObjectSpawn spawn) {

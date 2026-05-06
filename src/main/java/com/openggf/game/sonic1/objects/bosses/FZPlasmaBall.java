@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -35,6 +36,7 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     private static final int BOSS_FZ_Y = Sonic1Constants.BOSS_FZ_Y;
     private static final SpriteAnimationSet PLASMA_ANIMATIONS = Sonic1BossAnimations.getPlasmaAnimations();
 
+    @RewindTransient(reason = "parent launcher link; live boss object graph persists across rewind")
     private final FZPlasmaLauncher launcher;
 
     // Movement state

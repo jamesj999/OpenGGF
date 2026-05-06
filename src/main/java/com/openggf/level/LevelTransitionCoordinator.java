@@ -282,6 +282,14 @@ public class LevelTransitionCoordinator {
         return requested;
     }
 
+    public boolean isRespawnRequested() {
+        return respawnRequested;
+    }
+
+    public void restoreRespawnRequested(boolean respawnRequested) {
+        this.respawnRequested = respawnRequested;
+    }
+
     /**
      * Request transition to next act. GameLoop will handle the fade transition.
      */

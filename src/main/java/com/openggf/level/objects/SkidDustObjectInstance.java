@@ -5,6 +5,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
@@ -34,6 +35,7 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
     // Frames 0x11-0x14 have empty DPLCs and reuse tiles from frame 0x15.
     private static final int PRELOAD_DPLC_FRAME = 0x15;
 
+    @RewindTransient(reason = "dust renderer is runtime-owned by the live playable sprite renderer")
     private final PlayerSpriteRenderer renderer;
     private int animTimer;
     private int frameIndex;

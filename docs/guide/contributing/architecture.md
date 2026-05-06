@@ -16,6 +16,7 @@ com.openggf/
     GameModuleRegistry.java  -- Maps game identifiers ("s1","s2","s3k") to modules
     GameServices.java        -- Global facade over engine and runtime-owned services
     GameRuntime.java         -- Mutable gameplay state container and runtime-owned framework host
+    rewind/                  -- Frame rewind primitives, keyframes, registry, playback controller
     zone/                    -- Typed zone runtime state adapters
     palette/                 -- Shared palette ownership/composition
     animation/               -- Shared animated tile channel graph
@@ -141,6 +142,8 @@ fresh manager-local state.
 
 The current framework stack includes:
 
+- Rewind framework - gameplay-scoped keyframe capture, restore, deterministic replay, and
+  held-rewind support. See [Rewind System](rewind-system.md).
 - `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
 - `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring
 - `AnimatedTileChannelGraph` - shared animated tile channels for script-driven and custom uploads

@@ -262,7 +262,13 @@ registerFactory(Sonic1ObjectIds.ZONE_BOSS,
 
 `Sonic1ObjectRegistry` already has `registerDefaultFactories()` — add your factory registration there.
 
-### Phase 8: Code Quality
+### Phase 8: Rewind Synchronization Fields
+
+Before finalizing a boss or boss child, classify every instance field for rewind. Key synchronization-relevant fields must remain captured: routine/state variables, phase flags, hit counters, timers, attack cooldowns, arena/camera-lock latches, subpixel positions, velocities, movement helper state, child component state, defeat-flow state, per-player contact/carry/rider latches, and dynamic spawn coordinates. Do not add `@RewindTransient` to these fields just to satisfy `GenericFieldCapturer` or audit tests.
+
+Use `@RewindTransient(reason = "...")` only for structural or derived fields: `ObjectServices`, stable spawn identity, parent/child graph references, renderers/art caches, listeners/callbacks, immutable config, debug-only state, or values rebuilt from ROM data/live managers. If a field is synchronization-relevant but not generically capturable, convert it to a primitive/record/supported array, add an explicit snapshot/codec, or keep the class on its legacy/manual rewind path. Boss `dynamicSpawn` references are not structural by default; capture coordinates explicitly or defer generic migration.
+
+### Phase 9: Code Quality
 
 Ensure the implementation:
 - Has no TODOs or placeholder code

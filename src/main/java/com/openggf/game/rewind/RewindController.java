@@ -45,6 +45,17 @@ public final class RewindController {
         return e < 0 ? 0 : e;
     }
 
+    /**
+     * Re-roots rewind history at the current frame after a committed level or
+     * act boundary. This prevents seeks from replaying across incompatible
+     * level-load state while keeping rewind available in the new segment.
+     */
+    public void resetBufferAtCurrentFrame() {
+        segmentCache.invalidate();
+        keyframes.clear();
+        keyframes.put(currentFrame, registry.capture());
+    }
+
     /** Steps forward one frame, capturing a keyframe at the boundary. */
     public void step() {
         if (currentFrame + 1 >= inputs.frameCount()) {
@@ -56,6 +67,25 @@ public final class RewindController {
         if (currentFrame % keyframeInterval == 0) {
             keyframes.put(currentFrame, registry.capture());
         }
+    }
+
+    /**
+     * Records that the host visual loop has already advanced the engine by one
+     * input frame. This keeps rewind history in sync without recursively
+     * invoking {@link EngineStepper#step(com.openggf.debug.playback.Bk2FrameInput)}.
+     *
+     * @return true when the controller advanced its cursor, false at input end
+     */
+    public boolean recordExternalStep() {
+        if (currentFrame + 1 >= inputs.frameCount()) {
+            return false;
+        }
+        currentFrame++;
+        segmentCache.invalidate();
+        if (currentFrame % keyframeInterval == 0) {
+            keyframes.put(currentFrame, registry.capture());
+        }
+        return true;
     }
 
     /**

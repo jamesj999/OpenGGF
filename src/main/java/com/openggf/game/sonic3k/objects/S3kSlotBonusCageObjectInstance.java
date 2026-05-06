@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRomData;
@@ -32,6 +33,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
     private static final short SNAP_X = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X;
     private static final short SNAP_Y = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y;
 
+    @RewindTransient(reason = "bonus-stage controller link; live stage graph persists across rewind")
     private final S3kSlotStageController controller;
 
     private int cageState;

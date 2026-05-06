@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -61,6 +62,7 @@ public class Sonic1EndingEmeraldsObjectInstance extends AbstractObjectInstance {
     // State
     // ========================================================================
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private PatternSpriteRenderer renderer;
     private final int frameId;
 

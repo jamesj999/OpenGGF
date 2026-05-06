@@ -453,6 +453,31 @@ class TraceCameraFocusControllerTest {
     }
 
     @Test
+    void externalRewindWhilePausedRefreshesSavedDefaultCamera() {
+        when(comparator.currentVisualFrame()).thenReturn(null);
+        TraceCameraFocusController controller = newController();
+
+        when(camera.getX()).thenReturn((short) 100);
+        when(camera.getY()).thenReturn((short) 200);
+        paused.set(true);
+        controller.tick(input);
+
+        // Rewind restores the runtime camera while the pause focus controller is
+        // active. Without an explicit sync, unpausing would restore stale
+        // pause-entry coordinates and jump back to (100, 200).
+        when(camera.getX()).thenReturn((short) 24);
+        when(camera.getY()).thenReturn((short) 48);
+        controller.syncDefaultCameraToCurrentPosition();
+
+        org.mockito.Mockito.clearInvocations(camera);
+        paused.set(false);
+        controller.tick(input);
+
+        org.mockito.Mockito.verify(camera).setX((short) 24);
+        org.mockito.Mockito.verify(camera).setY((short) 48);
+    }
+
+    @Test
     void mainEngineLabelDropsEngSuffixWhenTraceMatches() {
         // Engine and trace main player at the same position -> MAIN_TRACE filtered
         // out of available -> MAIN_ENGINE has no sibling to disambiguate from,

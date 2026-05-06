@@ -123,26 +123,28 @@ public final class PaletteOwnershipRegistry implements RewindSnapshottable<Palet
 
     @Override
     public PaletteOwnershipSnapshot capture() {
-        String[] flat = new String[OWNER_FLAT_SIZE];
+        String[] ownersFlat = new String[OWNER_FLAT_SIZE];
         int idx = 0;
         for (int s = 0; s < owners.length; s++) {
             for (int l = 0; l < owners[s].length; l++) {
                 for (int c = 0; c < owners[s][l].length; c++) {
-                    flat[idx++] = owners[s][l][c];
+                    ownersFlat[idx++] = owners[s][l][c];
                 }
             }
         }
-        return new PaletteOwnershipSnapshot(flat);
+        return new PaletteOwnershipSnapshot(ownersFlat);
     }
 
     @Override
     public void restore(PaletteOwnershipSnapshot snap) {
-        String[] flat = snap.owners();
+        byte[] ownerIds = snap.ownerIds();
+        String[] ownerTable = snap.ownerTable();
         int idx = 0;
         for (int s = 0; s < owners.length; s++) {
             for (int l = 0; l < owners[s].length; l++) {
                 for (int c = 0; c < owners[s][l].length; c++) {
-                    owners[s][l][c] = flat[idx++];
+                    int ownerId = Byte.toUnsignedInt(ownerIds[idx++]);
+                    owners[s][l][c] = ownerId == 0 ? NO_OWNER : ownerTable[ownerId - 1];
                 }
             }
         }

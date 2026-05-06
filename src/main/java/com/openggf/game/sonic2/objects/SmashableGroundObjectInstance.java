@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.PlayableEntity;
@@ -408,6 +409,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         private int velX;  // 8.8 fixed point
         private int velY;  // 8.8 fixed point
         private final SpriteMappingPiece piece;
+        @RewindTransient(reason = "renderer cache; resolved from live render manager")
         private final PatternSpriteRenderer renderer;
         private final List<SpriteMappingPiece> pieceList;
 

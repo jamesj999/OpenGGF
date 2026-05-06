@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
+import com.openggf.game.rewind.RewindTransient;
 import java.util.logging.Logger;
 
 import com.openggf.game.PlayableEntity;
@@ -187,7 +188,9 @@ public final class TunnelbotBadnikInstance extends AbstractObjectInstance
     private final com.openggf.level.Palette.Color[] savedColors = new com.openggf.level.Palette.Color[FLASH_COLOR_COUNT];
 
     // Children
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private TunnelbotArm leftArm;
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private TunnelbotArm rightArm;
 
 

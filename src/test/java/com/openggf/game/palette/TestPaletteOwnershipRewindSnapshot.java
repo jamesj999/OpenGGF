@@ -50,4 +50,17 @@ class TestPaletteOwnershipRewindSnapshot {
         PaletteOwnershipSnapshot afterBegin = reg.capture();
         assertEquals("none", afterBegin.owners()[0]);
     }
+
+    @Test
+    void snapshotUsesCompactOwnerIdsInsteadOfFlatStringComponent() {
+        java.util.Map<String, Class<?>> components = java.util.Arrays.stream(
+                        PaletteOwnershipSnapshot.class.getRecordComponents())
+                .collect(java.util.stream.Collectors.toMap(
+                        java.lang.reflect.RecordComponent::getName,
+                        java.lang.reflect.RecordComponent::getType));
+
+        assertFalse(components.containsKey("owners"));
+        assertEquals(byte[].class, components.get("ownerIds"));
+        assertEquals(String[].class, components.get("ownerTable"));
+    }
 }

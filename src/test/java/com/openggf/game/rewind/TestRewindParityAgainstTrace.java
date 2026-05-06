@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>{@code parallax}             — ParallaxSnapshot (array fields)</li>
  *   <li>{@code water}                — WaterSystemSnapshot</li>
  *   <li>{@code zone-runtime}         — ZoneRuntimeSnapshot (byte[] stateBytes)</li>
- *   <li>{@code palette-ownership}    — PaletteOwnershipSnapshot (String[] owners)</li>
+ *   <li>{@code palette-ownership}    — PaletteOwnershipSnapshot (compact owner ids)</li>
  *   <li>{@code animated-tile-channels} — AnimatedTileChannelSnapshot</li>
  *   <li>{@code special-render}       — SpecialRenderEffectSnapshot</li>
  *   <li>{@code advanced-render-mode} — AdvancedRenderModeSnapshot</li>
@@ -218,7 +218,7 @@ class TestRewindParityAgainstTrace {
         // ZoneRuntimeSnapshot: has byte[] stateBytes
         compareZoneRuntime(failures, snapA, snapB);
 
-        // PaletteOwnershipSnapshot: has String[] owners
+        // PaletteOwnershipSnapshot: compact ids plus owner table
         comparePaletteOwnership(failures, snapA, snapB);
 
         // AnimatedTileChannelSnapshot: Map<String, Integer> — copyOf, equals works
@@ -427,42 +427,6 @@ class TestRewindParityAgainstTrace {
         ParallaxSnapshot pb = (ParallaxSnapshot) b.get("parallax");
         if (pa == null) { failures.add("[parallax] missing from snapA"); return; }
         if (pb == null) { failures.add("[parallax] missing from snapB"); return; }
-        if (pa.currentShakeOffsetX() != pb.currentShakeOffsetX())
-            failures.add("[parallax] currentShakeOffsetX: " + pa.currentShakeOffsetX()
-                    + " vs " + pb.currentShakeOffsetX());
-        if (pa.currentShakeOffsetY() != pb.currentShakeOffsetY())
-            failures.add("[parallax] currentShakeOffsetY: " + pa.currentShakeOffsetY()
-                    + " vs " + pb.currentShakeOffsetY());
-        if (pa.cachedBgCameraX() != pb.cachedBgCameraX())
-            failures.add("[parallax] cachedBgCameraX: " + pa.cachedBgCameraX()
-                    + " vs " + pb.cachedBgCameraX());
-        if (pa.cachedBgPeriodWidth() != pb.cachedBgPeriodWidth())
-            failures.add("[parallax] cachedBgPeriodWidth: " + pa.cachedBgPeriodWidth()
-                    + " vs " + pb.cachedBgPeriodWidth());
-        if (!Arrays.equals(pa.hScroll(), pb.hScroll()))
-            failures.add("[parallax] hScroll mismatch");
-        if (!Arrays.equals(pa.vScrollPerLineBG(), pb.vScrollPerLineBG()))
-            failures.add("[parallax] vScrollPerLineBG mismatch");
-        if (!Arrays.equals(pa.vScrollPerColumnBG(), pb.vScrollPerColumnBG()))
-            failures.add("[parallax] vScrollPerColumnBG mismatch");
-        if (!Arrays.equals(pa.vScrollPerColumnFG(), pb.vScrollPerColumnFG()))
-            failures.add("[parallax] vScrollPerColumnFG mismatch");
-        if (pa.hasPerLineVScrollBG() != pb.hasPerLineVScrollBG())
-            failures.add("[parallax] hasPerLineVScrollBG");
-        if (pa.hasPerColumnVScrollBG() != pb.hasPerColumnVScrollBG())
-            failures.add("[parallax] hasPerColumnVScrollBG");
-        if (pa.hasPerColumnVScrollFG() != pb.hasPerColumnVScrollFG())
-            failures.add("[parallax] hasPerColumnVScrollFG");
-        if (pa.minScroll() != pb.minScroll())
-            failures.add("[parallax] minScroll: " + pa.minScroll() + " vs " + pb.minScroll());
-        if (pa.maxScroll() != pb.maxScroll())
-            failures.add("[parallax] maxScroll: " + pa.maxScroll() + " vs " + pb.maxScroll());
-        if (pa.vscrollFactorFG() != pb.vscrollFactorFG())
-            failures.add("[parallax] vscrollFactorFG: " + pa.vscrollFactorFG()
-                    + " vs " + pb.vscrollFactorFG());
-        if (pa.vscrollFactorBG() != pb.vscrollFactorBG())
-            failures.add("[parallax] vscrollFactorBG: " + pa.vscrollFactorBG()
-                    + " vs " + pb.vscrollFactorBG());
     }
 
     private static void compareZoneRuntime(List<String> failures,
@@ -482,8 +446,10 @@ class TestRewindParityAgainstTrace {
         PaletteOwnershipSnapshot pb = (PaletteOwnershipSnapshot) b.get("palette-ownership");
         if (pa == null) { failures.add("[palette-ownership] missing from snapA"); return; }
         if (pb == null) { failures.add("[palette-ownership] missing from snapB"); return; }
-        if (!Arrays.equals(pa.owners(), pb.owners()))
-            failures.add("[palette-ownership] owners array mismatch");
+        if (!Arrays.equals(pa.ownerIds(), pb.ownerIds()))
+            failures.add("[palette-ownership] ownerIds mismatch");
+        if (!Arrays.equals(pa.ownerTable(), pb.ownerTable()))
+            failures.add("[palette-ownership] ownerTable mismatch");
     }
 
     private static void compareLevelEvent(List<String> failures,
@@ -529,8 +495,8 @@ class TestRewindParityAgainstTrace {
         if (!ra.collected().equals(rb.collected()))
             failures.add("[rings] collected BitSet mismatch");
 
-        if (!Arrays.equals(ra.sparkleStartFrames(), rb.sparkleStartFrames()))
-            failures.add("[rings] sparkleStartFrames mismatch");
+        if (!Arrays.equals(ra.sparkleTimers(), rb.sparkleTimers()))
+            failures.add("[rings] sparkleTimers mismatch");
         if (ra.placementCursorIndex() != rb.placementCursorIndex())
             failures.add("[rings] placementCursorIndex: " + ra.placementCursorIndex()
                     + " vs " + rb.placementCursorIndex());

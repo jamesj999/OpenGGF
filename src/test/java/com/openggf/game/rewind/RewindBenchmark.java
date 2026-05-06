@@ -22,8 +22,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Headless benchmark harness for the rewind framework.
@@ -40,7 +44,12 @@ public class RewindBenchmark {
 
     private static final Path TRACE_DIR =
             Path.of("src/test/resources/traces/s2/ehz1_fullrun");
-    private static final int KEYFRAME_INTERVAL = 60;
+    private static final int DEFAULT_KEYFRAME_INTERVAL = 60;
+    private static final long MAX_CAPTURE_MEAN_NS = 1_000_000L;
+    private static final long MAX_RESTORE_MEAN_NS = 1_500_000L;
+    private static final long MAX_SEEK_MEAN_NS = 10_000_000L;
+    private static final long MAX_BYTES_PER_KEYFRAME = 128L * 1024L;
+    private static final long MIN_LONGTAIL_CLEAN_FRAMES = 1200L;
 
     /** Aggregate phase results, dumped to JSON at end of test. */
     private final Map<String, BenchmarkResults> results = new LinkedHashMap<>();
@@ -82,6 +91,11 @@ public class RewindBenchmark {
         // Long-tail determinism gate
         runLongTailDeterminismGate();
 
+        // Conservative guardrails. These are intentionally loose enough for
+        // noisy developer machines, but tight enough to catch order-of-magnitude
+        // regressions and accidental full-level keyframe copies.
+        assertBenchmarkBounds();
+
         // JSON output
         dumpJson();
 
@@ -90,10 +104,21 @@ public class RewindBenchmark {
             System.out.printf("Phase: %s%n", e.getKey());
             BenchmarkResults r = e.getValue();
             BenchmarkResults.PhaseStats s = r.overall();
-            System.out.printf(
-                    "  samples=%d mean=%dns p50=%dns p95=%dns p99=%dns max=%dns wall=%dns%n",
-                    s.sampleCount(), s.meanNs(), s.p50Ns(), s.p95Ns(), s.p99Ns(), s.maxNs(),
-                    r.totalWallTimeNs());
+            if (e.getKey().equals("phase6.memory")) {
+                System.out.printf(
+                        "  storedKeyframes=%d bytesPerStoredKeyframe=%d retainedResidentBytes=%d wall=%dns%n",
+                        s.sampleCount(), s.meanNs(), s.maxNs(),
+                        r.totalWallTimeNs());
+            } else if (e.getKey().equals("longtail.determinism")) {
+                System.out.printf(
+                        "  longestCleanRewindFrames=%d wall=%dns%n",
+                        s.meanNs(), r.totalWallTimeNs());
+            } else {
+                System.out.printf(
+                        "  samples=%d mean=%dns p50=%dns p95=%dns p99=%dns max=%dns wall=%dns%n",
+                        s.sampleCount(), s.meanNs(), s.p50Ns(), s.p95Ns(), s.p99Ns(), s.maxNs(),
+                        r.totalWallTimeNs());
+            }
         }
     }
 
@@ -126,7 +151,7 @@ public class RewindBenchmark {
             GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
             var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture2);
-            gameplayMode.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
+            gameplayMode.installPlaybackController(inputs, stepper, keyframeInterval());
             int frameCount = Math.min(2000, fixture2.runner().getRecordingFramesRemaining());
             for (int i = 0; i < frameCount; i++) {
                 long t0 = System.nanoTime();
@@ -218,7 +243,7 @@ public class RewindBenchmark {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
             var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
-            gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
+            gm.installPlaybackController(inputs, stepper, keyframeInterval());
             var rc = gm.getRewindController();
 
             // Step forward to populate keyframes
@@ -257,7 +282,7 @@ public class RewindBenchmark {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
             var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
-            gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
+            gm.installPlaybackController(inputs, stepper, keyframeInterval());
             var rc = gm.getRewindController();
 
             // Step forward 1200 frames so we have plenty of segments.
@@ -302,75 +327,283 @@ public class RewindBenchmark {
 
     private void runPhase6Memory() throws IOException {
         long wallStart = System.nanoTime();
-        Map<String, Long> keyframeBytes = new LinkedHashMap<>();
-        int keyframeCount = 0;
-        long totalSerializedBytes = 0L;
+        Map<String, Long> retainedSubsystemBytes = new LinkedHashMap<>();
+        int frameCount = 0;
+        int storedKeyframeCount = 0;
+        long retainedBytes = 0L;
         HeadlessTestFixture fixture = buildFixture();
         try {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
             var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
-            gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
+            gm.installPlaybackController(inputs, stepper, keyframeInterval());
             var rc = gm.getRewindController();
+            var registry = gm.getRewindRegistry();
+            IdentityHashMap<Object, Boolean> retainedSeen = new IdentityHashMap<>();
 
             int stepCount = Math.min(1200, fixture.runner().getRecordingFramesRemaining());
-            for (int i = 0; i < stepCount; i++) rc.step();
+            retainedBytes += measureRetainedKeyframe(
+                    registry.capture(), retainedSeen, retainedSubsystemBytes);
+            storedKeyframeCount++;
 
-            // Sample one full CompositeSnapshot's serialized size as a proxy
-            var registry = gm.getRewindRegistry();
-            CompositeSnapshot snap = registry.capture();
-            for (var e : snap.entries().entrySet()) {
-                long bytes = estimateSerializedSize(e.getValue());
-                keyframeBytes.put(e.getKey(), bytes);
-                if (bytes > 0) totalSerializedBytes += bytes;
+            for (int i = 0; i < stepCount; i++) {
+                rc.step();
+                int frame = i + 1;
+                if (frame % keyframeInterval() == 0) {
+                    retainedBytes += measureRetainedKeyframe(
+                            registry.capture(), retainedSeen, retainedSubsystemBytes);
+                    storedKeyframeCount++;
+                }
             }
-            keyframeCount = stepCount / KEYFRAME_INTERVAL;
+            frameCount = stepCount;
         } finally {
             TestEnvironment.resetAll();
         }
         long wall = System.nanoTime() - wallStart;
+        long intervalKeyframes = frameCount / keyframeInterval();
+        long bytesPerStoredKeyframe = storedKeyframeCount == 0
+                ? 0L
+                : retainedBytes / storedKeyframeCount;
 
-        System.out.printf("Phase 6 memory:%n  keyframeCount=%d totalBytesPerKeyframe=%d%n",
-                keyframeCount, totalSerializedBytes);
-        for (var e : keyframeBytes.entrySet()) {
+        System.out.printf("Phase 6 memory:%n" +
+                        "  retainedFrames=%d intervalKeyframes=%d storedKeyframesIncludingInitial=%d%n" +
+                        "  retainedResidentBytes=%d bytesPerStoredKeyframe=%d%n",
+                frameCount, intervalKeyframes, storedKeyframeCount,
+                retainedBytes, bytesPerStoredKeyframe);
+        for (var e : retainedSubsystemBytes.entrySet()) {
             System.out.printf("    %-30s %10d bytes%s%n",
                     e.getKey(), e.getValue(),
-                    e.getValue() < 0 ? " (non-serializable)" : "");
+                    e.getValue() < 0 ? " (unknown)" : "");
         }
-        long projectedTotalBytes = (long) keyframeCount * totalSerializedBytes;
-        System.out.printf("  projectedResidentBytes=%d (%.2f MB)%n",
-                projectedTotalBytes, projectedTotalBytes / 1_048_576.0);
+        System.out.printf("  retainedResidentMB=%.2f%n",
+                retainedBytes / 1_048_576.0);
 
         // Store the per-key bytes as PhaseStats with bytes-as-meanNs (semantic
         // hack to fit the JSON output schema)
         Map<String, BenchmarkResults.PhaseStats> perKey = new LinkedHashMap<>();
-        for (var e : keyframeBytes.entrySet()) {
+        for (var e : retainedSubsystemBytes.entrySet()) {
             long bytes = e.getValue();
             perKey.put(e.getKey(),
                     new BenchmarkResults.PhaseStats(1, bytes, bytes, bytes, bytes, bytes));
         }
         results.put("phase6.memory",
                 new BenchmarkResults("phase6.memory",
-                        new BenchmarkResults.PhaseStats(keyframeCount, totalSerializedBytes,
-                                totalSerializedBytes, totalSerializedBytes, totalSerializedBytes,
-                                totalSerializedBytes),
+                        new BenchmarkResults.PhaseStats(storedKeyframeCount, bytesPerStoredKeyframe,
+                                retainedBytes, retainedBytes, retainedBytes,
+                                retainedBytes),
                         wall, perKey));
     }
 
-    private static long estimateSerializedSize(Object obj) {
-        if (obj == null) return 0L;
-        try {
-            var baos = new java.io.ByteArrayOutputStream();
-            try (var oos = new java.io.ObjectOutputStream(baos)) {
-                oos.writeObject(obj);
-            }
-            return baos.size();
-        } catch (java.io.IOException e) {
-            // Snapshot record contains non-serializable references (e.g.,
-            // ObjectSpawn refs in ObjectManagerSnapshot). Return -1 as a
-            // sentinel for "unknown size".
-            return -1L;
+    private static long measureRetainedKeyframe(
+            CompositeSnapshot snapshot,
+            IdentityHashMap<Object, Boolean> retainedSeen,
+            Map<String, Long> retainedSubsystemBytes) {
+        long keyframeBytes = 0L;
+        for (var e : snapshot.entries().entrySet()) {
+            long bytes = estimateStructuralSizeShared(e.getValue(), retainedSeen);
+            retainedSubsystemBytes.merge(e.getKey(), bytes, Long::sum);
+            keyframeBytes += bytes;
         }
+        return keyframeBytes;
+    }
+
+    static long estimateStructuralSize(Object obj) {
+        return align8(estimateStructuralSize(obj, new IdentityHashMap<>()));
+    }
+
+    static long estimateStructuralSizeShared(Object obj, IdentityHashMap<Object, Boolean> seen) {
+        return align8(estimateStructuralSize(obj, seen));
+    }
+
+    static int keyframeInterval() {
+        return Math.max(1, Integer.getInteger(
+                "openggf.rewind.benchmark.keyframeInterval",
+                DEFAULT_KEYFRAME_INTERVAL));
+    }
+
+    private static long estimateStructuralSize(Object obj, IdentityHashMap<Object, Boolean> seen) {
+        if (obj == null) {
+            return 0L;
+        }
+        Class<?> cls = obj.getClass();
+        if (isScalar(cls)) {
+            return scalarSize(obj, cls);
+        }
+        if (seen.put(obj, Boolean.TRUE) != null) {
+            return 8L;
+        }
+        if (obj instanceof CompositeSnapshot snapshot) {
+            return estimateMap(snapshot.entries(), seen);
+        }
+        if (obj instanceof LevelSnapshot snapshot) {
+            return estimateLevelSnapshotSize(snapshot, seen);
+        }
+        if (cls.isArray()) {
+            return estimateArray(obj, seen);
+        }
+        if (obj instanceof String s) {
+            return align8(40L + (long) s.length() * 2L);
+        }
+        if (obj instanceof Class<?> c) {
+            return align8(24L + (long) c.getName().length() * 2L);
+        }
+        if (obj instanceof Enum<?> e) {
+            return align8(24L + (long) e.name().length() * 2L);
+        }
+        if (obj instanceof Map<?, ?> map) {
+            return estimateMap(map, seen);
+        }
+        if (obj instanceof Collection<?> collection) {
+            long bytes = 24L + (long) collection.size() * 8L;
+            for (Object value : collection) {
+                bytes += estimateStructuralSize(value, seen);
+            }
+            return align8(bytes);
+        }
+        if (cls.isRecord()) {
+            long bytes = 16L;
+            for (var component : cls.getRecordComponents()) {
+                try {
+                    Object value = component.getAccessor().invoke(obj);
+                    Class<?> type = component.getType();
+                    bytes += type.isPrimitive() ? primitiveSize(type) : 8L;
+                    if (!type.isPrimitive()) {
+                        bytes += estimateStructuralSize(value, seen);
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(
+                            "Failed to estimate record component "
+                                    + cls.getName() + "." + component.getName(), e);
+                }
+            }
+            return align8(bytes);
+        }
+        return 32L;
+    }
+
+    private static long estimateLevelSnapshotSize(LevelSnapshot snapshot, IdentityHashMap<Object, Boolean> seen) {
+        long bytes = 16L;
+        bytes += 8L;  // epochAtCapture
+        bytes += shallowArraySizeShared(snapshot.blocks(), seen);
+        bytes += shallowArraySizeShared(snapshot.chunks(), seen);
+        bytes += sharedReferenceSize(snapshot.mapData(), seen);  // CoW keeps the payload shared
+        bytes += 4L;  // frameCounter
+        bytes += 1L;  // respawnRequested
+        return align8(bytes);
+    }
+
+    private static long shallowArraySizeShared(Object array, IdentityHashMap<Object, Boolean> seen) {
+        if (array == null) {
+            return 0L;
+        }
+        if (seen.put(array, Boolean.TRUE) != null) {
+            return 8L;
+        }
+        return shallowArraySize(array);
+    }
+
+    private static long sharedReferenceSize(Object value, IdentityHashMap<Object, Boolean> seen) {
+        if (value == null) {
+            return 0L;
+        }
+        seen.put(value, Boolean.TRUE);
+        return 8L;
+    }
+
+    private static long shallowArraySize(Object array) {
+        if (array == null) {
+            return 0L;
+        }
+        int len = java.lang.reflect.Array.getLength(array);
+        Class<?> component = array.getClass().getComponentType();
+        long elementSize = component.isPrimitive() ? primitiveSize(component) : 8L;
+        return align8(16L + (long) len * elementSize);
+    }
+
+    private static long estimateArray(Object array, IdentityHashMap<Object, Boolean> seen) {
+        int len = java.lang.reflect.Array.getLength(array);
+        Class<?> component = array.getClass().getComponentType();
+        long bytes = 16L;
+        if (component.isPrimitive()) {
+            bytes += (long) len * primitiveSize(component);
+        } else {
+            bytes += (long) len * 8L;
+            for (int i = 0; i < len; i++) {
+                bytes += estimateStructuralSize(java.lang.reflect.Array.get(array, i), seen);
+            }
+        }
+        return align8(bytes);
+    }
+
+    private static long estimateMap(Map<?, ?> map, IdentityHashMap<Object, Boolean> seen) {
+        long bytes = 48L + (long) map.size() * 32L;
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            bytes += 16L;
+            bytes += estimateStructuralSize(entry.getKey(), seen);
+            bytes += estimateStructuralSize(entry.getValue(), seen);
+        }
+        return align8(bytes);
+    }
+
+    private static boolean isScalar(Class<?> cls) {
+        return cls.isPrimitive()
+                || cls == Boolean.class
+                || cls == Byte.class
+                || cls == Short.class
+                || cls == Character.class
+                || cls == Integer.class
+                || cls == Float.class
+                || cls == Long.class
+                || cls == Double.class;
+    }
+
+    private static long scalarSize(Object value, Class<?> cls) {
+        Class<?> type = cls.isPrimitive() ? cls : primitiveTypeForBox(cls);
+        return align8(16L + primitiveSize(type));
+    }
+
+    private static Class<?> primitiveTypeForBox(Class<?> cls) {
+        if (cls == Boolean.class) return boolean.class;
+        if (cls == Byte.class) return byte.class;
+        if (cls == Short.class) return short.class;
+        if (cls == Character.class) return char.class;
+        if (cls == Integer.class) return int.class;
+        if (cls == Float.class) return float.class;
+        if (cls == Long.class) return long.class;
+        if (cls == Double.class) return double.class;
+        return int.class;
+    }
+
+    private static long primitiveSize(Class<?> type) {
+        if (type == boolean.class || type == byte.class) return 1L;
+        if (type == short.class || type == char.class) return 2L;
+        if (type == int.class || type == float.class) return 4L;
+        if (type == long.class || type == double.class) return 8L;
+        throw new IllegalArgumentException("Not a primitive type: " + type);
+    }
+
+    private static long align8(long bytes) {
+        return (bytes + 7L) & ~7L;
+    }
+
+    private void assertBenchmarkBounds() {
+        assertMeanAtMost("phase2.capture", MAX_CAPTURE_MEAN_NS);
+        assertMeanAtMost("phase3.restore", MAX_RESTORE_MEAN_NS);
+        assertMeanAtMost("phase4.cold-seek", MAX_SEEK_MEAN_NS);
+        assertMeanAtMost("phase5.hot-seek.within-segment", MAX_SEEK_MEAN_NS);
+        assertMeanAtMost("phase6.memory", MAX_BYTES_PER_KEYFRAME);
+        BenchmarkResults longtail = results.get("longtail.determinism");
+        assertTrue(longtail != null
+                        && longtail.overall().meanNs() >= MIN_LONGTAIL_CLEAN_FRAMES,
+                "longtail.determinism must remain clean for at least "
+                        + MIN_LONGTAIL_CLEAN_FRAMES + " frames");
+    }
+
+    private void assertMeanAtMost(String phase, long max) {
+        BenchmarkResults result = results.get(phase);
+        assertTrue(result != null, "missing benchmark phase " + phase);
+        assertTrue(result.overall().meanNs() <= max,
+                phase + " mean " + result.overall().meanNs() + " exceeds " + max);
     }
 
     // -------------------------------------------------------------------------
@@ -388,7 +621,7 @@ public class RewindBenchmark {
             GameplayModeContext gm = SessionManager.getCurrentGameplayMode();
             var inputs = new TraceFixtureInputSource(movie);
             var stepper = new TraceFixtureEngineStepper(fixture);
-            gm.installPlaybackController(inputs, stepper, KEYFRAME_INTERVAL);
+            gm.installPlaybackController(inputs, stepper, keyframeInterval());
             var rc = gm.getRewindController();
             var registry = gm.getRewindRegistry();
 
@@ -606,6 +839,20 @@ public class RewindBenchmark {
             }
             return;
         }
+        if (av instanceof java.util.Map<?, ?> am && bv instanceof java.util.Map<?, ?> bm) {
+            if (!am.keySet().equals(bm.keySet())) {
+                diffs.add(path + ": map-keys A=" + am.keySet() + " B=" + bm.keySet());
+                return;
+            }
+            for (Object key : am.keySet()) {
+                Object ai = am.get(key);
+                Object bi = bm.get(key);
+                if (!fieldContentEqual(ai, bi)) {
+                    collectDiffs(path + "." + key, ai, bi, diffs);
+                }
+            }
+            return;
+        }
         // Leaf scalar / other
         diffs.add(path + ": A=" + av + " B=" + bv);
     }
@@ -665,9 +912,29 @@ public class RewindBenchmark {
             if (elem == double.class)  return Arrays.equals((double[]) av,  (double[]) bv);
             if (elem == char.class)    return Arrays.equals((char[]) av,    (char[]) bv);
             if (elem == boolean.class) return Arrays.equals((boolean[]) av, (boolean[]) bv);
-            return Arrays.deepEquals((Object[]) av, (Object[]) bv);
+            Object[] aa = (Object[]) av;
+            Object[] ba = (Object[]) bv;
+            if (aa.length != ba.length) return false;
+            for (int i = 0; i < aa.length; i++) {
+                if (!fieldContentEqual(aa[i], ba[i])) return false;
+            }
+            return true;
         }
         if (cls.isRecord()) return recordsContentEqual(av, bv);
+        if (av instanceof java.util.List<?> al && bv instanceof java.util.List<?> bl) {
+            if (al.size() != bl.size()) return false;
+            for (int i = 0; i < al.size(); i++) {
+                if (!fieldContentEqual(al.get(i), bl.get(i))) return false;
+            }
+            return true;
+        }
+        if (av instanceof java.util.Map<?, ?> am && bv instanceof java.util.Map<?, ?> bm) {
+            if (!am.keySet().equals(bm.keySet())) return false;
+            for (Object key : am.keySet()) {
+                if (!fieldContentEqual(am.get(key), bm.get(key))) return false;
+            }
+            return true;
+        }
         return java.util.Objects.equals(av, bv);
     }
 
@@ -676,8 +943,9 @@ public class RewindBenchmark {
             !(b instanceof LevelSnapshot lb)) {
             return false;
         }
-        // After restore, epoch is bumped by +1, so accept epoch within 1.
-        if (Math.abs(la.epochAtCapture() - lb.epochAtCapture()) > 1) return false;
+        // Epoch is a restore-side copy-on-write generation counter. Multiple
+        // seeks can legitimately advance it beyond the original forward run
+        // while the level content remains identical.
         return Arrays.equals(la.blocks(), lb.blocks())
             && Arrays.equals(la.chunks(), lb.chunks())
             && Arrays.equals(la.mapData(), lb.mapData());
@@ -691,7 +959,10 @@ public class RewindBenchmark {
         if (!Arrays.equals(oa.usedSlotsBits(), ob.usedSlotsBits())) return false;
         if (oa.frameCounter() != ob.frameCounter()) return false;
         if (oa.vblaCounter() != ob.vblaCounter()) return false;
-        return java.util.Objects.equals(oa.slots(), ob.slots());
+        return fieldContentEqual(oa.slots(), ob.slots())
+                && fieldContentEqual(oa.childSpawns(), ob.childSpawns())
+                && fieldContentEqual(oa.dynamicObjects(), ob.dynamicObjects())
+                && fieldContentEqual(oa.placement(), ob.placement());
     }
 
     // -------------------------------------------------------------------------
@@ -706,13 +977,14 @@ public class RewindBenchmark {
         StringBuilder sb = new StringBuilder();
         sb.append("{\n");
         sb.append("  \"trace\": \"").append(escapeJson(TRACE_DIR.toString())).append("\",\n");
-        sb.append("  \"keyframeInterval\": ").append(KEYFRAME_INTERVAL).append(",\n");
+        sb.append("  \"keyframeInterval\": ").append(keyframeInterval()).append(",\n");
         sb.append("  \"phases\": {\n");
         int i = 0;
         for (var e : results.entrySet()) {
             if (i++ > 0) sb.append(",\n");
             BenchmarkResults r = e.getValue();
             sb.append("    \"").append(escapeJson(e.getKey())).append("\": {\n");
+            sb.append("      \"unit\": \"").append(phaseUnit(e.getKey())).append("\",\n");
             appendPhaseStats(sb, r.overall());
             sb.append(",\n      \"totalWallTimeNs\": ").append(r.totalWallTimeNs());
             if (!r.perSubsystem().isEmpty()) {
@@ -747,6 +1019,16 @@ public class RewindBenchmark {
         sb.append("      \"p95Ns\": ").append(s.p95Ns()).append(",\n");
         sb.append("      \"p99Ns\": ").append(s.p99Ns()).append(",\n");
         sb.append("      \"maxNs\": ").append(s.maxNs());
+    }
+
+    private static String phaseUnit(String phaseName) {
+        if (phaseName.equals("phase6.memory")) {
+            return "bytes";
+        }
+        if (phaseName.equals("longtail.determinism")) {
+            return "frames";
+        }
+        return "nanoseconds";
     }
 
     private static String escapeJson(String s) {

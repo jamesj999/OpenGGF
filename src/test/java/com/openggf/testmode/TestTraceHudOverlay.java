@@ -155,6 +155,25 @@ class TestTraceHudOverlay {
     }
 
     @Test
+    void renderShowsRewindStatusWhenSupplierReturnsText() {
+        LiveTraceComparator comparator = mock(LiveTraceComparator.class);
+        when(comparator.recentMismatches()).thenReturn(List.of());
+        PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
+
+        TraceHudOverlay overlay = new TraceHudOverlay(
+                comparator, () -> "ENTER", () -> false, () -> null, () -> "Hold R Rewind");
+
+        overlay.render(textRenderer);
+
+        verify(textRenderer).drawShadowedText(
+                org.mockito.ArgumentMatchers.eq("Hold R Rewind"),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.eq(com.openggf.debug.DebugColor.CYAN),
+                org.mockito.ArgumentMatchers.anyFloat());
+    }
+
+    @Test
     void renderHidesCameraFocusBlockWhenNotPaused() {
         LiveTraceComparator comparator = mock(LiveTraceComparator.class);
         when(comparator.recentMismatches()).thenReturn(List.of());

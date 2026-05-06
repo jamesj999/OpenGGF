@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -87,6 +88,7 @@ public final class TurboSpikerBadnikInstance extends AbstractS3kBadnikInstance {
     private int animIndex;
     private int animTimer;
 
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private TurboSpikerShellChild shellChild;
 
     public TurboSpikerBadnikInstance(ObjectSpawn spawn) {
@@ -374,6 +376,7 @@ public final class TurboSpikerBadnikInstance extends AbstractS3kBadnikInstance {
     private static final class TurboSpikerShellChild extends AbstractObjectInstance
             implements TouchResponseProvider {
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final TurboSpikerBadnikInstance parent;
 
         private int currentX;
@@ -385,6 +388,7 @@ public final class TurboSpikerBadnikInstance extends AbstractS3kBadnikInstance {
         private boolean attached = true;
         private boolean facingLeft;
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private TurboSpikerTrailEmitter trailEmitter;
 
         TurboSpikerShellChild(TurboSpikerBadnikInstance parent) {
@@ -496,6 +500,7 @@ public final class TurboSpikerBadnikInstance extends AbstractS3kBadnikInstance {
         private static final int OFFSET_X = -4;
         private static final int OFFSET_Y = 0x14;
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final TurboSpikerShellChild shell;
         private int mappingFrame = SHELL_TRAIL_FRAME;
 
@@ -649,6 +654,7 @@ public final class TurboSpikerBadnikInstance extends AbstractS3kBadnikInstance {
 
     private static final class TurboSpikerWaterfallOverlayChild extends AbstractObjectInstance {
 
+        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final TurboSpikerBadnikInstance parent;
 
         TurboSpikerWaterfallOverlayChild(TurboSpikerBadnikInstance parent) {

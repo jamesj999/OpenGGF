@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.GameModule;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.ObjectArtProvider;
@@ -21,8 +22,10 @@ import java.util.List;
  */
 public class BubbleShieldObjectInstance extends ShieldObjectInstance {
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from live art data")
     private PlayerSpriteRenderer dplcRenderer;
     private SpriteAnimationSet animSet;
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from live art data")
     private PlayerSpriteRenderer boundRenderer;
     private int currentAnimId;
     private int frameIndex;

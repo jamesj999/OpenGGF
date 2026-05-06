@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.mutation.MutationEffects;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -80,6 +81,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
     // State
     // ========================================================================
 
+    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private PatternSpriteRenderer renderer;
     private int currentX;
     private int currentY;
@@ -94,6 +96,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
     private boolean emeraldsCleared;
 
     /** Reference to the spawned emerald master for radius checking. */
+    @RewindTransient(reason = "ending emerald object link; live ending graph persists across rewind")
     private Sonic1EndingEmeraldsObjectInstance emeraldMaster;
 
     public Sonic1EndingSonicObjectInstance(int x, int y) {

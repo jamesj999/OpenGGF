@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -44,6 +45,7 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
         -1       // sentinel: delete
     };
 
+    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizPlaneIntroInstance parent;
     private int currentX;
     private int currentY;

@@ -2,6 +2,7 @@ package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.GenericRewindEligibility;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -193,6 +194,38 @@ class TestAbstractObjectInstanceRewindCapture {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             // no-op
+        }
+    }
+
+    private static final class TestObjectWithGenericState extends AbstractObjectInstance {
+        private int phase;
+
+        TestObjectWithGenericState(ObjectSpawn spawn) {
+            super(spawn, "TestObjectWithGenericState");
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
+    @Test
+    void eligibleClassCapturesAndRestoresGenericSidecar() {
+        GenericRewindEligibility.registerForTestOrMigration(TestObjectWithGenericState.class);
+        try {
+            TestObjectWithGenericState obj = new TestObjectWithGenericState(spawn(0, 0));
+            obj.phase = 7;
+
+            PerObjectRewindSnapshot snap = obj.captureRewindState();
+            assertNotNull(snap.genericState());
+
+            obj.phase = 2;
+            obj.restoreRewindState(snap);
+
+            assertEquals(7, obj.phase);
+        } finally {
+            GenericRewindEligibility.clearForTest();
         }
     }
 }

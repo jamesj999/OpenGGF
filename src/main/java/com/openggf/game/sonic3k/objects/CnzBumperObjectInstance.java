@@ -49,7 +49,9 @@ public class CnzBumperObjectInstance extends AbstractObjectInstance
     private int animFrame;
     private int animTimer;
     private int scoreHits;
+    @com.openggf.game.rewind.RewindDeferred(reason = "pending primary touch needs explicit player identity snapshot")
     private AbstractPlayableSprite pendingPrimaryTouch;
+    @com.openggf.game.rewind.RewindDeferred(reason = "pending sidekick touch needs explicit player identity snapshot")
     private AbstractPlayableSprite pendingSidekickTouch;
 
     public CnzBumperObjectInstance(ObjectSpawn spawn) {

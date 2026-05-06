@@ -184,6 +184,7 @@ public class MutableLevel extends AbstractLevel {
     }
 
     public void setPatternDescInChunk(int chunkIndex, int px, int py, PatternDesc desc) {
+        replaceChunkForWrite(chunkIndex, chunks[chunkIndex].saveState());
         chunks[chunkIndex].setPatternDesc(px, py, desc);
         dirtyChunks.set(chunkIndex);
         // Transitive: dirty all blocks referencing this chunk
@@ -196,6 +197,7 @@ public class MutableLevel extends AbstractLevel {
 
     public void setChunkInBlock(int blockIndex, int cx, int cy, ChunkDesc desc) {
         int oldChunkIndex = blocks[blockIndex].getChunkDesc(cx, cy).getChunkIndex();
+        replaceBlockForWrite(blockIndex, blocks[blockIndex].saveState());
         blocks[blockIndex].setChunkDesc(cx, cy, desc);
         updateChunkToBlocksLookup(blockIndex, oldChunkIndex, desc.getChunkIndex());
         dirtyBlocks.set(blockIndex);
@@ -219,6 +221,7 @@ public class MutableLevel extends AbstractLevel {
     }
 
     public void setBlockInMap(int layer, int bx, int by, int blockIndex) {
+        map.cowEnsureWritable(currentEpoch());
         int oldBlockIndex = map.getValue(layer, bx, by) & 0xFF;
         map.setValue(layer, bx, by, (byte) blockIndex);
         int cellIdx = linearizeMapCell(layer, bx, by);
@@ -228,7 +231,7 @@ public class MutableLevel extends AbstractLevel {
 
     public void restoreChunkState(int chunkIndex, int[] state) {
         if (!Arrays.equals(chunks[chunkIndex].saveState(), state)) {
-            chunks[chunkIndex].restoreState(Arrays.copyOf(state, state.length));
+            replaceChunkForWrite(chunkIndex, state);
             dirtyChunks.set(chunkIndex);
             Set<Integer> affectedBlocks = chunkToBlocks.getOrDefault(chunkIndex, Set.of());
             for (int blockIdx : affectedBlocks) {
@@ -356,6 +359,22 @@ public class MutableLevel extends AbstractLevel {
 
     private int linearizeMapCell(int layer, int x, int y) {
         return layer * map.getWidth() * map.getHeight() + y * map.getWidth() + x;
+    }
+
+    private void replaceBlockForWrite(int blockIndex, int[] state) {
+        Block replacement = new Block(blocks[blockIndex].getGridSide());
+        replacement.restoreState(Arrays.copyOf(state, state.length));
+        Block[] newBlocks = blocks.clone();
+        newBlocks[blockIndex] = replacement;
+        replaceBlocks(newBlocks);
+    }
+
+    private void replaceChunkForWrite(int chunkIndex, int[] state) {
+        Chunk replacement = new Chunk();
+        replacement.restoreState(Arrays.copyOf(state, state.length));
+        Chunk[] newChunks = chunks.clone();
+        newChunks[chunkIndex] = replacement;
+        replaceChunks(newChunks);
     }
 
     private void updateBlockToMapCellsLookup(int cellIdx, int oldBlockIndex, int newBlockIndex) {
