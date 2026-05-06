@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
+import com.openggf.level.objects.PerObjectRewindSnapshot;
 import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.objects.SubpixelMotion;
 
@@ -89,6 +90,33 @@ public class MasherBadnikInstance extends AbstractBadnikInstance {
         return snapshot.wordFields().containsKey(offset)
                 || snapshot.byteFields().containsKey(offset)
                 || snapshot.byteFields().containsKey(offset + 1);
+    }
+
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        PerObjectRewindSnapshot base = super.captureRewindState();
+        return base.withBadnikSubclassExtra(new PerObjectRewindSnapshot.MasherRewindExtra(
+                motionState.x,
+                motionState.y,
+                motionState.xSub,
+                motionState.ySub,
+                motionState.xVel,
+                motionState.yVel,
+                initialYPos));
+    }
+
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+        super.restoreRewindState(snapshot);
+        if (snapshot.badnikSubclassExtra() instanceof PerObjectRewindSnapshot.MasherRewindExtra extra) {
+            motionState.x = extra.motionX();
+            motionState.y = extra.motionY();
+            motionState.xSub = extra.motionXSub();
+            motionState.ySub = extra.motionYSub();
+            motionState.xVel = extra.motionXVel();
+            motionState.yVel = extra.motionYVel();
+            initialYPos = extra.initialYPos();
+        }
     }
 
     @Override

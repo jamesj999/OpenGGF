@@ -881,6 +881,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         false, false,        // skipTouchThisFrame, solidContactFirstFrame
                         0, -1,               // slotIndex, respawnStateIndex
                         null,                // badnikExtra
+                        null,                // badnikSubclassExtra
                         extra                // playerExtra
                 );
         }

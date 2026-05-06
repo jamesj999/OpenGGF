@@ -52,10 +52,18 @@ public record PerObjectRewindSnapshot(
         // AbstractBadnikInstance or subclass)
         BadnikRewindExtra badnikExtra,
 
+        // Badnik subclass state (nullable; only present for concrete badniks
+        // with private AI timers, substates, or movement helpers)
+        BadnikSubclassRewindExtra badnikSubclassExtra,
+
         // Player gameplay state (nullable; only present when capturing
         // AbstractPlayableSprite or subclass)
         PlayerRewindExtra playerExtra
 ) {
+    public sealed interface BadnikSubclassRewindExtra
+            permits MasherRewindExtra, BuzzerRewindExtra, CoconutsRewindExtra {
+    }
+
     /**
      * Immutable capture of {@link AbstractBadnikInstance} movement-state fields
      * (currentX, currentY, xVelocity, yVelocity, animTimer, animFrame, facingLeft).
@@ -69,6 +77,34 @@ public record PerObjectRewindSnapshot(
             int animFrame,
             boolean facingLeft
     ) {}
+
+    public record MasherRewindExtra(
+            int motionX,
+            int motionY,
+            int motionXSub,
+            int motionYSub,
+            int motionXVel,
+            int motionYVel,
+            int initialYPos
+    ) implements BadnikSubclassRewindExtra {}
+
+    public record BuzzerRewindExtra(
+            int stateOrdinal,
+            int moveTimer,
+            int turnDelay,
+            int shotTimer,
+            boolean shootingDisabled,
+            boolean initPending
+    ) implements BadnikSubclassRewindExtra {}
+
+    public record CoconutsRewindExtra(
+            int stateOrdinal,
+            int throwStateOrdinal,
+            int timer,
+            int climbTableIndex,
+            int attackTimer,
+            int yVelocity
+    ) implements BadnikSubclassRewindExtra {}
 
     /**
      * Mutable gameplay state on AbstractPlayableSprite that AbstractObjectInstance's
@@ -152,7 +188,22 @@ public record PerObjectRewindSnapshot(
                 skipTouchThisFrame, solidContactFirstFrame,
                 slotIndex, respawnStateIndex,
                 badnikExtra,
+                badnikSubclassExtra,
                 extra
+        );
+    }
+
+    /** Returns a copy of this snapshot with concrete badnik subclass state attached. */
+    public PerObjectRewindSnapshot withBadnikSubclassExtra(BadnikSubclassRewindExtra extra) {
+        return new PerObjectRewindSnapshot(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                extra,
+                playerExtra
         );
     }
 }

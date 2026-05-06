@@ -244,6 +244,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
                 base.slotIndex(),
                 base.respawnStateIndex(),
                 badnikExtra,
+                null,
                 null   // playerExtra is not applicable for badniks
         );
     }
@@ -268,6 +269,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
             this.animTimer = extra.animTimer();
             this.animFrame = extra.animFrame();
             this.facingLeft = extra.facingLeft();
+            updateDynamicSpawn(currentX, currentY);
         }
     }
 }
