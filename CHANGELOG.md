@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **SBZ Rotating Junction (object 0x66) now preserves the player's
+  subpixel fraction across `Jun_ChgPos` and the grab-midpoint adjust.**
+  ROM `Jun_ChgPos`
+  (`docs/s1disasm/_incObj/66 Rotating Junction.asm:167-172`) sets the
+  player's pixel position with `move.w d0,obX(a1)` /
+  `move.w d0,obY(a1)`, which writes only the upper word of each
+  4-byte position field (`obX = 8`, `obSubpixelX = 0xA`,
+  `obY = 0xC`, `obSubpixelY = 0xE` per `_Constants.asm:142-150`) and
+  leaves the subpixel fraction untouched. The grab body
+  (`obj66:87-93`) similarly relies on word-only `add.w` and `asr.w`
+  on `obX(a1)`/`obY(a1)` while the disc rotates Sonic into place.
+  The engine implementation called `setCentreX` /  `setCentreY`,
+  which zero `xSubpixel`/`ySubpixel` on every write, so each
+  junction frame advance was wiping any subpixel Sonic had
+  accumulated before being grabbed. After release, gravity-driven
+  `SpeedToPos` then accumulated from a zero subpixel base while the
+  ROM continued from a non-zero residue, producing a 1-pixel drift
+  by the time Sonic re-landed. On the SBZ1 credits demo this
+  surfaced at trace frame 285 (`y=0x01A8` vs ROM `0x01A9`) with
+  `ENG sub_y=0xA800` vs `ROM sub_y=0x2000`, and the 1-pixel offset
+  cascaded through the rest of the demo (58 errors). Switching the
+  two write sites to the `*PreserveSubpixel` helpers mirrors the
+  word-only ROM stores. Greens `TestS1Credits05Sbz1TraceReplay`.
+  Adds focused regression `TestSonic1JunctionSubpixelPreservation`.
+
 - **Touch-response on-screen gate now checks Y as well as X.**
   `AbstractObjectInstance.isOnScreenForTouch()` previously returned true
   for any object whose pre-update X was within the camera viewport,
