@@ -1192,7 +1192,7 @@ public class SpriteManager {
 	 * snapshot (e.g. mid-level sidekick joins) are left untouched; sprites
 	 * in the snapshot but not present in the current manager are skipped.
 	 */
-	public com.openggf.game.rewind.RewindSnapshottable<java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot>>
+	public com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.SpriteManagerSnapshot>
 			rewindSnapshottable() {
 		return new com.openggf.game.rewind.RewindSnapshottable<>() {
 			@Override
@@ -1201,7 +1201,7 @@ public class SpriteManager {
 			}
 
 			@Override
-			public java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> capture() {
+			public com.openggf.game.rewind.snapshot.SpriteManagerSnapshot capture() {
 				java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap =
 						new java.util.LinkedHashMap<>();
 				for (Sprite sprite : sprites.values()) {
@@ -1209,16 +1209,18 @@ public class SpriteManager {
 						snap.put(aps.getCode(), aps.captureRewindState());
 					}
 				}
-				return java.util.Collections.unmodifiableMap(snap);
+				return new com.openggf.game.rewind.snapshot.SpriteManagerSnapshot(frameCounter, snap);
 			}
 
 			@Override
-			public void restore(java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap) {
+			public void restore(com.openggf.game.rewind.snapshot.SpriteManagerSnapshot s) {
+				frameCounter = s.frameCounter();
+				java.util.Map<String, com.openggf.level.objects.PerObjectRewindSnapshot> snap = s.sprites();
 				for (Sprite sprite : sprites.values()) {
 					if (sprite instanceof AbstractPlayableSprite aps) {
-						com.openggf.level.objects.PerObjectRewindSnapshot s = snap.get(aps.getCode());
-						if (s != null) {
-							aps.restoreRewindState(s);
+						com.openggf.level.objects.PerObjectRewindSnapshot perSprite = snap.get(aps.getCode());
+						if (perSprite != null) {
+							aps.restoreRewindState(perSprite);
 						}
 					}
 				}
