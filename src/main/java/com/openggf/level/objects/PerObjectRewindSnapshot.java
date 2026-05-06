@@ -107,6 +107,56 @@ public record PerObjectRewindSnapshot(
     ) implements BadnikSubclassRewindExtra {}
 
     /**
+     * Mutable scalar gameplay state on a sidekick's CPU controller. Structural
+     * runtime wiring (leader, respawn strategy, carry trigger, owning sidekick)
+     * is intentionally excluded and restored from the live controller graph.
+     */
+    public record SidekickCpuRewindExtra(
+            com.openggf.sprites.playable.SidekickCpuController.State state,
+            int despawnCounter,
+            int frameCounter,
+            int controlCounter,
+            int controller2Held,
+            int controller2Logical,
+            boolean inputUp,
+            boolean inputDown,
+            boolean inputLeft,
+            boolean inputRight,
+            boolean inputJump,
+            boolean inputJumpPress,
+            boolean jumpingFlag,
+            int minXBound,
+            int maxXBound,
+            int maxYBound,
+            int lastInteractObjectId,
+            int normalFrameCount,
+            int sidekickCount,
+            int normalPushingGraceFrames,
+            boolean suppressNextAirbornePushFollowSteering,
+            boolean aizObjectOrderGracePushBypassThisFrame,
+            int pendingGroundedFollowNudge,
+            int pendingGroundedFollowNudgeFrame,
+            boolean aizIntroDormantMarkerPrimed,
+            boolean suppressNextAizIntroNormalMovement,
+            boolean skipPhysicsThisFrame,
+            boolean cpuFrameCounterFromStoredLevelFrame,
+            com.openggf.sprites.playable.SidekickCpuController.NormalStepDiagnostics latestNormalStepDiagnostics,
+            short carryLatchX,
+            short carryLatchY,
+            boolean flyingCarryingFlag,
+            boolean carryParentagePending,
+            int releaseCooldown,
+            boolean mgzCarryIntroAscend,
+            int mgzCarryFlapTimer,
+            boolean mgzReleasedChaseLatched,
+            short mgzReleasedChaseXAccel,
+            short mgzReleasedChaseYAccel,
+            int flightTimer,
+            int catchUpTargetX,
+            int catchUpTargetY
+    ) {}
+
+    /**
      * Mutable gameplay state on AbstractPlayableSprite that AbstractObjectInstance's
      * default 11-field capture surface does NOT cover. Per the
      * v1.5.1 plan, render-only state, character physics constants, animation
@@ -176,7 +226,8 @@ public record PerObjectRewindSnapshot(
             int badnikChainCounter,
             int bubbleAnimId,
             boolean initPhysicsActive,
-            boolean objectMappingFrameControl
+            boolean objectMappingFrameControl,
+            SidekickCpuRewindExtra sidekickCpuExtra
     ) {}
 
     /** Returns a copy of this snapshot with the given {@link PlayerRewindExtra} attached. */

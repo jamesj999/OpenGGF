@@ -13,6 +13,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.PerObjectRewindSnapshot.SidekickCpuRewindExtra;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 
@@ -2572,6 +2573,97 @@ public class SidekickCpuController {
                 || (state == State.CARRYING
                 && carryTrigger != null
                 && carryTrigger.usesMgzBossTransitionControl());
+    }
+
+    public SidekickCpuRewindExtra captureRewindState() {
+        return new SidekickCpuRewindExtra(
+                state,
+                despawnCounter,
+                frameCounter,
+                controlCounter,
+                controller2Held,
+                controller2Logical,
+                inputUp,
+                inputDown,
+                inputLeft,
+                inputRight,
+                inputJump,
+                inputJumpPress,
+                jumpingFlag,
+                minXBound,
+                maxXBound,
+                maxYBound,
+                lastInteractObjectId,
+                normalFrameCount,
+                sidekickCount,
+                normalPushingGraceFrames,
+                suppressNextAirbornePushFollowSteering,
+                aizObjectOrderGracePushBypassThisFrame,
+                pendingGroundedFollowNudge,
+                pendingGroundedFollowNudgeFrame,
+                aizIntroDormantMarkerPrimed,
+                suppressNextAizIntroNormalMovement,
+                skipPhysicsThisFrame,
+                cpuFrameCounterFromStoredLevelFrame,
+                latestNormalStepDiagnostics,
+                carryLatchX,
+                carryLatchY,
+                flyingCarryingFlag,
+                carryParentagePending,
+                releaseCooldown,
+                mgzCarryIntroAscend,
+                mgzCarryFlapTimer,
+                mgzReleasedChaseLatched,
+                mgzReleasedChaseXAccel,
+                mgzReleasedChaseYAccel,
+                flightTimer,
+                catchUpTargetX,
+                catchUpTargetY);
+    }
+
+    public void restoreRewindState(SidekickCpuRewindExtra snapshot) {
+        state = snapshot.state();
+        despawnCounter = snapshot.despawnCounter();
+        frameCounter = snapshot.frameCounter();
+        controlCounter = snapshot.controlCounter();
+        controller2Held = snapshot.controller2Held();
+        controller2Logical = snapshot.controller2Logical();
+        inputUp = snapshot.inputUp();
+        inputDown = snapshot.inputDown();
+        inputLeft = snapshot.inputLeft();
+        inputRight = snapshot.inputRight();
+        inputJump = snapshot.inputJump();
+        inputJumpPress = snapshot.inputJumpPress();
+        jumpingFlag = snapshot.jumpingFlag();
+        minXBound = snapshot.minXBound();
+        maxXBound = snapshot.maxXBound();
+        maxYBound = snapshot.maxYBound();
+        lastInteractObjectId = snapshot.lastInteractObjectId();
+        normalFrameCount = snapshot.normalFrameCount();
+        sidekickCount = snapshot.sidekickCount();
+        normalPushingGraceFrames = snapshot.normalPushingGraceFrames();
+        suppressNextAirbornePushFollowSteering = snapshot.suppressNextAirbornePushFollowSteering();
+        aizObjectOrderGracePushBypassThisFrame = snapshot.aizObjectOrderGracePushBypassThisFrame();
+        pendingGroundedFollowNudge = snapshot.pendingGroundedFollowNudge();
+        pendingGroundedFollowNudgeFrame = snapshot.pendingGroundedFollowNudgeFrame();
+        aizIntroDormantMarkerPrimed = snapshot.aizIntroDormantMarkerPrimed();
+        suppressNextAizIntroNormalMovement = snapshot.suppressNextAizIntroNormalMovement();
+        skipPhysicsThisFrame = snapshot.skipPhysicsThisFrame();
+        cpuFrameCounterFromStoredLevelFrame = snapshot.cpuFrameCounterFromStoredLevelFrame();
+        latestNormalStepDiagnostics = snapshot.latestNormalStepDiagnostics();
+        carryLatchX = snapshot.carryLatchX();
+        carryLatchY = snapshot.carryLatchY();
+        flyingCarryingFlag = snapshot.flyingCarryingFlag();
+        carryParentagePending = snapshot.carryParentagePending();
+        releaseCooldown = snapshot.releaseCooldown();
+        mgzCarryIntroAscend = snapshot.mgzCarryIntroAscend();
+        mgzCarryFlapTimer = snapshot.mgzCarryFlapTimer();
+        mgzReleasedChaseLatched = snapshot.mgzReleasedChaseLatched();
+        mgzReleasedChaseXAccel = snapshot.mgzReleasedChaseXAccel();
+        mgzReleasedChaseYAccel = snapshot.mgzReleasedChaseYAccel();
+        flightTimer = snapshot.flightTimer();
+        catchUpTargetX = snapshot.catchUpTargetX();
+        catchUpTargetY = snapshot.catchUpTargetY();
     }
 
     public void applyFlyingCarryVerticalVelocity() {

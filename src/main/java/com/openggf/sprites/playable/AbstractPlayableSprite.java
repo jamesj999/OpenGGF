@@ -34,6 +34,7 @@ import com.openggf.level.objects.ObjectControlledSolidContactController;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.PerObjectRewindSnapshot;
 import com.openggf.level.objects.PerObjectRewindSnapshot.PlayerRewindExtra;
+import com.openggf.level.objects.PerObjectRewindSnapshot.SidekickCpuRewindExtra;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
@@ -818,6 +819,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * and regenerate within one forward replay frame (v1.5.1 plan scope).
          */
         public PerObjectRewindSnapshot captureRewindState() {
+                SidekickCpuRewindExtra sidekickCpuExtra =
+                        cpuController != null ? cpuController.captureRewindState() : null;
                 PlayerRewindExtra extra = new PlayerRewindExtra(
                         // AbstractSprite base fields
                         xPixel, yPixel,
@@ -872,7 +875,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         badnikChainCounter,
                         bubbleAnimId,
                         initPhysicsActive,
-                        objectMappingFrameControl);
+                        objectMappingFrameControl,
+                        sidekickCpuExtra);
                 // Player snapshots use a stub PerObjectRewindSnapshot (no badnikExtra; playerExtra holds everything).
                 return new PerObjectRewindSnapshot(
                         false, false,       // destroyed, destroyedRespawnable
@@ -1008,6 +1012,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.bubbleAnimId = extra.bubbleAnimId();
                 this.initPhysicsActive = extra.initPhysicsActive();
                 this.objectMappingFrameControl = extra.objectMappingFrameControl();
+                if (extra.sidekickCpuExtra() != null) {
+                        if (cpuController == null) {
+                                throw new IllegalStateException(
+                                        "Cannot restore SidekickCpuController state without a live controller");
+                        }
+                        cpuController.restoreRewindState(extra.sidekickCpuExtra());
+                }
         }
 
         public void giveShield() {
