@@ -510,6 +510,37 @@ public class TestS3kCnzDirectedTraversalHeadless {
     }
 
     @Test
+    void cnzCylinderRecapturesOffscreenCpuSidekickDespawnMarkerFromStandingBit() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite sidekick = ensureCnzSidekick();
+        prepareRiderForCylinderStanding(sidekick, 0x38C0, 0x0800);
+
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        cylinder.onSolidContact(sidekick, new SolidContact(true, false, false, false, true), 0);
+
+        sidekick.setCentreX((short) 0x7F00);
+        sidekick.setCentreY((short) 0);
+        sidekick.setAir(true);
+        sidekick.setObjectControlled(true);
+        sidekick.setControlLocked(true);
+        sidekick.setRenderFlagOnScreen(false);
+
+        cylinder.update(1, fixture.sprite());
+
+        assertTrue(sidekick.isObjectControlled(),
+                "ROM sub_324C0:67985-68005 overwrites Tails CPU object_control=$81 with cylinder control");
+        assertFalse(sidekick.getAir(),
+                "ROM sub_324C0:68002-68009 clears Status_InAir when the preserved P2 standing bit is still set");
+        assertEquals(0, sidekick.getXSpeed());
+        assertEquals(0, sidekick.getYSpeed());
+        assertEquals(0, sidekick.getGSpeed());
+    }
+
+    @Test
     void cnzCylinderMaintainsIndependentRiderStateForPlayerAndSidekick() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)

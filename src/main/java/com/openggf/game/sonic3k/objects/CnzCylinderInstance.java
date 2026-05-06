@@ -410,6 +410,12 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             return;
         }
         // ROM sub_324C0 (a2)==0 path re-captures immediately - no ROM cooldown.
+        // It only tests the cylinder standing bit before writing object_control=3
+        // and clearing Status_InAir (sonic3k.asm:67985-68005). Tails CPU can
+        // write its offscreen despawn marker earlier in the same frame
+        // (sub_13ECA, sonic3k.asm:26800-26809), then Obj_CNZCylinder runs its
+        // P2 sub_324C0 pass afterward (sonic3k.asm:67656-67672). Allow that
+        // standing-bit recapture even though the CPU marker set object_control=$81.
         // Bypass the engine RECAPTURE_COOLDOWN_FRAMES guard when offscreen so
         // the alternation can complete each frame.
         if (playerOnScreen
