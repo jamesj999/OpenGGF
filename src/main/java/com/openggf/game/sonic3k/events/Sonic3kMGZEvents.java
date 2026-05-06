@@ -198,7 +198,9 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int BOSS_TRANSITION_WAIT_FRAMES = 0x168;
     private static final int BOSS_TRANSITION_SPAWN_OFFSET_X = 0x40;
     private static final int BOSS_TRANSITION_SPAWN_OFFSET_Y = 0x100;
+    private static final int BOSS_TRANSITION_TAILS_ALONE_HOLD_OFFSET_Y = 8;
     private static final int BOSS_TRANSITION_TAILS_INPUT_MASK = 0x07;
+    private static final short PIT_DEATH_BOUNCE_Y_SPEED = (short) -0x0700;
 
     // ========================================================================
     // Act 2 BG-rise state machine (MGZ2_BGEventTrigger + Obj_MGZ2BGMoveSonic)
@@ -1109,7 +1111,18 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bossTransitionActive = true;
         bossTransitionDeathPlaneDisabled = true;
         lockBossTransitionCamera();
+        cancelSameFrameBossTransitionPitDeath(camera.getFocusedSprite());
         ensureBossTransitionTails(bossTransitionX, bossTransitionY);
+    }
+
+    private void cancelSameFrameBossTransitionPitDeath(AbstractPlayableSprite player) {
+        if (player == null || !player.getDead()) {
+            return;
+        }
+        restoreBossTransitionPlayerRoutine(player);
+        if (player.getYSpeed() == PIT_DEATH_BOUNCE_Y_SPEED) {
+            player.setYSpeed((short) 0);
+        }
     }
 
     private void ensureBossTransitionTails(int spawnX, int spawnY) {
@@ -1195,8 +1208,21 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
 
         boolean tailsBelowTransition = bossTransitionY < (tails.getCentreY() & 0xFFFF);
         if (tailsBelowTransition && !carrying) {
+            if (!isBossTransitionPlayerReadyForCarry(player)) {
+                return;
+            }
             startBossTransitionCarry(player, tails);
         }
+    }
+
+    private boolean isBossTransitionPlayerReadyForCarry(AbstractPlayableSprite player) {
+        if (player == null || player.isHurt() || player.getDead()) {
+            return false;
+        }
+        boolean playerOnScreen = player.hasRenderFlagOnScreenState()
+                ? player.isRenderFlagOnScreen()
+                : camera().isVisibleForRenderFlag(player);
+        return !playerOnScreen;
     }
 
     private boolean isBossTransitionCarryRoutine(SidekickCpuController controller) {
@@ -1236,15 +1262,32 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             return;
         }
         if (bossTransitionY < (player.getCentreY() & 0xFFFF)) {
+            if (bossTransitionTimer > 0) {
+                player.setCentreY((short) (bossTransitionY + BOSS_TRANSITION_TAILS_ALONE_HOLD_OFFSET_Y));
+                bossTransitionX = player.getCentreX() & 0xFFFF;
+                return;
+            }
             player.setCentreY((short) bossTransitionY);
             player.setXSpeed((short) 0);
             player.setYSpeed((short) 0);
             player.setGSpeed((short) 0);
             player.setSpindash(false);
             player.setAir(true);
+            player.setObjectControlled(false);
             restoreBossTransitionPlayerRoutine(player);
+            applyTailsAlonePostTransitionCpuRoutine(player);
         }
         bossTransitionX = player.getCentreX() & 0xFFFF;
+    }
+
+    private void applyTailsAlonePostTransitionCpuRoutine(AbstractPlayableSprite player) {
+        // ROM loc_163F4 writes Tails_CPU_routine=$1A. The following Tails CPU
+        // dispatch enters loc_141F2, primes flight, zeros velocity, then advances
+        // to routine $1C. Focused-player Tails does not use SidekickCpuController,
+        // so mirror the one-shot object fields the routine establishes here.
+        player.setDoubleJumpFlag(1);
+        player.setDoubleJumpProperty((byte) 0xF0);
+        player.setAir(true);
     }
 
     public boolean isBossTransitionDeathPlaneDisabled() {

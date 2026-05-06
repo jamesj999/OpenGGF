@@ -14,12 +14,16 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.events.S3kMgzEventWriteSupport;
 import com.openggf.graphics.GLCommand;
+import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.SwingMotion;
@@ -117,6 +121,9 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int ROUTINE_END_ATTACK_WAIT = 0x48;
     private static final int ROUTINE_END_ATTACK_MOVE = 0x20;
     private static final int ROUTINE_END_DEFEATED = 0x3A;
+    private static final int END_DEFEAT_WAIT_FADE_TO_LEVEL_MUSIC = 0;
+    private static final int END_DEFEAT_WAIT_CAPSULE_CALLBACK = 1;
+    private static final int END_DEFEAT_WAIT_RESULTS_FLAG = 2;
 
     /** ROM: move.w #-$800,y_vel — initial upward velocity into ceiling. */
     private static final int INITIAL_Y_VEL = -0x800;
@@ -166,6 +173,8 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int POD_FRAME = 9;
     /** Obj_RobotnikShipWait → Obj_RobotnikShipReady switches to frame $A. */
     private static final int POD_ESCAPE_FRAME = 10;
+    /** Obj_RobotnikHeadMain switches to frame 3 when parent status bit 7 is set. */
+    private static final int HEAD_FRAME_DEFEATED = 3;
     /** Child1_MakeRoboShipFlame uses Map_RobotnikShip frame 6 at (+$1E, 0). */
     private static final int SHIP_FLAME_FRAME = 6;
     /** Map_RobotnikShip frame 6 inherits the ship's palette line 0. */
@@ -179,6 +188,11 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int HEAD_ANIM_DELAY = 5;
     /** ROM: Obj_RobotnikHeadMain — status bit 6 set → mapping_frame = 2 (hurt face). */
     private static final int HEAD_FRAME_HURT = 2;
+    /** ROM: Obj_RobotnikShipReady waits until y_pos <= Camera_Y+$40. */
+    private static final int END_BOSS_MINI_CRAFT_RISE_TARGET_CAMERA_OFFSET_Y = 0x40;
+    /** ROM: loc_67F1E sets x_vel=$300 and $2E=$100 for Obj_RobotnikShipEscape. */
+    private static final int END_BOSS_MINI_CRAFT_ESCAPE_X_VEL = 0x300;
+    private static final int END_BOSS_MINI_CRAFT_ESCAPE_TIMER = 0x100;
 
     /**
      * ROM: {@code ChildObjDat_6D7C0} (sonic3k.asm:144579). Four children
@@ -233,6 +247,26 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             {0xA0, -0x50, 0x80, 0x200, 4, 8},
             {-0x40, 0x70, 0x200, 0, 0, 6},
     };
+    /** ROM: word_6D6F8, indexed by the same byte_6D708 offset as the attack pattern. */
+    private static final int[][] AIR_ZOOM_CUE_Y_MOTION = {
+            {-0x200, 0x08},
+            {-0x600, 0x40},
+            { 0x600, -0x40},
+            {-0x200, 0x08},
+    };
+    /** ROM: loc_6CFF4 initializes the zoom child at Camera_X+$140, Camera_Y+$50. */
+    private static final int AIR_ZOOM_CUE_CAMERA_OFFSET_X = 0x140;
+    private static final int AIR_ZOOM_CUE_CAMERA_OFFSET_Y = 0x50;
+    private static final int AIR_ZOOM_CUE_INITIAL_X_VEL = -0x400;
+    private static final int AIR_ZOOM_CUE_MIN_X_VEL = -0x100;
+    private static final int AIR_ZOOM_CUE_INITIAL_SCALE_STEP = 4;
+    private static final int AIR_ZOOM_CUE_SCALE_DELTA = 1;
+    private static final int AIR_ZOOM_CUE_SCALE_FRAME_MASK = 3;
+    private static final int AIR_ZOOM_CUE_MAX_ABS_Y_VEL = 0x400;
+    private static final int AIR_ZOOM_CUE_MAX_MAPPING_FRAME = 0x1C;
+    private static final int AIR_ZOOM_CUE_SOURCE_WIDTH = 0x80;
+    private static final int AIR_ZOOM_CUE_SOURCE_HEIGHT = 0x40;
+    private static final int AIR_ZOOM_CUE_SOURCE_BYTES_PER_ROW = AIR_ZOOM_CUE_SOURCE_WIDTH / Pattern.PIXELS_PER_BYTE;
     /** word_6D788 collision_flags = $8B (HURT category, size $0B). */
     private static final int DRILL_HEAD_COLLISION_FLAGS = 0x8B;
     /** loc_6CF20 uses word_6D7A0: make_art_tile(ArtTile_MGZEndBoss,0,0). */
@@ -296,8 +330,29 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private int airAttackPhase;
     private int airAttackPatternCounter;
     private int airAttackPatternOffset;
+    private boolean airZoomCueActive;
+    private int airZoomCueX;
+    private int airZoomCueY;
+    private int airZoomCueXSubpixel;
+    private int airZoomCueYSubpixel;
+    private int airZoomCueXVel;
+    private int airZoomCueYVel;
+    private int airZoomCueYAccel;
+    private int airZoomCueScaleStep;
+    private int airZoomCueFrameCounter;
+    private int airZoomCueGeneratedFrame;
+    private byte[] airZoomCueSourceRaster;
     private S3kBossExplosionController endBossDefeatExplosionController;
     private boolean endBossDefeatHandoffComplete;
+    private int endBossDefeatPhase;
+    private boolean endBossBodyHiddenAfterFadeHandoff;
+    private boolean endBossMiniCraftActive;
+    private boolean endBossMiniCraftFlyingRight;
+    private int endBossMiniCraftX;
+    private int endBossMiniCraftY;
+    private int endBossMiniCraftXSubpixel;
+    private int endBossMiniCraftXVel;
+    private int endBossMiniCraftTimer;
     /** True once the 10 falling-debris chunks have been initialised (ROM: bset #7,$38). */
     private boolean fallingDebrisSpawned;
     /** 10 × 16:8 fixed-point (x, y, xVel, yVel) rows; last slot is `alive` flag. */
@@ -345,8 +400,29 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         airAttackPhase = 0;
         airAttackPatternCounter = 0;
         airAttackPatternOffset = 0;
+        airZoomCueActive = false;
+        airZoomCueX = 0;
+        airZoomCueY = 0;
+        airZoomCueXSubpixel = 0;
+        airZoomCueYSubpixel = 0;
+        airZoomCueXVel = 0;
+        airZoomCueYVel = 0;
+        airZoomCueYAccel = 0;
+        airZoomCueScaleStep = AIR_ZOOM_CUE_INITIAL_SCALE_STEP;
+        airZoomCueFrameCounter = 0;
+        airZoomCueGeneratedFrame = -1;
+        airZoomCueSourceRaster = null;
         endBossDefeatExplosionController = null;
         endBossDefeatHandoffComplete = false;
+        endBossDefeatPhase = END_DEFEAT_WAIT_FADE_TO_LEVEL_MUSIC;
+        endBossBodyHiddenAfterFadeHandoff = false;
+        endBossMiniCraftActive = false;
+        endBossMiniCraftFlyingRight = false;
+        endBossMiniCraftX = 0;
+        endBossMiniCraftY = 0;
+        endBossMiniCraftXSubpixel = 0;
+        endBossMiniCraftXVel = 0;
+        endBossMiniCraftTimer = 0;
         fallingDebrisSpawned = false;
     }
 
@@ -512,7 +588,9 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             }
             case ROUTINE_END_AIR_APPROACH -> {
                 applyXVelocity();
-                if (playerEntity != null && (playerEntity.getCentreX() & 0xFFFF) >= state.x) {
+                // ROM loc_6C5C4 checks status bit 6 (hit flash) before the player-X gate.
+                if (state.invulnerable
+                        || (playerEntity != null && (playerEntity.getCentreX() & 0xFFFF) >= state.x)) {
                     xVel = 0x200;
                     state.routine = ROUTINE_END_AIR_SWEEP;
                 } else {
@@ -534,6 +612,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
                 }
             }
             case ROUTINE_END_ATTACK_WAIT -> {
+                updateAirZoomCue();
                 if (--waitTimer < 0) {
                     advanceAirAttackWait();
                 }
@@ -555,16 +634,27 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     /**
      * ROM: final MGZ2 hit switches through Wait_FadeToLevelMusic, then
-     * loc_6C2BE/loc_694AA load the floating Egg Capsule path. The Java object
-     * retires after spawning the capsule; the capsule owns results and the
-     * MGZ-to-CNZ palette fade handoff.
+     * loc_6C2BE waits before loc_694AA creates the floating Egg Capsule. The
+     * boss stays alive at loc_6C2EE until the capsule/results flag allows
+     * loc_6D104's MGZ-to-CNZ palette fade.
      */
     private void updateEndBossDefeated() {
         if (endBossDefeatExplosionController != null && !endBossDefeatExplosionController.isFinished()) {
             endBossDefeatExplosionController.tick();
             spawnPendingEndBossDefeatExplosions();
         }
+        updateEndBossMiniCraftEscape();
 
+        switch (endBossDefeatPhase) {
+            case END_DEFEAT_WAIT_FADE_TO_LEVEL_MUSIC -> updateWaitFadeToLevelMusic();
+            case END_DEFEAT_WAIT_CAPSULE_CALLBACK -> updateWaitForCapsuleCallback();
+            case END_DEFEAT_WAIT_RESULTS_FLAG -> updateWaitForResultsFlag();
+            default -> {
+            }
+        }
+    }
+
+    private void updateWaitFadeToLevelMusic() {
         if (waitTimer > 0) {
             waitTimer--;
             return;
@@ -573,13 +663,76 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         if (endBossDefeatHandoffComplete) {
             return;
         }
+
+        // ROM Wait_FadeToLevelMusic: allocate Obj_Song_Fade_ToLevelMusic, set
+        // $2E to 2*60-1, clear render_flags bit 7, then jump through $34 to loc_6C2BE.
         endBossDefeatHandoffComplete = true;
-        clearEndBossRuntimeState();
-        restoreLevelMusicForCapsule();
-        spawnFreeChild(Mgz2PostBossSequenceController::new);
+        endBossBodyHiddenAfterFadeHandoff = true;
+        spawnFreeChild(() -> new SongFadeTransitionInstance(2 * 60, resolveLevelMusicId()));
+        waitTimer = (2 * 60) - 1;
+        startEndBossMiniCraftEscape();
         spawnEndBossDefeatDebris();
+        endBossDefeatPhase = END_DEFEAT_WAIT_CAPSULE_CALLBACK;
+    }
+
+    private void startEndBossMiniCraftEscape() {
+        endBossMiniCraftActive = true;
+        endBossMiniCraftFlyingRight = false;
+        endBossMiniCraftX = state.x + renderOffsetX(POD_OFFSET_X);
+        endBossMiniCraftY = state.y + POD_OFFSET_Y;
+        endBossMiniCraftXSubpixel = 0;
+        endBossMiniCraftXVel = 0;
+        endBossMiniCraftTimer = END_BOSS_MINI_CRAFT_ESCAPE_TIMER;
+    }
+
+    private void updateEndBossMiniCraftEscape() {
+        if (!endBossMiniCraftActive) {
+            return;
+        }
+        if (!endBossMiniCraftFlyingRight) {
+            int cameraY = services().camera() != null ? services().camera().getY() & 0xFFFF : 0;
+            int targetY = cameraY + END_BOSS_MINI_CRAFT_RISE_TARGET_CAMERA_OFFSET_Y;
+            if (targetY >= endBossMiniCraftY) {
+                endBossMiniCraftFlyingRight = true;
+                endBossMiniCraftXVel = END_BOSS_MINI_CRAFT_ESCAPE_X_VEL;
+            } else {
+                endBossMiniCraftY--;
+            }
+            return;
+        }
+
+        int fixedX = (endBossMiniCraftX << 8) | (endBossMiniCraftXSubpixel & 0xFF);
+        fixedX += endBossMiniCraftXVel;
+        endBossMiniCraftX = fixedX >> 8;
+        endBossMiniCraftXSubpixel = fixedX & 0xFF;
+        endBossMiniCraftTimer--;
+        if (endBossMiniCraftTimer < 0) {
+            endBossMiniCraftActive = false;
+        }
+    }
+
+    private void updateWaitForCapsuleCallback() {
+        if (waitTimer > 0) {
+            waitTimer--;
+            return;
+        }
+
+        clearEndBossRuntimeState();
+        // ROM loc_694AA loads PLC_EggCapsule and animals/explosion art here.
+        // The engine's S3K object-art provider keeps the egg capsule as a
+        // standalone sheet, so the observable handoff is the same object spawn.
         spawnFreeChild(() -> Mgz2EndEggCapsuleInstance.createForCamera(
                 services().camera().getX(), services().camera().getY()));
+        endBossDefeatPhase = END_DEFEAT_WAIT_RESULTS_FLAG;
+    }
+
+    private void updateWaitForResultsFlag() {
+        if (services().gameState() == null || !services().gameState().isEndOfLevelFlag()) {
+            return;
+        }
+
+        restoreLevelMusicForCapsule();
+        spawnFreeChild(Mgz2PostBossPaletteFadeController::new);
         setDestroyed(true);
     }
 
@@ -609,7 +762,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     private void restoreLevelMusicForCapsule() {
         try {
-            int levelMusic = services().getCurrentLevelMusicId();
+            int levelMusic = resolveLevelMusicId();
             if (levelMusic > 0) {
                 services().playMusic(levelMusic);
             }
@@ -618,11 +771,22 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         }
     }
 
+    private int resolveLevelMusicId() {
+        try {
+            int levelMusic = services().getCurrentLevelMusicId();
+            return levelMusic > 0 ? levelMusic : Sonic3kMusic.MGZ2.id;
+        } catch (Exception e) {
+            return Sonic3kMusic.MGZ2.id;
+        }
+    }
+
     private void enterAirAttackWait() {
+        services().playSfx(Sonic3kSfx.BOSS_ZOOM.id);
         waitTimer = 0x9F;
         airAttackPhase = 0;
         airAttackPatternOffset = AIR_ATTACK_PATTERN_SEQUENCE[airAttackPatternCounter];
         airAttackPatternCounter = (airAttackPatternCounter + 1) & 7;
+        startAirZoomCue(airAttackPatternOffset);
         state.routine = ROUTINE_END_ATTACK_WAIT;
     }
 
@@ -636,7 +800,71 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
         waitTimer = 0xFF;
         airAttackPhase = 0;
+        airZoomCueActive = false;
         state.routine = ROUTINE_END_ATTACK_MOVE;
+    }
+
+    /** ROM: loc_6CFF4 / ChildObjDat_6D836 — scaled drill/zoom telegraph before each sweep. */
+    private void startAirZoomCue(int patternOffset) {
+        Camera camera = services().camera();
+        int cameraX = camera != null ? camera.getX() & 0xFFFF : 0;
+        int cameraY = camera != null ? camera.getY() & 0xFFFF : 0;
+        int[] yMotion = airZoomCueYMotion(patternOffset);
+        airZoomCueActive = true;
+        airZoomCueX = (cameraX + AIR_ZOOM_CUE_CAMERA_OFFSET_X) & 0xFFFF;
+        airZoomCueY = (cameraY + AIR_ZOOM_CUE_CAMERA_OFFSET_Y) & 0xFFFF;
+        airZoomCueXSubpixel = 0;
+        airZoomCueYSubpixel = 0;
+        airZoomCueXVel = AIR_ZOOM_CUE_INITIAL_X_VEL;
+        airZoomCueYVel = yMotion[0];
+        airZoomCueYAccel = yMotion[1];
+        airZoomCueScaleStep = AIR_ZOOM_CUE_INITIAL_SCALE_STEP;
+        airZoomCueFrameCounter = 0;
+        airZoomCueGeneratedFrame = -1;
+    }
+
+    private int[] airZoomCueYMotion(int patternOffset) {
+        int index = Math.min((patternOffset & 0x0C) / 4, AIR_ZOOM_CUE_Y_MOTION.length - 1);
+        return AIR_ZOOM_CUE_Y_MOTION[index];
+    }
+
+    private void updateAirZoomCue() {
+        if (!airZoomCueActive) {
+            return;
+        }
+        int nextXVel = airZoomCueXVel + airZoomCueXAccel();
+        if (nextXVel <= AIR_ZOOM_CUE_MIN_X_VEL) {
+            airZoomCueXVel = nextXVel;
+        }
+        int nextYVel = airZoomCueYVel + airZoomCueYAccel;
+        if (airZoomCueYAccel >= 0) {
+            airZoomCueYVel = Math.min(nextYVel, AIR_ZOOM_CUE_MAX_ABS_Y_VEL);
+        } else {
+            airZoomCueYVel = Math.max(nextYVel, -AIR_ZOOM_CUE_MAX_ABS_Y_VEL);
+        }
+
+        int fixedX = (airZoomCueX << 8) | (airZoomCueXSubpixel & 0xFF);
+        fixedX += airZoomCueXVel;
+        airZoomCueX = fixedX >> 8;
+        airZoomCueXSubpixel = fixedX & 0xFF;
+
+        int fixedY = (airZoomCueY << 8) | (airZoomCueYSubpixel & 0xFF);
+        fixedY += airZoomCueYVel;
+        airZoomCueY = fixedY >> 8;
+        airZoomCueYSubpixel = fixedY & 0xFF;
+
+        airZoomCueFrameCounter++;
+        if ((airZoomCueFrameCounter & AIR_ZOOM_CUE_SCALE_FRAME_MASK) == 0) {
+            airZoomCueScaleStep = (airZoomCueScaleStep + AIR_ZOOM_CUE_SCALE_DELTA) & 0x7F;
+            if (airZoomCueScaleStep < AIR_ZOOM_CUE_INITIAL_SCALE_STEP) {
+                airZoomCueScaleStep = AIR_ZOOM_CUE_INITIAL_SCALE_STEP;
+            }
+            airZoomCueGeneratedFrame = -1;
+        }
+    }
+
+    private int airZoomCueXAccel() {
+        return airAttackPatternOffset == 0 ? 6 : 0x10;
     }
 
     private void configureAirAttackFromCamera() {
@@ -844,6 +1072,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         }
         if (renderManager.getArtProvider() instanceof Sonic3kObjectArtProvider s3kProvider) {
             s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.MGZ_ENDBOSS);
+            s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED);
             s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.ROBOTNIK_SHIP);
             s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.MGZ_ENDBOSS_DEBRIS);
             s3kProvider.ensureBossExplosionArtLoaded();
@@ -925,19 +1154,19 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private void startEndBossDefeat() {
         state.defeated = true;
         state.routine = ROUTINE_END_DEFEATED;
-        waitTimer = 0x3F;
         xVel = 0;
         yVel = 0;
         state.invulnerable = false;
         state.invulnerabilityTimer = 0;
         endBossDefeatHandoffComplete = false;
+        endBossDefeatPhase = END_DEFEAT_WAIT_FADE_TO_LEVEL_MUSIC;
+        endBossBodyHiddenAfterFadeHandoff = false;
         endBossDefeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0, services().rng());
         services().playSfx(Sonic3kSfx.EXPLODE.id);
         spawnFreeChild(() -> new S3kBossExplosionChild(state.x, state.y));
         if (services().gameState() != null) {
             services().gameState().addScore(1000);
         }
-        services().fadeOutMusic();
     }
 
     /**
@@ -981,6 +1210,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         if (isInitialHiddenWait()
                 || state.routine == ROUTINE_CEILING_ESCAPE
                 || state.routine == ROUTINE_ESCAPE_WAIT
+                || state.defeated
                 || state.invulnerable) {
             // No collision while waiting to emerge, during the palette-flash
             // i-frames, or once the ship has begun escaping into the ceiling.
@@ -1058,6 +1288,10 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
         PatternSpriteRenderer drillRenderer = getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS);
         PatternSpriteRenderer shipRenderer = getRenderer(Sonic3kObjectArtKeys.ROBOTNIK_SHIP);
+        if (endBossBodyHiddenAfterFadeHandoff) {
+            drawEndBossMiniCraft(shipRenderer);
+            return;
+        }
 
         // The ROM uses separate child sprites queued by priority. Higher
         // priority words are farther back in the S3K sprite table, so the
@@ -1079,6 +1313,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
                 drawThrusterFlame(drillRenderer, 1);
             }
         }
+        drawAirZoomCue();
 
         // 3) Robotnik pod + head (ROM: Child1_MakeRoboShip3 + Child1_MakeRoboHead,
         //    ObjDat_RobotnikShip/Head priority $280).
@@ -1147,10 +1382,35 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
      * If the parent's status bit 6 (hurt) is set, use mapping_frame 2.
      */
     private int computeHeadFrame() {
+        if (state.defeated) {
+            return HEAD_FRAME_DEFEATED;
+        }
         if (state.invulnerable) {
             return HEAD_FRAME_HURT;
         }
         return ((renderTick / HEAD_ANIM_DELAY) & 1);
+    }
+
+    private void drawEndBossMiniCraft(PatternSpriteRenderer shipRenderer) {
+        if (!endBossMiniCraftActive || shipRenderer == null) {
+            return;
+        }
+        boolean craftFlipX = endBossMiniCraftFlyingRight || flipX;
+        shipRenderer.drawFrameIndex(POD_ESCAPE_FRAME, endBossMiniCraftX, endBossMiniCraftY, craftFlipX, false);
+        if (endBossMiniCraftFlyingRight && shouldDrawShipFlame()) {
+            int flameOffX = craftFlipX ? -SHIP_FLAME_OFFSET_X : SHIP_FLAME_OFFSET_X;
+            shipRenderer.drawFrameIndex(SHIP_FLAME_FRAME,
+                    endBossMiniCraftX + flameOffX,
+                    endBossMiniCraftY + SHIP_FLAME_OFFSET_Y,
+                    craftFlipX,
+                    false,
+                    SHIP_FLAME_PALETTE_LINE);
+        }
+        shipRenderer.drawFrameIndex(HEAD_FRAME_DEFEATED,
+                endBossMiniCraftX + (craftFlipX ? -HEAD_OFFSET_X : HEAD_OFFSET_X),
+                endBossMiniCraftY + HEAD_OFFSET_Y,
+                craftFlipX,
+                false);
     }
 
     private int currentPodFrame() {
@@ -1182,6 +1442,133 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
                 flipX,
                 false,
                 THRUSTER_FLAME_PALETTE_LINE);
+    }
+
+    private void drawAirZoomCue() {
+        if (!airZoomCueActive) {
+            return;
+        }
+        PatternSpriteRenderer scaledRenderer = getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED);
+        if (scaledRenderer == null || !scaledRenderer.isReady()) {
+            return;
+        }
+        int frame = currentAirZoomCueMappingFrame();
+        generateAirZoomCueArtIfNeeded(frame, scaledRenderer);
+        scaledRenderer.drawFrameIndex(frame, airZoomCueRenderX(), airZoomCueRenderY(), false, false,
+                MGZ_BOSS_PALETTE_LINE);
+    }
+
+    private int currentAirZoomCueMappingFrame() {
+        return Math.min(airZoomCueScaleStep & 0x7F, AIR_ZOOM_CUE_MAX_MAPPING_FRAME);
+    }
+
+    private int airZoomCueRenderX() {
+        int divisor = airZoomCueScaleStep + AIR_ZOOM_CUE_INITIAL_SCALE_STEP;
+        return airZoomCueX - (divisor > 0 ? 0x100 / divisor : 0);
+    }
+
+    private int airZoomCueRenderY() {
+        int divisor = airZoomCueScaleStep + AIR_ZOOM_CUE_INITIAL_SCALE_STEP;
+        return airZoomCueY - (divisor > 0 ? 0x100 / divisor : 0);
+    }
+
+    private void generateAirZoomCueArtIfNeeded(int frame, PatternSpriteRenderer scaledRenderer) {
+        if (airZoomCueGeneratedFrame == frame) {
+            return;
+        }
+        ObjectSpriteSheet sheet = services().renderManager().getSheet(Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED);
+        if (sheet == null || frame < 0 || frame >= sheet.getFrameCount()) {
+            return;
+        }
+        byte[] source = loadAirZoomCueSourceRaster();
+        Pattern[] generated = sheet.getPatterns();
+        if (source == null || generated == null || generated.length == 0) {
+            return;
+        }
+
+        for (Pattern pattern : generated) {
+            if (pattern != null) {
+                pattern.clear();
+            }
+        }
+
+        SpriteMappingFrame mapping = sheet.getFrame(frame);
+        FrameExtents extents = extentsFor(mapping);
+        if (extents.width() <= 0 || extents.height() <= 0) {
+            return;
+        }
+
+        for (SpriteMappingPiece piece : mapping.pieces()) {
+            for (int tileX = 0; tileX < piece.widthTiles(); tileX++) {
+                for (int tileY = 0; tileY < piece.heightTiles(); tileY++) {
+                    int generatedTile = piece.tileIndex() + (tileX * piece.heightTiles()) + tileY;
+                    if (generatedTile < 0 || generatedTile >= generated.length || generated[generatedTile] == null) {
+                        continue;
+                    }
+                    fillScaledTile(source, generated[generatedTile], piece, tileX, tileY, extents);
+                }
+            }
+        }
+        scaledRenderer.updatePatternRange(services().graphicsManager(), 0, generated.length);
+        airZoomCueGeneratedFrame = frame;
+    }
+
+    private byte[] loadAirZoomCueSourceRaster() {
+        if (airZoomCueSourceRaster != null) {
+            return airZoomCueSourceRaster;
+        }
+        try {
+            airZoomCueSourceRaster = services().rom().readBytes(
+                    Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_ADDR,
+                    Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_SIZE);
+        } catch (Exception e) {
+            LOG.fine(() -> "MgzDrillingRobotnikInstance.loadAirZoomCueSourceRaster: " + e.getMessage());
+            airZoomCueSourceRaster = new byte[0];
+        }
+        return airZoomCueSourceRaster;
+    }
+
+    private void fillScaledTile(byte[] source, Pattern target, SpriteMappingPiece piece,
+            int tileX, int tileY, FrameExtents extents) {
+        int baseX = piece.xOffset() + (tileX * Pattern.PATTERN_WIDTH) - extents.minX();
+        int baseY = piece.yOffset() + (tileY * Pattern.PATTERN_HEIGHT) - extents.minY();
+        for (int py = 0; py < Pattern.PATTERN_HEIGHT; py++) {
+            for (int px = 0; px < Pattern.PATTERN_WIDTH; px++) {
+                int outX = baseX + px;
+                int outY = baseY + py;
+                int sourceX = outX * AIR_ZOOM_CUE_SOURCE_WIDTH / extents.width();
+                int sourceY = outY * AIR_ZOOM_CUE_SOURCE_HEIGHT / extents.height();
+                target.setPixel(px, py, sourcePixel(source, sourceX, sourceY));
+            }
+        }
+    }
+
+    private byte sourcePixel(byte[] source, int x, int y) {
+        int clampedX = Math.max(0, Math.min(AIR_ZOOM_CUE_SOURCE_WIDTH - 1, x));
+        int clampedY = Math.max(0, Math.min(AIR_ZOOM_CUE_SOURCE_HEIGHT - 1, y));
+        int offset = clampedY * AIR_ZOOM_CUE_SOURCE_BYTES_PER_ROW + (clampedX / Pattern.PIXELS_PER_BYTE);
+        if (offset < 0 || offset >= source.length) {
+            return 0;
+        }
+        int packed = Byte.toUnsignedInt(source[offset]);
+        return (byte) ((clampedX & 1) == 0 ? (packed >> 4) & 0x0F : packed & 0x0F);
+    }
+
+    private FrameExtents extentsFor(SpriteMappingFrame frame) {
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (SpriteMappingPiece piece : frame.pieces()) {
+            minX = Math.min(minX, piece.xOffset());
+            minY = Math.min(minY, piece.yOffset());
+            maxX = Math.max(maxX, piece.xOffset() + (piece.widthTiles() * Pattern.PATTERN_WIDTH));
+            maxY = Math.max(maxY, piece.yOffset() + (piece.heightTiles() * Pattern.PATTERN_HEIGHT));
+        }
+        if (minX == Integer.MAX_VALUE) {
+            return new FrameExtents(0, 0, 0, 0);
+        }
+        return new FrameExtents(minX, minY, maxX, maxY);
     }
 
     private int renderOffsetX(int offX) {
@@ -1242,6 +1629,16 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private record DrillPart(int frame, int offX, int offY) {
     }
 
+    private record FrameExtents(int minX, int minY, int maxX, int maxY) {
+        int width() {
+            return maxX - minX;
+        }
+
+        int height() {
+            return maxY - minY;
+        }
+    }
+
     private boolean isEscapePodActive() {
         return state.routine == ROUTINE_CEILING_ESCAPE || state.routine == ROUTINE_ESCAPE_WAIT;
     }
@@ -1273,7 +1670,16 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
      * set, so the lower thruster flames blink every other frame.
      */
     private boolean shouldDrawThrusterFlames() {
-        return (renderTick & 1) != 0;
+        // AbstractBossInstance stores ObjectManager's VBlank-style update counter here.
+        return shouldDrawThrusterFlamesForFrame(state.lastUpdatedFrame);
+    }
+
+    private boolean shouldDrawThrusterFlamesForFrame(int frameCounter) {
+        return frameCounter >= 0 && (frameCounter & 1) == 0;
+    }
+
+    private boolean shouldDrawShipFlame() {
+        return state.lastUpdatedFrame >= 0 && (state.lastUpdatedFrame & 1) == 0;
     }
 
     /**

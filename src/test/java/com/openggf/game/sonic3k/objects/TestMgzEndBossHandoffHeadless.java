@@ -313,11 +313,17 @@ class TestMgzEndBossHandoffHeadless {
         boss.getState().defeated = true;
 
         fixture.stepIdleFrames(1);
+        assertFalse(boss.isDestroyed(),
+                "Obj_MGZEndBoss must remain alive as the loc_6C2BE/loc_6C2EE handoff controller");
+
+        for (int frame = 0; frame < 140 && !hasObject(Mgz2EndEggCapsuleInstance.class); frame++) {
+            fixture.stepIdleFrames(1);
+        }
 
         assertTrue(hasObject(Mgz2EndEggCapsuleInstance.class),
-                "The defeated boss handoff must spawn the floating egg prison in the real object loop");
-        assertTrue(hasObject(Mgz2PostBossSequenceController.class),
-                "The defeated boss handoff must leave a real post-results waiter alive");
+                "loc_694AA should spawn the floating egg prison after Wait_FadeToLevelMusic's callback delay");
+        assertFalse(hasObject(Mgz2PostBossPaletteFadeController.class),
+                "loc_6C2EE must wait for the results flag before spawning loc_6D104");
         PatternSpriteRenderer bossExplosionRenderer = GameServices.level()
                 .getObjectRenderManager()
                 .getBossExplosionRenderer();

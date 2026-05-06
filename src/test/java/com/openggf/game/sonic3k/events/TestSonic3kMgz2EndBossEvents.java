@@ -330,7 +330,35 @@ class TestSonic3kMgz2EndBossEvents {
     }
 
     @Test
-    void mgz2BossTransition_clampsTailsAloneAtTransitionHeight() {
+    void mgz2BossTransition_cancelsSameFramePitDeathBeforeCameraStep() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x06A0);
+        camera.setMinY((short) 0x06A0);
+        camera.setMaxY((short) 0x06A0);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+
+        sonic.setCentreY((short) 0x0781);
+        sonic.applyPitDeath();
+        assertTrue(sonic.getDead(), "Sanity check: S3K bottom-boundary physics already put Sonic in pit death");
+        assertTrue(camera.getFrozen(), "Pit death freezes the camera before object/event handoff can run");
+
+        events.triggerBossCollapseHandoff();
+        events.update(1, 0);
+        camera.updatePosition();
+
+        assertFalse(sonic.getDead(),
+                "Obj_MGZEndBoss sets Disable_death_plane before Obj_MGZ2_BossTransition; a same-frame engine pit death must not leak to render");
+        assertFalse(camera.getFrozen(),
+                "The transition must clear the death camera freeze before the same frame's camera step");
+        assertEquals((short) 0x06A0, camera.getY(),
+                "The camera should render the boss-transition scene, not a one-frame death/fall camera position");
+    }
+
+    @Test
+    void mgz2BossTransition_holdsTailsAloneEightPixelsBelowTransitionUntilTimerExpires() {
         GameServices.configuration().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
         GameServices.configuration().setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "");
         GameServices.camera().setFocusedSprite(new Tails("tails_p1", (short) 0x3CC0, (short) 0x0780));
@@ -345,17 +373,32 @@ class TestSonic3kMgz2EndBossEvents {
         tails.setYSpeed((short) 0x0340);
         tails.setGSpeed((short) 0x0400);
         tails.setSpindash(true);
+        tails.setHurt(true);
 
         events.triggerBossCollapseHandoff();
         events.update(1, 0);
 
         assertEquals(0, GameServices.sprites().getSidekicks().size(),
                 "Player_mode 2 uses the Tails-alone transition path, not a spawned rescue sidekick");
+        assertEquals((short) 0x0708, tails.getCentreY(),
+                "ROM loc_163F4 keeps Tails at y_pos(a0)+8 while the $168 timer is nonzero");
+        assertEquals((short) 0x0120, tails.getXSpeed());
+        assertEquals((short) 0x0340, tails.getYSpeed());
+        assertEquals((short) 0x0400, tails.getGSpeed());
+        assertTrue(tails.getSpindash());
+        assertTrue(tails.isHurt(),
+                "Tails-alone routine restoration is delayed until loc_163F4's timer reaches zero");
+
+        for (int frame = 1; frame < 0x168; frame++) {
+            events.update(1, frame);
+        }
+
         assertEquals((short) 0x0700, tails.getCentreY());
         assertEquals((short) 0, tails.getXSpeed());
         assertEquals((short) 0, tails.getYSpeed());
         assertEquals((short) 0, tails.getGSpeed());
         assertFalse(tails.getSpindash());
+        assertFalse(tails.isHurt());
     }
 
     @Test
@@ -625,6 +668,34 @@ class TestSonic3kMgz2EndBossEvents {
 
         assertEquals(SidekickCpuController.State.CARRY_INIT, tails.getCpuController().getState(),
                 "Obj_MGZ2_BossTransition switches Tails from CPU routine $12 to $14 after the $168-frame wait");
+    }
+
+    @Test
+    void mgz2BossTransition_waitsForSonicToLeaveScreenBeforeStartingTailsCarry() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+        sonic.setCentreX((short) 0x3CC0);
+        sonic.setCentreY((short) 0x0700);
+
+        events.triggerBossCollapseHandoff();
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
+        tails.setCentreY((short) 0x0780);
+        sonic.setRenderFlagOnScreen(true);
+
+        runBossTransitionTimer(events);
+
+        assertEquals(SidekickCpuController.State.MGZ_RESCUE_WAIT, tails.getCpuController().getState(),
+                "ROM loc_16384 returns while Player_1 render_flags has the on-screen high bit set");
+
+        tails.getCpuController().update(0);
+
+        assertFalse(sonic.isObjectControlled(),
+                "Starting the carry before Sonic leaves the screen latches object_control until the jump-release path clears it");
+        assertEquals(SidekickCpuController.State.MGZ_RESCUE_WAIT, tails.getCpuController().getState());
     }
 
     @Test

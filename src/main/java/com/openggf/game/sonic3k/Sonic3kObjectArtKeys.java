@@ -183,6 +183,8 @@ public final class Sonic3kObjectArtKeys {
     public static final String MGZ_TUNNELBOT_DEBRIS = MGZ_MINIBOSS_DEBRIS;
     /** MGZ Act 2 Drilling Robotnik (mini-event + shared with future end-of-act boss). */
     public static final String MGZ_ENDBOSS = "mgz_endboss";
+    /** Raw source art used by loc_6CFF4 / Perform_Art_Scaling for the air-attack zoom cue. */
+    public static final String MGZ_ENDBOSS_SCALED = "mgz_endboss_scaled";
     /** Shared MGZ end-boss debris (chunks flung during drill-drop + arm damage). */
     public static final String MGZ_ENDBOSS_DEBRIS = "mgz_endboss_debris";
 

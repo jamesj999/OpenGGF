@@ -8,18 +8,27 @@ import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.events.MgzObjectEventBridge;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
+import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.tests.FullReset;
@@ -40,6 +49,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -48,7 +58,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.intThat;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -257,7 +269,7 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
-    void thrusterFlamesFlickerOffEveryOtherRender() throws Exception {
+    void thrusterFlamesFlickerFromGameplayFrameNotRenderPass() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         MgzDrillingRobotnikInstance boss = createBoss(services);
         boss.update(0, null);
@@ -266,6 +278,10 @@ class TestMgzDrillingRobotnikInstance {
         boss.getState().routine = staticInt("ROUTINE_DRILL_DROP");
 
         boss.appendRenderCommands(new ArrayList<>());
+        verify(services.drillRenderer, times(2))
+                .drawFrameIndex(eq(0x19), anyInt(), anyInt(), eq(false), eq(false), eq(0));
+
+        boss.update(1, null);
         boss.appendRenderCommands(new ArrayList<>());
 
         verify(services.drillRenderer, times(2))
@@ -391,19 +407,21 @@ class TestMgzDrillingRobotnikInstance {
         }
 
         assertEquals(staticInt("ROUTINE_END_DEFEATED"), boss.getState().routine);
-        assertEquals(0x3F, getPrivateInt(boss, "waitTimer"),
-                "ROM BossDefeated primes a $3F delay before loc_694AA spawns the floating egg capsule");
+        assertEquals(0, getPrivateInt(boss, "waitTimer"),
+                "loc_6D60A switches to Wait_FadeToLevelMusic without replacing the current $2E timer");
         assertTrue(services.objectManager().getActiveObjects().stream()
                         .anyMatch(S3kBossExplosionChild.class::isInstance),
                 "The final hit should immediately create a visible explosion before the boss debris handoff");
         assertFalse(boss.isDestroyed(),
                 "Obj_MGZEndBoss must remain alive during the Wait_FadeToLevelMusic delay");
+        assertEquals(0, services.fadeOutMusicCount,
+                "Obj_Song_Fade_ToLevelMusic is allocated by Wait_FadeToLevelMusic, not started on the hit frame");
         verify(gameState).addScore(1000);
         verify(gameState, never()).setCurrentBossId(0);
     }
 
     @Test
-    void endBossDefeatDelaySpawnsFloatingCapsuleAndClearsBossState() throws Exception {
+    void endBossWaitFadeStageSpawnsSongFadeAndDebrisBeforeCapsuleHandoff() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         GameStateManager gameState = mock(GameStateManager.class);
         AbstractLevelEventManager levelEvents = mock(AbstractLevelEventManager.class);
@@ -424,15 +442,110 @@ class TestMgzDrillingRobotnikInstance {
         assertEquals(3, debrisCount,
                 "loc_6C2BE creates ChildObjDat_6D822's three MGZ boss fragments before the capsule handoff");
         assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(SongFadeTransitionInstance.class::isInstance),
+                "Wait_FadeToLevelMusic allocates Obj_Song_Fade_ToLevelMusic before the capsule wait");
+        assertFalse(services.objectManager().getActiveObjects().stream()
                         .anyMatch(Mgz2EndEggCapsuleInstance.class::isInstance),
-                "MGZ2 must use the same render_flags bit-1 floating Egg Capsule path as AIZ2");
-        assertTrue(services.objectManager().getActiveObjects().stream()
+                "loc_694AA must not run until loc_6C2BE's Obj_Wait delay expires");
+        assertFalse(services.objectManager().getActiveObjects().stream()
                         .anyMatch(Mgz2PostBossSequenceController.class::isInstance),
-                "Obj_MGZEndBoss remains as a waiter after loc_694AA and runs loc_6D104 when results finish");
+                "Obj_MGZEndBoss itself remains as loc_6C2EE after creating the capsule");
+        verify(gameState, never()).setCurrentBossId(0);
+        verify(levelEvents, never()).setBossActive(false);
+        assertFalse(boss.isDestroyed(),
+                "Obj_MGZEndBoss remains alive through loc_6C2BE's callback wait");
+    }
+
+    @Test
+    void endBossWaitFadeHandoffHidesDrillBodyWhileKeepingControllerAlive() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        services.withGameState(mock(GameStateManager.class));
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_DEFEATED");
+        boss.getState().defeated = true;
+
+        boss.update(1, null);
+        boss.appendRenderCommands(new ArrayList<>());
+
+        assertFalse(boss.isDestroyed(),
+                "loc_6C2BE/loc_6C2EE keep Obj_MGZEndBoss alive as a handoff controller");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(SongFadeTransitionInstance.class::isInstance),
+                "Wait_FadeToLevelMusic should have advanced into the capsule-delay controller path");
+        verify(services.drillRenderer, never()).drawFrameIndex(anyInt(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
+        verify(services.shipRenderer).drawFrameIndex(eq(10), anyInt(), anyInt(), eq(false), eq(false));
+    }
+
+    @Test
+    void endBossWaitFadeHandoffBreaksDrillContraptionWhileRobotnikShipEscapes() throws Exception {
+        camera.setY((short) 0x0600);
+        RecordingServices services = new RecordingServices(camera);
+        services.withGameState(mock(GameStateManager.class));
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_DEFEATED");
+        boss.getState().defeated = true;
+
+        boss.update(1, null);
+        boss.appendRenderCommands(new ArrayList<>());
+
+        verify(services.drillRenderer, never()).drawFrameIndex(anyInt(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
+        verify(services.shipRenderer).drawFrameIndex(eq(10), eq(0x3D1A), eq(0x066C), eq(false), eq(false));
+        verify(services.shipRenderer).drawFrameIndex(eq(3), eq(0x3D1A), eq(0x0650), eq(false), eq(false));
+        assertEquals(0, boss.getCollisionFlags(),
+                "After loc_6D60A the boss no longer uses Draw_And_Touch_Sprite, so the controller must be non-colliding");
+
+        for (int frame = 2; frame <= 50; frame++) {
+            boss.update(frame, null);
+        }
+        boss.appendRenderCommands(new ArrayList<>());
+
+        verify(services.shipRenderer, atLeastOnce())
+                .drawFrameIndex(eq(10), intThat(x -> x > 0x3D1A), anyInt(), eq(true), eq(false));
+        verify(services.shipRenderer, atLeastOnce())
+                .drawFrameIndex(eq(6), anyInt(), anyInt(), eq(true), eq(false), eq(0));
+    }
+
+    @Test
+    void endBossCapsuleHandoffWaitsForResultsFlagBeforeMgzToCnzFade() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = mock(GameStateManager.class);
+        AbstractLevelEventManager levelEvents = mock(AbstractLevelEventManager.class);
+        GameModule module = mock(GameModule.class);
+        when(module.getLevelEventProvider()).thenReturn(levelEvents);
+        when(gameState.isEndOfLevelFlag()).thenReturn(false);
+        services.withGameState(gameState);
+        services.withGameModule(module);
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_DEFEATED");
+        boss.getState().defeated = true;
+
+        boss.update(1, null);
+        for (int frame = 2; frame <= 121; frame++) {
+            boss.update(frame, null);
+        }
+
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2EndEggCapsuleInstance.class::isInstance),
+                "loc_694AA creates the floating capsule only after loc_6C2BE's Obj_Wait delay");
+        assertFalse(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2PostBossPaletteFadeController.class::isInstance),
+                "loc_6C2EE waits while the capsule/results flag is still active");
+        assertFalse(boss.isDestroyed(),
+                "Obj_MGZEndBoss must remain alive as the loc_6C2EE results waiter");
         verify(gameState).setCurrentBossId(0);
         verify(levelEvents).setBossActive(false);
+
+        when(gameState.isEndOfLevelFlag()).thenReturn(true);
+        boss.update(122, null);
+
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2PostBossPaletteFadeController.class::isInstance),
+                "When the results screen sets End_of_level_flag, loc_6C2EE creates loc_6D104");
         assertTrue(boss.isDestroyed(),
-                "After the capsule handoff, the Java boss object can retire while a dedicated waiter owns the fade");
+                "After creating loc_6D104, the Java boss object can retire");
     }
 
     @Test
@@ -876,7 +989,7 @@ class TestMgzDrillingRobotnikInstance {
         setPrivateInt(boss, "yVel", 0);
         boss.getState().routine = staticInt("ROUTINE_END_AIR_RISE");
 
-        boss.update(1, null);
+        boss.update(2, null);
         boss.appendRenderCommands(new ArrayList<>());
         TouchResponseProvider.TouchRegion[] regions = boss.getMultiTouchRegions();
 
@@ -889,6 +1002,28 @@ class TestMgzDrillingRobotnikInstance {
         assertEquals(0x0708, regions[2].y());
         assertEquals(0x3E6C, regions[3].x());
         assertEquals(0x0708, regions[3].y());
+    }
+
+    @Test
+    void airApproachHitImmediatelyForcesRightwardSweep() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        PlayableEntity player = mock(PlayableEntity.class);
+        when(player.getCentreX()).thenReturn((short) 0x3D80);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_AIR_APPROACH");
+        boss.getState().x = 0x3E80;
+        boss.getState().y = 0x0700;
+        setPrivateInt(boss, "xVel", -0x80);
+        setPrivateInt(boss, "yVel", 0);
+
+        boss.onPlayerAttack(player, null);
+        boss.update(1, player);
+
+        assertEquals(staticInt("ROUTINE_END_AIR_SWEEP"), boss.getState().routine,
+                "loc_6C5C4 checks status bit 6 before Sonic's X-position and forces the flying attack sweep after a hit");
+        assertEquals(0x0200, getPrivateInt(boss, "xVel"),
+                "loc_6C5E8 sets x_vel=$200 when the hit flash is active");
     }
 
     @Test
@@ -941,6 +1076,71 @@ class TestMgzDrillingRobotnikInstance {
         assertEquals(0x0200, getPrivateInt(boss, "yVel"));
         assertEquals(4, getPrivateInt(boss, "endBossAngle"));
         assertEquals(8, getPrivateInt(boss, "drillChildPose"));
+    }
+
+    @Test
+    void enteringEachAirAttackCyclePlaysZoomSfxAndDrawsGeneratedMapScaledArtChild() throws Exception {
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        boss.update(0, null);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_AIR_SWEEP");
+        boss.getState().x = 0x3E00;
+        boss.getState().y = 0x0700;
+
+        boss.update(1, null);
+        boss.appendRenderCommands(new ArrayList<>());
+
+        assertTrue(services.playedSfxIds.contains(Sonic3kSfx.BOSS_ZOOM.id),
+                "ROM loc_6C614 plays sfx_BossZoom before the $9F air-attack wait");
+        assertFalse(services.graphics.renderCalls.isEmpty(),
+                "ChildObjDat_6D836 creates a Map_ScaledArt sprite backed by generated tiles");
+        assertTrue(services.graphics.scaledRenderCalls.isEmpty(),
+                "ArtScaled_MGZEndBoss is raw source for Perform_Art_Scaling, not plain scaled sprite art");
+        assertEquals(0x24030, services.graphics.renderCalls.get(0).patternId(),
+                "Initial $40=4 should draw Map_ScaledArt frame 4 from the generated ArtTile_MGZEndBossScaled bank");
+    }
+
+    @Test
+    void airZoomCueScalingSamplesRawScanlineSourceInsteadOfTileMajorArt() throws Exception {
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        RecordingServices services = new RecordingServices(camera)
+                .withScaledCueArt(horizontalNibbleRampSource());
+        MgzEndBossInstance boss = createEndBoss(services);
+        boss.update(0, null);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_AIR_SWEEP");
+        boss.getState().x = 0x3E00;
+        boss.getState().y = 0x0700;
+
+        boss.update(1, null);
+        boss.appendRenderCommands(new ArrayList<>());
+
+        Pattern firstGeneratedTile = services.scaledSheet.getPatterns()[0];
+        assertEquals(0x0, firstGeneratedTile.getPixel(0, 0));
+        assertEquals(0x2, firstGeneratedTile.getPixel(1, 0));
+        assertEquals(0x4, firstGeneratedTile.getPixel(2, 0));
+        assertEquals(0x6, firstGeneratedTile.getPixel(3, 0));
+        assertEquals(0x8, firstGeneratedTile.getPixel(4, 0),
+                "Perform_Art_Scaling reads ArtScaled_MGZEndBoss as 64-byte scanlines, not normal tile-major art");
+        assertEquals(0xA, firstGeneratedTile.getPixel(5, 0));
+        assertEquals(0xC, firstGeneratedTile.getPixel(6, 0));
+        assertEquals(0xE, firstGeneratedTile.getPixel(7, 0));
+    }
+
+    private static byte[] horizontalNibbleRampSource() {
+        byte[] data = new byte[Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_SIZE];
+        int pos = 0;
+        for (int y = 0; y < 0x40; y++) {
+            for (int xByte = 0; xByte < 0x40; xByte++) {
+                int x = xByte * 2;
+                data[pos++] = (byte) (((x & 0x0F) << 4) | ((x + 1) & 0x0F));
+            }
+        }
+        return data;
     }
 
     private static MgzDrillingRobotnikInstance createBoss(RecordingServices services) {
@@ -1027,23 +1227,29 @@ class TestMgzDrillingRobotnikInstance {
         private final Palette paletteLine1 = new Palette();
         private final ObjectManager objectManager;
         private final ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
+        private final RecordingGraphics graphics = new RecordingGraphics();
         private final com.openggf.level.render.PatternSpriteRenderer drillRenderer =
                 mock(com.openggf.level.render.PatternSpriteRenderer.class);
         private final com.openggf.level.render.PatternSpriteRenderer shipRenderer =
                 mock(com.openggf.level.render.PatternSpriteRenderer.class);
         private final com.openggf.level.render.PatternSpriteRenderer debrisRenderer =
                 mock(com.openggf.level.render.PatternSpriteRenderer.class);
+        private final PatternSpriteRenderer scaledRenderer;
+        private final ObjectSpriteSheet scaledSheet;
         private final Rom rom = mock(Rom.class);
         private LevelEventProvider levelEventProvider;
         private int playedSfxCount;
         private int paletteUpdates;
         private int lastPaletteIndex = -1;
         private byte[] firstPaletteRow;
+        private int fadeOutMusicCount;
+        private int playMusicCount;
         private int requestedZone = -1;
         private int requestedAct = -1;
         private boolean deactivatedForTransition;
         private int romZoneId = 2;
         private int currentAct = 1;
+        private final List<Integer> playedSfxIds = new ArrayList<>();
 
         RecordingServices(Camera camera) throws Exception {
             this.camera = camera;
@@ -1067,9 +1273,14 @@ class TestMgzDrillingRobotnikInstance {
             when(drillRenderer.isReady()).thenReturn(true);
             when(shipRenderer.isReady()).thenReturn(true);
             when(debrisRenderer.isReady()).thenReturn(true);
+            scaledSheet = buildScaledCueSheet();
+            scaledRenderer = new PatternSpriteRenderer(scaledSheet, graphics);
+            scaledRenderer.ensurePatternsCached(graphics, 0x24000);
             when(renderManager.getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS)).thenReturn(drillRenderer);
             when(renderManager.getRenderer(Sonic3kObjectArtKeys.ROBOTNIK_SHIP)).thenReturn(shipRenderer);
             when(renderManager.getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS_DEBRIS)).thenReturn(debrisRenderer);
+            when(renderManager.getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED)).thenReturn(scaledRenderer);
+            when(renderManager.getSheet(Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED)).thenReturn(scaledSheet);
 
             byte[] bossLine = new byte[32];
             byte[] mgzLine = new byte[32];
@@ -1079,6 +1290,16 @@ class TestMgzDrillingRobotnikInstance {
             mgzLine[3] = 0x4A;
             when(rom.readBytes(Sonic3kConstants.PAL_MGZ_ENDBOSS_ADDR, 32)).thenReturn(bossLine);
             when(rom.readBytes(Sonic3kConstants.PAL_MGZ_ADDR, 32)).thenReturn(mgzLine);
+            when(rom.readBytes(Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_ADDR,
+                    Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_SIZE))
+                    .thenReturn(new byte[Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_SIZE]);
+        }
+
+        RecordingServices withScaledCueArt(byte[] data) throws Exception {
+            when(rom.readBytes(Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_ADDR,
+                    Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_SIZE))
+                    .thenReturn(data);
+            return this;
         }
 
         @Override
@@ -1118,6 +1339,11 @@ class TestMgzDrillingRobotnikInstance {
         }
 
         @Override
+        public GraphicsManager graphicsManager() {
+            return graphics;
+        }
+
+        @Override
         public Rom rom() {
             return rom;
         }
@@ -1135,6 +1361,17 @@ class TestMgzDrillingRobotnikInstance {
         @Override
         public void playSfx(int soundId) {
             playedSfxCount++;
+            playedSfxIds.add(soundId);
+        }
+
+        @Override
+        public void playMusic(int musicId) {
+            playMusicCount++;
+        }
+
+        @Override
+        public void fadeOutMusic() {
+            fadeOutMusicCount++;
         }
 
         @Override
@@ -1158,6 +1395,45 @@ class TestMgzDrillingRobotnikInstance {
             requestedAct = act;
             deactivatedForTransition = deactivateLevelNow;
         }
+    }
+
+    private static final class RecordingGraphics extends GraphicsManager {
+        private final List<RenderCall> renderCalls = new ArrayList<>();
+        private final List<ScaledRenderCall> scaledRenderCalls = new ArrayList<>();
+
+        @Override
+        public void renderPatternWithId(int patternId, PatternDesc desc, int x, int y) {
+            renderCalls.add(new RenderCall(patternId, new PatternDesc(desc.get()), x, y));
+        }
+
+        @Override
+        public void renderPatternWithIdScaled(int patternId, PatternDesc desc,
+                float x, float y, float width, float height) {
+            scaledRenderCalls.add(new ScaledRenderCall(patternId, new PatternDesc(desc.get()), x, y, width, height));
+        }
+    }
+
+    private static ObjectSpriteSheet buildScaledCueSheet() {
+        Pattern[] patterns = new Pattern[0x100];
+        for (int i = 0; i < patterns.length; i++) {
+            patterns[i] = new Pattern();
+        }
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            frames.add(new SpriteMappingFrame(List.of()));
+        }
+        frames.add(new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0, 0, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(0x20, 0, 4, 4, 0x10, false, false, 0),
+                new SpriteMappingPiece(0, 0x20, 4, 4, 0x20, false, false, 0),
+                new SpriteMappingPiece(0x20, 0x20, 4, 4, 0x30, false, false, 0))));
+        return new ObjectSpriteSheet(patterns, frames, 1, 1);
+    }
+
+    private record RenderCall(int patternId, PatternDesc desc, int x, int y) {
+    }
+
+    private record ScaledRenderCall(int patternId, PatternDesc desc, float x, float y, float width, float height) {
     }
 
     private static final class RecordingMgzEventBridge implements LevelEventProvider, MgzObjectEventBridge {

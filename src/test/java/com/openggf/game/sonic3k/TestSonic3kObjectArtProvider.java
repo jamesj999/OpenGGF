@@ -99,6 +99,26 @@ public class TestSonic3kObjectArtProvider {
     }
 
     @Test
+    public void mgz2RegistersScaledEndBossCueAsGeneratedMapScaledArtBank() {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_MGZ, 1)
+                .build();
+
+        Sonic3kObjectArtProvider currentProvider =
+                (Sonic3kObjectArtProvider) GameModuleRegistry.getCurrent().getObjectArtProvider();
+
+        ObjectSpriteSheet sheet = currentProvider.getSheet(Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED);
+        assertNotNull(sheet, "MGZ2 loc_6CFF4 needs a generated ArtTile_MGZEndBossScaled bank");
+        assertEquals(0x100, sheet.getPatterns().length,
+                "Perform_Art_Scaling can DMA up to the 256-tile Map_ScaledArt frame");
+        assertEquals(0x20, sheet.getFrameCount(),
+                "loc_6CFF4 draws the generated art through Map_ScaledArt, indexed by $40(a0)");
+        assertEquals(4, sheet.getFrame(4).pieces().size(),
+                "Initial $40=4 uses Map_ScaledArt frame 4, not Map_MGZEndBoss source pieces");
+        assertEquals(0x30, sheet.getFrame(4).pieces().get(3).tileIndex());
+    }
+
+    @Test
     public void cnzTraversalSheetsParticipateInLevelArtRefreshTracking() throws Exception {
         HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -213,5 +233,3 @@ public class TestSonic3kObjectArtProvider {
         return (ObjectSpriteSheet) buildSheet.invoke(null, patterns, frames, 0);
     }
 }
-
-

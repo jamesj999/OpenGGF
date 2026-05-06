@@ -833,6 +833,15 @@ public class Sonic3kObjectArt {
         if (patterns == null || patterns.length == 0) return null;
 
         if (entry.mappingAddr() <= 0) {
+            if (Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED.equals(entry.key())) {
+                List<SpriteMappingFrame> mappings =
+                        S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_SCALED_ART_ADDR);
+                Pattern[] generatedBank = new Pattern[0x100];
+                for (int i = 0; i < generatedBank.length; i++) {
+                    generatedBank[i] = new Pattern();
+                }
+                return new ObjectSpriteSheet(generatedBank, mappings, entry.palette(), 1);
+            }
             List<SpriteMappingFrame> hardcoded = switch (entry.key()) {
                 case Sonic3kObjectArtKeys.HCZ_WATER_RUSH -> buildHczWaterRushMappings();
                 case Sonic3kObjectArtKeys.HCZ_WATER_SPLASH -> buildHczWaterSplashMappings();
