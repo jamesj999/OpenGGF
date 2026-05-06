@@ -25,8 +25,10 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Regression test for the SYZ3 credits demo trace divergence at frame 253
- * (TestS1Credits02Syz3TraceReplay): {@code rings expected=20, actual=21}.
+ * Regression test for SYZ3 credits demo off-screen-Y ring collection.
+ * Exercises {@link com.openggf.level.objects.AbstractObjectInstance#isOnScreenForTouch()}
+ * against the trace divergences at frames 233 and 253 in
+ * {@code TestS1Credits02Syz3TraceReplay}.
  *
  * <p>ROM behaviour: when a ring is positioned vertically outside the camera's
  * sprite-render Y window, ROM's BuildSprites .assumeHeight branch
@@ -54,13 +56,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * now refreshes the cache before snapshotting.
  *
  * <p>Test approach: replay the SYZ3 credits demo input through frame 253 and
- * assert the player's ring count matches the ROM trace recording (20). Frames
- * before 253 are also exercised to catch unrelated regressions.
+ * assert the player's ring count matches the ROM trace at both an
+ * intermediate frame (233 = 20 rings, covering ring s74 which sits one pixel
+ * inside ROM's viewport but would be wrongly dropped by stale camera bounds)
+ * and the divergence frame (253 = 20 rings, covering ring s43 below the
+ * viewport). The two assertions together guard both halves of the fix
+ * (Y-axis gate + non-stale bounds): a regression that drops s74 but also
+ * accepts s43 would otherwise net to {@code 21 - 1 = 20} and falsely green
+ * the f253 check alone.
  */
 @RequiresRom(SonicGame.SONIC_1)
-public class TestS1FreshRingSameFrameTouchSkip {
+public class TestS1OffscreenYRingTouchSkip {
 
     private static final int CREDITS_DEMO_IDX = 2; // SYZ Act 3
+
+    /**
+     * Mid-replay checkpoint covering ring s74, which sits one pixel inside
+     * ROM's viewport but would be wrongly excluded by a stale-camera-bounds
+     * gate. ROM expected ring count = 20 (cumulative).
+     */
+    private static final int FRAME_233 = 233;
+    private static final int EXPECTED_RING_COUNT_FRAME_233 = 20;
 
     /** First trace divergence frame. ROM expected ring count = 20. */
     private static final int FRAME_253 = 253;
@@ -125,18 +141,24 @@ public class TestS1FreshRingSameFrameTouchSkip {
     }
 
     /**
-     * Reproduces the SYZ3 credits demo frame 253 divergence directly: replays
-     * the demo input through frame 253 and asserts the player ring count
-     * matches ROM.
+     * Reproduces the SYZ3 credits demo ring divergences directly: replays the
+     * demo input through frame 253 and asserts the player ring count matches
+     * ROM at both the intermediate ring s74 frame (233) and the first
+     * divergence frame (253).
      *
-     * <p>Without the fix, this test fails with rings = 21 (engine collected an
-     * off-screen ring s43 at (0x186E, 0x0662) that the ROM correctly skipped
-     * because BuildSprites had cleared obRender bit 7 for the below-camera
-     * ring). With the fix, ring count matches ROM exactly.
+     * <p>Without the off-screen-Y gate, the test fails at frame 253 with
+     * rings = 21 (engine collected ring s43 at (0x186E, 0x0662) that ROM
+     * correctly skipped because BuildSprites had cleared obRender bit 7 for
+     * the below-camera ring). Without the {@code snapshotTouchResponseState}
+     * camera-bounds refresh, the test fails at frame 233 with rings = 19
+     * (engine wrongly drops ring s74 which ROM accepts because the cached
+     * camera bounds lag the ROM's BuildSprites pass by one camera step).
+     * With both halves of the fix, both checkpoints match ROM exactly.
      */
     @Test
     public void syz3OffscreenYRingNotCollectedThroughFrame253() {
         AbstractPlayableSprite player = fixture.sprite();
+        int ringCountAtFrame233 = -1;
 
         for (int i = 0; i <= FRAME_253; i++) {
             TraceFrame expected = trace.getFrame(i);
@@ -158,7 +180,22 @@ public class TestS1FreshRingSameFrameTouchSkip {
             player.setForcedJumpPress(jump);
 
             fixture.stepFrame(up, down, left, right, jump);
+
+            if (i == FRAME_233) {
+                ringCountAtFrame233 = player.getRingCount();
+            }
         }
+
+        assertEquals(EXPECTED_RING_COUNT_FRAME_233, ringCountAtFrame233,
+                "Player ring count at frame " + FRAME_233
+                        + " (SYZ3 credits demo ring s74 checkpoint) should match"
+                        + " ROM = " + EXPECTED_RING_COUNT_FRAME_233
+                        + " but got " + ringCountAtFrame233
+                        + " (mismatch indicates ring s74 was wrongly dropped by"
+                        + " a stale-camera-bounds gate -- the ring sits one"
+                        + " pixel inside ROM's viewport but is excluded if the"
+                        + " cached camera bounds aren't refreshed by"
+                        + " ObjectManager.snapshotTouchResponseState()).");
 
         int actualRings = player.getRingCount();
         assertEquals(EXPECTED_RING_COUNT_FRAME_253, actualRings,

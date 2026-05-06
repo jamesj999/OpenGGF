@@ -26,7 +26,7 @@ All notable changes to the OpenGGF project are documented in this file.
   the gate matches the previous frame's BuildSprites pass with the
   same 32 px Y margin the ROM uses. Greens the SYZ3 credits demo
   trace replay at frame 253. Adds focused regression
-  `TestS1FreshRingSameFrameTouchSkip` and refreshes the cached
+  `TestS1OffscreenYRingTouchSkip` and refreshes the cached
   `cameraBounds` inside `ObjectManager.snapshotTouchResponseState()` so
   the inline-physics path's gate sees the post-camera-update bounds
   matching ROM's BuildSprites-then-ReactToItem ordering.

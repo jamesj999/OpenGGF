@@ -51,6 +51,31 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
 
+    /**
+     * Y-axis half-margin used by {@link #isOnScreenForTouch()} to mirror ROM's
+     * BuildSprites {@code .assumeHeight} band. ROM (S1
+     * {@code docs/s1disasm/_inc/BuildSprites.asm:71-78}, S2/S3K equivalents)
+     * computes {@code obY - cameraY + 0x80} and checks the result against
+     * {@code [0x60, 0x180)} -- equivalently, an object's Y must fall within
+     * {@code [cameraY - 32, cameraY + 224 + 32)} for {@code obRender} bit 7 to
+     * be set. The 32-pixel padding above and below the visible 224-line
+     * viewport is what this constant captures.
+     * <p>
+     * This margin is deliberately coarser than ROM's {@code btst #4}
+     * explicit-height path (which uses each object's per-object half-height
+     * read from {@code height_pixels}). The trade-off is intentional: the
+     * touch gate accepts touch tests for slightly more objects than ROM
+     * would, but never rejects an object ROM would accept (i.e. it never
+     * wrongly skips a touch). False positives are filtered by the
+     * subsequent collision-flags / box test inside {@code TouchResponses};
+     * false negatives would silently break game-state parity and have no
+     * downstream filter. For per-object override semantics see
+     * {@link #getOnScreenHalfHeight()}, which the solid-contact gate
+     * ({@link #isOnScreen()}) consults instead -- the touch gate
+     * intentionally uses this constant rather than the per-object height.
+     */
+    private static final int TOUCH_RESPONSE_Y_MARGIN = 32;
+
     @RewindTransient(reason = "structural spawn identity; placement/respawn state is captured separately")
     protected final ObjectSpawn spawn;
     @RewindTransient(reason = "object name is immutable type identity")
@@ -606,7 +631,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     public boolean isOnScreenForTouch() {
         if (!preUpdateValid) return false; // No snapshot → first frame, skip
         return cameraBounds.contains(preUpdateX, preUpdateY,
-                getOnScreenHalfWidth(), 32);
+                getOnScreenHalfWidth(), TOUCH_RESPONSE_Y_MARGIN);
     }
 
     /**
