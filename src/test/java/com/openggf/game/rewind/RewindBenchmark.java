@@ -489,13 +489,12 @@ public class RewindBenchmark {
             }
             if (!keyEquals(key, av, bv)) {
                 divergent.add(key);
-                // Print details for the still-divergent keys so we can see which fields differ.
-                if (key.equals("camera") || key.equals("gamestate")
-                        || key.equals("oscillation") || key.equals("rings")
-                        || key.equals("sprites") || key.equals("object-manager")) {
-                    System.out.println("  " + key + " diff:");
-                    System.out.println("    A: " + recordContentString(av));
-                    System.out.println("    B: " + recordContentString(bv));
+                // Print only the differing components to keep output focused.
+                System.out.println("  " + key + " differs at:");
+                java.util.List<String> diffs = new java.util.ArrayList<>();
+                collectDiffs(key, av, bv, diffs);
+                for (String d : diffs) {
+                    System.out.println("    " + d);
                 }
             }
         }
@@ -543,6 +542,72 @@ public class RewindBenchmark {
             }
         }
         return true;
+    }
+
+    /**
+     * Walks two values recursively and collects path-based diff strings for
+     * each differing leaf. Only emits a small number of diffs (caps at 20)
+     * to keep output bounded.
+     */
+    private static void collectDiffs(String path, Object av, Object bv,
+                                     java.util.List<String> diffs) {
+        if (diffs.size() >= 20) return;
+        if (av == bv) return;
+        if (av == null || bv == null) {
+            diffs.add(path + ": A=" + av + " B=" + bv);
+            return;
+        }
+        if (av.getClass() != bv.getClass()) {
+            diffs.add(path + ": class A=" + av.getClass().getSimpleName()
+                    + " B=" + bv.getClass().getSimpleName());
+            return;
+        }
+        Class<?> cls = av.getClass();
+        if (cls.isRecord()) {
+            for (var c : cls.getRecordComponents()) {
+                try {
+                    Object aV = c.getAccessor().invoke(av);
+                    Object bV = c.getAccessor().invoke(bv);
+                    if (!fieldContentEqual(aV, bV)) {
+                        collectDiffs(path + "." + c.getName(), aV, bV, diffs);
+                    }
+                } catch (ReflectiveOperationException ignored) {}
+            }
+            return;
+        }
+        if (cls.isArray()) {
+            // For arrays of records (e.g. List<PerSlotEntry>), walk pairwise.
+            int len = java.lang.reflect.Array.getLength(av);
+            int blen = java.lang.reflect.Array.getLength(bv);
+            if (len != blen) {
+                diffs.add(path + ": length A=" + len + " B=" + blen);
+                return;
+            }
+            for (int i = 0; i < len; i++) {
+                Object ai = java.lang.reflect.Array.get(av, i);
+                Object bi = java.lang.reflect.Array.get(bv, i);
+                if (!fieldContentEqual(ai, bi)) {
+                    collectDiffs(path + "[" + i + "]", ai, bi, diffs);
+                }
+            }
+            return;
+        }
+        if (av instanceof java.util.List<?> al && bv instanceof java.util.List<?> bl) {
+            if (al.size() != bl.size()) {
+                diffs.add(path + ": list-length A=" + al.size() + " B=" + bl.size());
+                return;
+            }
+            for (int i = 0; i < al.size(); i++) {
+                Object ai = al.get(i);
+                Object bi = bl.get(i);
+                if (!fieldContentEqual(ai, bi)) {
+                    collectDiffs(path + "[" + i + "]", ai, bi, diffs);
+                }
+            }
+            return;
+        }
+        // Leaf scalar / other
+        diffs.add(path + ": A=" + av + " B=" + bv);
     }
 
     /**
