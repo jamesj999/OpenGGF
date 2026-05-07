@@ -13,6 +13,7 @@ import com.openggf.game.sonic3k.events.MgzObjectEventBridge;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.events.Sonic3kICZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
 import com.openggf.game.sonic3k.events.S3kTransitionEventBridge;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
@@ -24,6 +25,7 @@ import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.game.sonic3k.objects.CutsceneKnucklesHcz2Instance;
 import com.openggf.game.sonic3k.objects.HCZConveyorBeltObjectInstance;
+import com.openggf.game.sonic3k.objects.IczSnowboardArtLoader;
 import com.openggf.camera.Camera;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -58,6 +60,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     private Sonic3kAIZEvents aizEvents;
     private Sonic3kCNZEvents cnzEvents;
     private Sonic3kHCZEvents hczEvents;
+    private Sonic3kICZEvents iczEvents;
     private Sonic3kMGZEvents mgzEvents;
 
     // Tracks whether the intro-fall forced animation is active on each player.
@@ -142,6 +145,12 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         } else {
             hczEvents = null;
         }
+        if (zone == Sonic3kZoneIds.ZONE_ICZ) {
+            iczEvents = new Sonic3kICZEvents();
+            iczEvents.init(act);
+        } else {
+            iczEvents = null;
+        }
         if (zone == Sonic3kZoneIds.ZONE_MGZ) {
             mgzEvents = new Sonic3kMGZEvents();
             mgzEvents.init(act);
@@ -196,6 +205,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         }
         if (hczEvents != null && currentZone == Sonic3kZoneIds.ZONE_HCZ) {
             hczEvents.update(currentAct, frameCounter);
+        }
+        if (iczEvents != null && currentZone == Sonic3kZoneIds.ZONE_ICZ) {
+            iczEvents.update(currentAct, frameCounter);
         }
         if (mgzEvents != null && currentZone == Sonic3kZoneIds.ZONE_MGZ) {
             mgzEvents.update(currentAct, frameCounter);
@@ -404,6 +416,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (cnzEvents != null) {
             cnzEvents.setEventsFg5(value);
         }
+        if (iczEvents != null) {
+            iczEvents.setEventsFg5(value);
+        }
     }
 
     @Override
@@ -433,7 +448,10 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     public boolean isEventsFg5() {
-        return aizEvents != null && aizEvents.isEventsFg5();
+        if (aizEvents != null) {
+            return aizEvents.isEventsFg5();
+        }
+        return iczEvents != null && iczEvents.isEventsFg5();
     }
 
     @Override
@@ -517,6 +535,10 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
 
     public Sonic3kHCZEvents getHczEvents() {
         return hczEvents;
+    }
+
+    public Sonic3kICZEvents getIczEvents() {
+        return iczEvents;
     }
 
     @Override
@@ -610,6 +632,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (hczEvents != null) {
             return hczEvents.getDynamicResizeRoutine();
         }
+        if (iczEvents != null) {
+            return iczEvents.getDynamicResizeRoutine();
+        }
         if (mgzEvents != null) {
             return mgzEvents.getDynamicResizeRoutine();
         }
@@ -629,6 +654,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         }
         if (hczEvents != null) {
             hczEvents.setDynamicResizeRoutine(routine);
+        }
+        if (iczEvents != null) {
+            iczEvents.setDynamicResizeRoutine(routine);
         }
         if (mgzEvents != null) {
             mgzEvents.setDynamicResizeRoutine(routine);
@@ -689,6 +717,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         HCZConveyorBeltObjectInstance.resetLoadArray();
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
         AizPlaneIntroInstance.resetIntroPhaseState();
+        IczSnowboardArtLoader.reset();
     }
     /**
      * Intercepts pit death in S3K bonus stages (Gumball, Pachinko, Slots).

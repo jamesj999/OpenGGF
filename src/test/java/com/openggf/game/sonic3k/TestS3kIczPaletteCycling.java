@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomByteReader;
@@ -111,10 +112,28 @@ public class TestS3kIczPaletteCycling {
     }
 
     /**
+     * ROM: AnPal_ICZ tests Events_bg+$16 before writing either line-4 channel.
+     * ICZ1_BackgroundInit clears that word while the opening mountains are outside,
+     * so palette line 4 colors 12-15 must remain the fixed intro mountain colors.
+     */
+    @Test
+    public void act1OutdoorIntroDoesNotCycleMountainPaletteLine4() {
+        Palette.Color[] initial = copyColors(level.getPalette(3), 12, 15);
+
+        for (int i = 0; i < 40; i++) {
+            cycler.update();
+        }
+
+        assertColorsUnchanged(initial, level.getPalette(3), 12, 15,
+                "ICZ1 outdoor intro must not cycle palette[3] colors 12-15 while Events_bg+$16 is clear");
+    }
+
+    /**
      * Palette[3] colors 14-15 (channel 2, period 9) should change within 40 frames.
      */
     @Test
     public void channel2UpdatesPalette3Colors14And15Within40Frames() {
+        enableIndoorPaletteCycling();
         Palette.Color initial14 = copyColor(level.getPalette(3).getColor(14));
         Palette.Color initial15 = copyColor(level.getPalette(3).getColor(15));
 
@@ -188,6 +207,7 @@ public class TestS3kIczPaletteCycling {
      */
     @Test
     public void channel2FirstTickAppliesNonZeroColors() {
+        enableIndoorPaletteCycling();
         cycler.update();
 
         Palette pal3 = level.getPalette(3);
@@ -206,6 +226,7 @@ public class TestS3kIczPaletteCycling {
      */
     @Test
     public void channel3FirstTickAppliesNonZeroColors() {
+        enableIndoorPaletteCycling();
         cycler.update();
 
         Palette pal3 = level.getPalette(3);
@@ -250,6 +271,33 @@ public class TestS3kIczPaletteCycling {
     private static Palette.Color copyColor(Palette.Color src) {
         return new Palette.Color(src.r, src.g, src.b);
     }
+
+    private static void enableIndoorPaletteCycling() {
+        assertTrue(GameModuleRegistry.getCurrent().getLevelEventProvider()
+                        instanceof Sonic3kLevelEventManager,
+                "S3K level event manager should be active for ICZ palette tests");
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameModuleRegistry.getCurrent().getLevelEventProvider();
+        assertNotNull(manager.getIczEvents(), "ICZ events should be active after loading ICZ1");
+        manager.getIczEvents().setIndoorPaletteCyclingActive(true);
+    }
+
+    private static Palette.Color[] copyColors(Palette palette, int startColor, int endColor) {
+        Palette.Color[] colors = new Palette.Color[endColor - startColor + 1];
+        for (int color = startColor; color <= endColor; color++) {
+            colors[color - startColor] = copyColor(palette.getColor(color));
+        }
+        return colors;
+    }
+
+    private static void assertColorsUnchanged(Palette.Color[] expected, Palette palette, int startColor, int endColor,
+                                              String message) {
+        for (int color = startColor; color <= endColor; color++) {
+            Palette.Color before = expected[color - startColor];
+            Palette.Color after = palette.getColor(color);
+            assertEquals(before.r, after.r, message + " (R color " + color + ")");
+            assertEquals(before.g, after.g, message + " (G color " + color + ")");
+            assertEquals(before.b, after.b, message + " (B color " + color + ")");
+        }
+    }
 }
-
-

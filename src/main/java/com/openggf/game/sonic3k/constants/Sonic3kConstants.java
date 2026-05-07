@@ -468,6 +468,24 @@ public class Sonic3kConstants {
     public static final int ARTTILE_RING = 0x06BC;
     public static final int ARTTILE_PLAYER_LIFE_ICON = 0x07D4;
 
+    // ICZ1 snowboard intro data in the locked-on ROM's "Lockon S3" data block.
+    // These labels are referenced by Obj_LevelIntroICZ1 in sonic3k.asm.
+    public static final int ICZ_SNOWBOARD_SLOPE1_ADDR = 0x344E80;
+    public static final int ICZ_SNOWBOARD_SLOPE2_ADDR = 0x344F48;
+    public static final int ART_UNC_SONIC_SNOWBOARD_ADDR = 0x345010;
+    public static final int ART_UNC_SONIC_SNOWBOARD_SIZE = 10304;
+    public static final int ART_UNC_SNOWBOARD_ADDR = 0x347850;
+    public static final int ART_UNC_SNOWBOARD_SIZE = 1504;
+    public static final int MAP_SONIC_SNOWBOARD_ADDR = 0x347E30;
+    public static final int MAP_SONIC_SNOWBOARD_FRAMES = 13;
+    public static final int DPLC_SONIC_SNOWBOARD_ADDR = 0x347F8A;
+    public static final int MAP_SNOWBOARD_ADDR = 0x348020;
+    public static final int MAP_SNOWBOARD_FRAMES = 12;
+    public static final int DPLC_SNOWBOARD_ADDR = 0x348128;
+    public static final int MAP_SNOWBOARD_DUST_ADDR = 0x0399D8;
+    public static final int MAP_SNOWBOARD_DUST_FRAMES = 4;
+    public static final int ARTTILE_SNOWBOARD_DUST = 0x06B8;
+
     // Map_StarPost - StarPost sprite mappings (5 frames)
     // Frame 0: pole + red ball (idle), 1: pole only, 2: star ball, 3: head, 4: pole + blue ball
     public static final int MAP_STARPOST_ADDR = 0x2D348;

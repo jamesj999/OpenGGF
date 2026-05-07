@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.palette.PaletteWrite;
@@ -810,11 +811,9 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     //
     // Channel 2 — conditional (timer1 period 9; gated by Events_bg+$16 != 0):
     //   counter2 +4, wrap 0x48 → Normal_palette_line_4+$1C = palette[3] colors 14-15
-    //   For now: always enabled (TODO: gate by Events_bg+$16 flag)
     //
     // Channel 3 — conditional (timer2 period 7; same gate as channel 2):
     //   counter4 +4, wrap 0x18 → Normal_palette_line_4+$18 = palette[3] colors 12-13
-    //   For now: always enabled (TODO: gate by Events_bg+$16 flag)
     //
     // Channel 4 — always runs on timer2 (shares channel 3 timer):
     //   counter6 +4, wrap 0x40 → Normal_palette_line_3+$18 = palette[2] colors 12-13
@@ -850,6 +849,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         @Override
         void tick(Level level, PaletteOwnershipRegistry registry) {
             GraphicsManager gm = GameServices.graphics();
+            boolean line4CyclesEnabled = isIndoorPaletteCyclingActive();
             // Channel 1 (and 4): timer1
             if (timer1 > 0) {
                 timer1--;
@@ -872,16 +872,17 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 timer2--;
             } else {
                 timer2 = 9;
-                // TODO: gate by Events_bg+$16 flag
                 int d0 = counter2;
                 counter2 += 4;
                 if (counter2 >= 0x48) {
                     counter2 = 0;
                 }
-                Palette pal3 = level.getPalette(3);
-                pal3.getColor(14).fromSegaFormat(data2, d0);
-                pal3.getColor(15).fromSegaFormat(data2, d0 + 2);
-                dirty3 = true;
+                if (line4CyclesEnabled) {
+                    Palette pal3 = level.getPalette(3);
+                    pal3.getColor(14).fromSegaFormat(data2, d0);
+                    pal3.getColor(15).fromSegaFormat(data2, d0 + 2);
+                    dirty3 = true;
+                }
             }
 
             // Channel 3+4: shared timer
@@ -890,16 +891,17 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             } else {
                 timer3 = 7;
                 // Channel 3: palette[3] colors 12-13 (Normal_palette_line_4+$18)
-                // TODO: gate by Events_bg+$16 flag
                 int d0 = counter4;
                 counter4 += 4;
                 if (counter4 >= 0x18) {
                     counter4 = 0;
                 }
-                Palette pal3 = level.getPalette(3);
-                pal3.getColor(12).fromSegaFormat(data3, d0);
-                pal3.getColor(13).fromSegaFormat(data3, d0 + 2);
-                dirty3 = true;
+                if (line4CyclesEnabled) {
+                    Palette pal3 = level.getPalette(3);
+                    pal3.getColor(12).fromSegaFormat(data3, d0);
+                    pal3.getColor(13).fromSegaFormat(data3, d0 + 2);
+                    dirty3 = true;
+                }
 
                 // Channel 4: palette[2] colors 12-13 (Normal_palette_line_3+$18) — always runs
                 int d1 = counter6;
@@ -923,6 +925,19 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                     dirty3 = false;
                 }
             }
+        }
+
+        private boolean isIndoorPaletteCyclingActive() {
+            try {
+                if (GameModuleRegistry.getCurrent().getLevelEventProvider()
+                        instanceof Sonic3kLevelEventManager manager) {
+                    var events = manager.getIczEvents();
+                    return events != null && events.isIndoorPaletteCyclingActive();
+                }
+            } catch (IllegalStateException ignored) {
+                // Direct palette-cycler tests may run without a gameplay session.
+            }
+            return false;
         }
     }
 
@@ -1544,4 +1559,3 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 }
-
