@@ -18,7 +18,10 @@ import java.util.List;
  *
  * <p>The snapshot covers:
  * <ul>
- *   <li>The restorable {@code usedSlots} subset as a {@code long[]} (serialization-friendly).</li>
+ *   <li>The live {@code usedSlots} BitSet as a {@code long[]} (serialization-friendly).
+ *       Includes bits for non-codec transient dynamics so the allocator's view at restore
+ *       matches the reference run at the rewind point; subsequent slot leaks for those
+ *       phantom occupants are addressed by adding rewind codecs for the transient classes.</li>
  *   <li>Per-active-slot entries: spawn identity + captured per-instance state.</li>
  *   <li>Scalar counters: {@code frameCounter}, {@code vblaCounter},
  *       {@code currentExecSlot}, {@code peakSlotCount}.</li>

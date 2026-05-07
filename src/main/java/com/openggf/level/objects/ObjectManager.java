@@ -2417,25 +2417,14 @@ public class ObjectManager {
                     }
                 }
 
-                BitSet capturedSlots = new BitSet(slotLayout.dynamicSlotCount());
-                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PerSlotEntry entry : slots) {
-                    if (isManagedDynamicSlot(entry.slotIndex())) {
-                        capturedSlots.set(execIndexForSlot(entry.slotIndex()));
-                    }
-                }
-                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry : dynamicEntries) {
-                    if (isManagedDynamicSlot(entry.slotIndex())) {
-                        capturedSlots.set(execIndexForSlot(entry.slotIndex()));
-                    }
-                }
-                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.ChildSpawnEntry entry : childSpawns) {
-                    for (int slot : entry.reservedSlots()) {
-                        if (isManagedDynamicSlot(slot)) {
-                            capturedSlots.set(execIndexForSlot(slot));
-                        }
-                    }
-                }
-                long[] bits = capturedSlots.toLongArray();
+                // Capture the live usedSlots BitSet directly. The synthesized
+                // subset (active + restorable + reserved) drops bits for
+                // non-codec transient dynamics, which causes downstream slot
+                // drift across many rewinds when those transients had
+                // occupied slots at capture time but are silently freed on
+                // restore. Capturing live keeps the allocator's view
+                // consistent with the reference run at the rewind point.
+                long[] bits = usedSlots.toLongArray();
 
                 return new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot(
                         bits,
