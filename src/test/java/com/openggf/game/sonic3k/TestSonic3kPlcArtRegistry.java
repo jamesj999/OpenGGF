@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.level.resources.CompressionType;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -101,12 +102,27 @@ public class TestSonic3kPlcArtRegistry {
     public void mgz2PlanHasMantisNotMiniboss() {
         Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(0x02, 1);
         assertNotNull(plan);
-        assertEquals(11, plan.standaloneArt().size());
+        assertEquals(12, plan.standaloneArt().size());
         assertTrue(plan.standaloneArt().stream().anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.MGZ_MANTIS)));
         assertTrue(plan.standaloneArt().stream().anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.MGZ_ENDBOSS)));
         assertTrue(plan.standaloneArt().stream().anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.ROBOTNIK_SHIP)));
         assertTrue(plan.standaloneArt().stream().anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.MGZ_ENDBOSS_DEBRIS)));
         assertFalse(plan.standaloneArt().stream().anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.MGZ_MINIBOSS)));
+    }
+
+    @Test
+    public void mgz2PlanLoadsEndBossScaledCueFromUncompressedArtScaledBlob() {
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(0x02, 1);
+
+        Sonic3kPlcArtRegistry.StandaloneArtEntry scaled = plan.standaloneArt().stream()
+                .filter(e -> "mgz_endboss_scaled".equals(e.key()))
+                .findFirst().orElse(null);
+
+        assertNotNull(scaled, "loc_6CFF4 uses ArtScaled_MGZEndBoss for the air-attack zoom cue");
+        assertEquals(0x36C572, scaled.artAddr());
+        assertEquals(CompressionType.UNCOMPRESSED, scaled.compression());
+        assertEquals(0x1000, scaled.artSize(), "ArtScaled_MGZEndBoss is 128 raw 4bpp tiles");
+        assertEquals(1, scaled.palette(), "ObjDat3_6D7B4 uses make_art_tile(ArtTile_MGZEndBossScaled,1,0)");
     }
 
     @Test
@@ -424,4 +440,3 @@ public class TestSonic3kPlcArtRegistry {
         assertEquals(5, plan.standaloneArt().size(), "Expected shared standalone art only for unknown zone");
     }
 }
-

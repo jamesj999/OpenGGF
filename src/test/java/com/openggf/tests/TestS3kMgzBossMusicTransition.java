@@ -8,6 +8,7 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.StubObjectServices;
+import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -17,8 +18,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TestS3kMgzBossMusicTransition {
@@ -91,6 +97,55 @@ class TestS3kMgzBossMusicTransition {
         InOrder order = inOrder(drillRenderer);
         order.verify(drillRenderer).drawFrameIndex(1, 0x3D0C, 0x0677, false, false);
         order.verify(drillRenderer).drawFrameIndex(0, 0x3D20, 0x0668, false, false);
+    }
+
+    @Test
+    void endBossThrusterFlameTouchUsesGameplayFrameWithoutRenderPass() {
+        MgzEndBossInstance boss = new MgzEndBossInstance(
+                new ObjectSpawn(0x3D20, 0x0668, Sonic3kObjectIds.MGZ_END_BOSS, 0, 0, false, 0));
+        boss.setServices(new RecordingServices());
+
+        updateThroughFrame(boss, 120);
+
+        TouchResponseProvider.TouchRegion[] regions = boss.getMultiTouchRegions();
+        assertEquals(0x9A, regions[2].collisionFlags(),
+                "ROM loc_6CF62 touches the first thruster flame when V_int_run_count bit 0 is clear");
+        assertEquals(0x9A, regions[3].collisionFlags(),
+                "ROM loc_6CF62 touches the second thruster flame when V_int_run_count bit 0 is clear");
+
+        boss.update(121, null);
+        regions = boss.getMultiTouchRegions();
+        assertEquals(0, regions[2].collisionFlags(),
+                "ROM loc_6CF62 skips first thruster flame touch when V_int_run_count bit 0 is set");
+        assertEquals(0, regions[3].collisionFlags(),
+                "ROM loc_6CF62 skips second thruster flame touch when V_int_run_count bit 0 is set");
+    }
+
+    @Test
+    void endBossThrusterFlameDrawUsesGameplayFrameWithoutPriorRenderPass() {
+        ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
+        PatternSpriteRenderer drillRenderer = mock(PatternSpriteRenderer.class);
+        PatternSpriteRenderer shipRenderer = mock(PatternSpriteRenderer.class);
+        when(renderManager.getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS)).thenReturn(drillRenderer);
+        when(renderManager.getRenderer(Sonic3kObjectArtKeys.ROBOTNIK_SHIP)).thenReturn(shipRenderer);
+        when(drillRenderer.isReady()).thenReturn(true);
+        when(shipRenderer.isReady()).thenReturn(true);
+
+        MgzEndBossInstance boss = new MgzEndBossInstance(
+                new ObjectSpawn(0x3D20, 0x0668, Sonic3kObjectIds.MGZ_END_BOSS, 0, 0, false, 0));
+        boss.setServices(new RecordingServices(renderManager));
+
+        updateThroughFrame(boss, 121);
+        boss.appendRenderCommands(new ArrayList<>());
+
+        verify(drillRenderer, never()).drawFrameIndex(
+                anyInt(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), eq(0));
+    }
+
+    private static void updateThroughFrame(MgzEndBossInstance boss, int frame) {
+        for (int i = 0; i <= frame; i++) {
+            boss.update(i, null);
+        }
     }
 
     private static final class RecordingServices extends StubObjectServices {

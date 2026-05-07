@@ -912,6 +912,18 @@ public final class Sonic3kPlcArtRegistry {
                     1,
                     -1
             ));
+            // ROM: loc_6CFF4 stores ArtScaled_MGZEndBoss in $42(a0), then
+            // Perform_Art_Scaling reads the raw 0x1000-byte source art and DMA
+            // uploads the result to ArtTile_MGZEndBossScaled.
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_ENDBOSS_SCALED,
+                    Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_ADDR,
+                    CompressionType.UNCOMPRESSED,
+                    Sonic3kConstants.ART_UNC_MGZ_ENDBOSS_SCALED_SIZE,
+                    -1,
+                    1,
+                    -1
+            ));
             // Shared Robotnik ship art (for the ship + pilot sprite on top of the drill).
             // ROM: Load_PLC #$6D at Obj_MGZ2DrillingRobotnik init (sonic3k.asm:142399) loads
             // ArtNem_RobotnikShip alongside the MGZ end-boss art. The ship uses Map_RobotnikShip

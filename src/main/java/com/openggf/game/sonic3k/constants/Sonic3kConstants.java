@@ -468,6 +468,24 @@ public class Sonic3kConstants {
     public static final int ARTTILE_RING = 0x06BC;
     public static final int ARTTILE_PLAYER_LIFE_ICON = 0x07D4;
 
+    // ICZ1 snowboard intro data in the locked-on ROM's "Lockon S3" data block.
+    // These labels are referenced by Obj_LevelIntroICZ1 in sonic3k.asm.
+    public static final int ICZ_SNOWBOARD_SLOPE1_ADDR = 0x344E80;
+    public static final int ICZ_SNOWBOARD_SLOPE2_ADDR = 0x344F48;
+    public static final int ART_UNC_SONIC_SNOWBOARD_ADDR = 0x345010;
+    public static final int ART_UNC_SONIC_SNOWBOARD_SIZE = 10304;
+    public static final int ART_UNC_SNOWBOARD_ADDR = 0x347850;
+    public static final int ART_UNC_SNOWBOARD_SIZE = 1504;
+    public static final int MAP_SONIC_SNOWBOARD_ADDR = 0x347E30;
+    public static final int MAP_SONIC_SNOWBOARD_FRAMES = 13;
+    public static final int DPLC_SONIC_SNOWBOARD_ADDR = 0x347F8A;
+    public static final int MAP_SNOWBOARD_ADDR = 0x348020;
+    public static final int MAP_SNOWBOARD_FRAMES = 12;
+    public static final int DPLC_SNOWBOARD_ADDR = 0x348128;
+    public static final int MAP_SNOWBOARD_DUST_ADDR = 0x0399D8;
+    public static final int MAP_SNOWBOARD_DUST_FRAMES = 4;
+    public static final int ARTTILE_SNOWBOARD_DUST = 0x06B8;
+
     // Map_StarPost - StarPost sprite mappings (5 frames)
     // Frame 0: pole + red ball (idle), 1: pole only, 2: star ball, 3: head, 4: pole + blue ball
     public static final int MAP_STARPOST_ADDR = 0x2D348;
@@ -777,6 +795,11 @@ public class Sonic3kConstants {
     // 00 06 03 2A F8 00 56 40 10 09 ...
     public static final int ANIPLC_CNZ_ADDR = 0x028882;
 
+    // AniPLC_ICZ: 1 script (indoor ice background shimmer, both acts)
+    // Verified by S&K ROM search for:
+    // 00 00 03 2B 99 40 23 C0 08 04 00 04 08 0C 10 14 18 1C
+    public static final int ANIPLC_ICZ_ADDR = 0x028990;
+
     // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
     // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
     // Verified by move.l #addr,d1 instruction at ROM 0x02786A
@@ -813,6 +836,20 @@ public class Sonic3kConstants {
     // strip uploads into VRAM tile $308+.
     public static final int ART_UNC_ANI_CNZ_6_ADDR = 0x2B5B80;
     public static final int ART_UNC_ANI_CNZ_6_SIZE = 0x2000;
+
+    // ICZ direct-DMA source art used by AnimateTiles_ICZ. These assets live in
+    // the lock-on S3 data block; LockOn Pointers.asm gives the sizes and ROM
+    // search anchors ArtUnc_AniICZ__1 at 0x2B8580.
+    public static final int ART_UNC_ANI_ICZ_1_ADDR = 0x2B8580;
+    public static final int ART_UNC_ANI_ICZ_1_SIZE = 0x1000;
+    public static final int ART_UNC_ANI_ICZ_2_ADDR = 0x2B9580;
+    public static final int ART_UNC_ANI_ICZ_2_SIZE = 0x0200;
+    public static final int ART_UNC_ANI_ICZ_3_ADDR = 0x2B9780;
+    public static final int ART_UNC_ANI_ICZ_3_SIZE = 0x0100;
+    public static final int ART_UNC_ANI_ICZ_4_ADDR = 0x2B9880;
+    public static final int ART_UNC_ANI_ICZ_4_SIZE = 0x0080;
+    public static final int ART_UNC_ANI_ICZ_5_ADDR = 0x2B9900;
+    public static final int ART_UNC_ANI_ICZ_5_SIZE = 0x0040;
 
     // ===== Title Screen Art (Kosinski compressed, S3 lock-on data) =====
     // Sonic animation frames — frames 1-7 share Sonic1 art with different palettes/mappings
@@ -1169,6 +1206,10 @@ public class Sonic3kConstants {
     public static final int MAP_MGZ_MINIBOSS_SPIRE_ADDR = 0x088B7E;
     public static final int PAL_MGZ_ADDR = 0x0A8F5C;
     public static final int ART_KOSM_MGZ_ENDBOSS_ADDR = 0x36B340;
+    public static final int ART_UNC_MGZ_ENDBOSS_SCALED_ADDR = 0x36C572;
+    public static final int ART_UNC_MGZ_ENDBOSS_SCALED_SIZE = 0x1000;
+    public static final int MAP_SCALED_ART_ADDR = 0x024BE8;
+    public static final int ARTTILE_MGZ_ENDBOSS_SCALED = 0x0469;
     public static final int MAP_MGZ_ENDBOSS_ADDR = 0x362608;
     public static final int PAL_MGZ_ENDBOSS_ADDR = 0x06D97C;
     public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;

@@ -2848,7 +2848,11 @@ public class LevelManager {
      * @param yOffset sidekick Y offset from player. S2 uses 0, S3K uses +4.
      */
     public void spawnSidekicks(int xOffset, int yOffset) {
+        spriteManager.removeTemporarySidekicks();
         Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
+        if (player == null) {
+            return;
+        }
         for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.setX((short) (player.getX() + xOffset));
             sidekick.setY((short) (player.getY() + yOffset));

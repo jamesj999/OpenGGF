@@ -21,6 +21,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     private SwScrlAiz aizHandler;
     private SwScrlCnz cnzHandler;
     private SwScrlHcz hczHandler;
+    private SwScrlIcz iczHandler;
     private SwScrlMgz mgzHandler;
     private SwScrlGumball gumballHandler;
     private SwScrlPachinko pachinkoHandler;
@@ -44,6 +45,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
                     + e.getMessage());
         }
         hczHandler = new SwScrlHcz(hczWaterlineData);
+        iczHandler = new SwScrlIcz();
         mgzHandler = new SwScrlMgz();
         gumballHandler = new SwScrlGumball();
         pachinkoHandler = new SwScrlPachinko();
@@ -63,6 +65,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
             case Sonic3kZoneConstants.ZONE_AIZ -> aizHandler;
             case Sonic3kZoneConstants.ZONE_CNZ -> cnzHandler;
             case Sonic3kZoneConstants.ZONE_HCZ -> hczHandler;
+            case Sonic3kZoneConstants.ZONE_ICZ -> iczHandler;
             case Sonic3kZoneConstants.ZONE_MGZ -> mgzHandler;
             case Sonic3kZoneIds.ZONE_GUMBALL -> gumballHandler;
             case Sonic3kZoneIds.ZONE_GLOWING_SPHERE -> pachinkoHandler;
@@ -74,5 +77,13 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     @Override
     public ZoneConstants getZoneConstants() {
         return Sonic3kZoneConstants.INSTANCE;
+    }
+
+    @Override
+    public void initForZone(int zoneId, int actId, int cameraX, int cameraY) {
+        ZoneScrollHandler handler = getHandler(zoneId);
+        if (handler != null) {
+            handler.init(actId, cameraX, cameraY);
+        }
     }
 }

@@ -15,6 +15,8 @@ import com.openggf.game.session.SessionManager;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.animation.AnimatedPaletteManager;
@@ -42,6 +44,11 @@ import java.util.logging.Logger;
 public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDustArtProvider,
         DynamicStartPositionProvider, AnimatedPatternProvider, AnimatedPaletteProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
+    private static final int[] ICZ1_LOCK_ON_INTRO_PALETTE_LINE4_COLORS_1_TO_15 = {
+            0x0EEE, 0x0EEC, 0x0EEA, 0x0ECA, 0x0EC8,
+            0x0EA6, 0x0E86, 0x0E64, 0x0E40, 0x0E00,
+            0x0C00, 0x0000, 0x0AEC, 0x0CEA, 0x0E80
+    };
 
     private final Rom rom;
     private final Sonic3kZoneRegistry fallbackZoneRegistry = new Sonic3kZoneRegistry();
@@ -332,6 +339,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
                 characterPaletteAddr, levelPaletteAddr,
                 boundariesMinXOverride,
                 objectSpawns, ringSpawns, ringSpriteSheet);
+        applyLockOnStartupPalette(level, zone, act);
 
         // Pre-decompress AIZ intro overlay data during level load so the
         // terrain swap at camera X=0x1400 doesn't cause a frame hitch.
@@ -344,6 +352,29 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         }
 
         return level;
+    }
+
+    private static void applyLockOnStartupPalette(Sonic3kLevel level, int zone, int act) {
+        if (zone == Sonic3kZoneIds.ZONE_ICZ && act == 0) {
+            // Lockon S3/Screen Events.asm ICZ1_SetIntroPal updates line 4 after
+            // Pal_ICZ1 loads; without it the opening mountain BG uses the cave colors.
+            applyPaletteWords(level.getPalette(3), 1,
+                    ICZ1_LOCK_ON_INTRO_PALETTE_LINE4_COLORS_1_TO_15);
+            GraphicsManager graphics = GraphicsManager.getInstance();
+            if (graphics.isGlInitialized()) {
+                graphics.cachePaletteTexture(level.getPalette(3), 3);
+            }
+        }
+    }
+
+    private static void applyPaletteWords(Palette palette, int firstColorIndex, int[] segaWords) {
+        byte[] colorData = new byte[Palette.BYTES_PER_COLOR];
+        for (int i = 0; i < segaWords.length; i++) {
+            int segaWord = segaWords[i];
+            colorData[0] = (byte) ((segaWord >>> 8) & 0xFF);
+            colorData[1] = (byte) (segaWord & 0xFF);
+            palette.getColor(firstColorIndex + i).fromSegaFormat(colorData, 0);
+        }
     }
 
     @Override

@@ -94,15 +94,14 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     /**
      * S3K default is full-width BG (a single big tilemap copy of the layout's
      * BG layer). That works for zones whose BG interesting content lives in
-     * the first 4 blocks (512px), but MGZ2's BG layout stores the "outrun the
-     * rising terrain" blocks in cols 4-23 (world X >= $200), which never
-     * enter the 512px FBO window at base=0.
+     * the first 4 blocks (512px), but some S3K background routines refresh the
+     * 64-cell VDP plane from an explicit BG source X.
      *
-     * <p>Flipping MGZ to the S2 wrap model (512px tilemap, rebuilt when
+     * <p>Flipping those zones to the S2 wrap model (512px tilemap, rebuilt when
      * {@code bgTilemapBaseX} shifts) lets {@link SwScrlMgz#getBgCameraX()}
      * during state 8 relocate the 512px window so terrain cols come into
-     * view. Normal MGZ play ({@code getBgCameraX()} returns MIN_VALUE) keeps
-     * base=0 and renders cloud cols 0-3 as before.
+     * view. ICZ1's opening mountain BG similarly uses {@code d1=$1880} in
+     * {@code ICZ1_BackgroundInit} before {@code Refresh_PlaneFull}.
      */
     @Override
     public boolean bgWrapsHorizontally() {
@@ -110,7 +109,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (levelManager == null) {
             return false;
         }
-        return levelManager.getFeatureZoneId() == Sonic3kZoneIds.ZONE_MGZ;
+        int zoneId = levelManager.getFeatureZoneId();
+        return zoneId == Sonic3kZoneIds.ZONE_MGZ
+                || zoneId == Sonic3kZoneIds.ZONE_ICZ;
     }
 
     @Override
