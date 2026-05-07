@@ -125,6 +125,24 @@ public class ObjectManager {
                                 "Failed to recreate dynamic rewind object " + entry.className(), e);
                     }
                 }
+            },
+            new RewindDynamicObjectCodec() {
+                @Override
+                public boolean supports(ObjectInstance instance) {
+                    return instance instanceof AnimalObjectInstance;
+                }
+
+                @Override
+                public String className() {
+                    return AnimalObjectInstance.class.getName();
+                }
+
+                @Override
+                public ObjectInstance recreate(DynamicObjectRecreateContext context,
+                        com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
+                    return AnimalObjectInstance.forRewindRecreate(
+                            entry.spawn(), context.objectServices());
+                }
             }
     );
 
@@ -138,7 +156,11 @@ public class ObjectManager {
                 com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry);
     }
 
-    record DynamicObjectRecreateContext(ObjectManager objectManager) {}
+    record DynamicObjectRecreateContext(ObjectManager objectManager) {
+        ObjectServices objectServices() {
+            return objectManager.objectServices;
+        }
+    }
 
     private final Placement placement;
     private final ObjectRegistry registry;

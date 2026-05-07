@@ -38,6 +38,20 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
     private AnimalType definition;
 
     public AnimalObjectInstance(ObjectSpawn spawn, ObjectServices services) {
+        this(spawn, services, services.rng().nextBits(1));
+    }
+
+    /**
+     * Rewind recreate path: skips the {@code services.rng()} draw so restore
+     * does not advance RNG state past the captured rewind point. The captured
+     * {@code artVariant} (and all other scalars) are reapplied via
+     * {@link AbstractObjectInstance#restoreRewindState} after construction.
+     */
+    static AnimalObjectInstance forRewindRecreate(ObjectSpawn spawn, ObjectServices services) {
+        return new AnimalObjectInstance(spawn, services, 0);
+    }
+
+    private AnimalObjectInstance(ObjectSpawn spawn, ObjectServices services, int artVariant) {
         super(spawn, "Animal");
         ObjectRenderManager renderManager = services.renderManager();
         this.renderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
@@ -54,7 +68,7 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
             typeB = renderManager.getAnimalTypeB();
         }
 
-        this.artVariant = services.rng().nextBits(1);
+        this.artVariant = artVariant;
         int animalIndex = artVariant == 0 ? typeA : typeB;
         this.definition = AnimalType.fromIndex(animalIndex);
         this.mappingSetIndex = definition.mappingSet().ordinal();
