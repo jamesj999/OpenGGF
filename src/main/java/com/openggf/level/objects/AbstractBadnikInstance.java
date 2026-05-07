@@ -269,7 +269,14 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
             this.animTimer = extra.animTimer();
             this.animFrame = extra.animFrame();
             this.facingLeft = extra.facingLeft();
-            updateDynamicSpawn(currentX, currentY);
+            // Resync the dynamic spawn to the restored current position ONLY if
+            // the snapshot itself had a non-null dynamicSpawn (i.e. update() has
+            // run at least once). At frame 0, before any update, currentX/Y is
+            // set but dynamicSpawn is null — overwriting it here would make
+            // capture-after-restore differ from the original frame-0 capture.
+            if (s.hasDynamicSpawn()) {
+                updateDynamicSpawn(currentX, currentY);
+            }
         }
     }
 }

@@ -6,6 +6,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Rewind torture test infrastructure.** Adds `TestRewindTorture` (S2
+  EHZ1 trace) plus three pluggable `RewindTorturePattern`
+  implementations -- adjacent rewinds (`FixedAdjacent` cycles of
+  `forward=2, rewind=1`), end-to-end long rewinds with progressive
+  landing (`ProgressiveLongRewind`), and seeded random
+  forward/rewind cycles (`Random_`). The driver runs the pattern
+  end-to-end against the trace, asserting `controller.currentFrame()`
+  matches the simulated logical frame after every cycle and comparing
+  full `CompositeSnapshot` content against a precomputed forward-only
+  reference at scheduled checkpoints. The shared
+  `RewindSnapshotDiff` helper produces path-based per-key diffs
+  (e.g. `object-manager.slot[16].state.dynamicSpawnX: A=0 B=551`)
+  capped at 20 leaf-diff lines per key, indexing
+  `ObjectManagerSnapshot.slots` / `childSpawns` by slot identity so
+  `IdentityHashMap`-induced ordering noise does not mask real state
+  divergence. All five test methods are currently `@Disabled`
+  pending the snapshot-coverage gaps each surfaces -- the
+  infrastructure itself is the deliverable for future rewind work.
+  Includes one fix surfaced by the test:
+  `AbstractBadnikInstance.restoreRewindState` previously called
+  `updateDynamicSpawn(currentX, currentY)` unconditionally after
+  hydrating `BadnikRewindExtra`, which overwrote
+  `dynamicSpawn = null` (set by the base-class restore from
+  `s.hasDynamicSpawn() == false`) at frame-0-style snapshots where
+  `currentX/Y` are at spawn position but `dynamicSpawn` had never been
+  touched. Now gated by `s.hasDynamicSpawn()` so capture-after-restore
+  round-trips at every frame.
 - **LZ wind tunnels now preserve the player's subpixel fraction across
   the tunnel's per-frame X push and Y curve/input nudges.** ROM
   `LZWindTunnels` (`docs/s1disasm/_inc/LZWaterFeatures.asm:338,341,348,353`)
