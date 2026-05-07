@@ -8,7 +8,6 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.GameServices;
 import com.openggf.game.rewind.GenericFieldCapturer;
-import com.openggf.game.rewind.GenericRewindEligibility;
 import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -819,8 +818,11 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 null,  // Base class does not capture badnik subclass extra
                 null   // Base class does not capture player extra; subclass overrides if needed
         );
-        if (GenericRewindEligibility.isEligible(getClass())) {
-            snapshot = snapshot.withGenericState(GenericFieldCapturer.capture(this));
+        if (!declaresConcreteRewindOverride(getClass())) {
+            var genericState = GenericFieldCapturer.captureObjectSubclassScalars(this);
+            if (!genericState.keys().isEmpty()) {
+                snapshot = snapshot.withGenericState(genericState);
+            }
         }
         return snapshot;
     }
@@ -852,6 +854,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
             GenericFieldCapturer.restore(this, s.genericState());
         }
         // badnikExtra is handled by subclass overrides; base class does nothing
+    }
+
+    private static boolean declaresConcreteRewindOverride(Class<?> type) {
+        try {
+            return type.getDeclaredMethod("captureRewindState").getDeclaringClass() == type
+                    || type.getDeclaredMethod("restoreRewindState", PerObjectRewindSnapshot.class)
+                    .getDeclaringClass() == type;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     /**

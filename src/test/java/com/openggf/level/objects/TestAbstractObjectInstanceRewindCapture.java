@@ -2,9 +2,10 @@ package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.GenericRewindEligibility;
+import com.openggf.game.rewind.RewindStateful;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -199,6 +200,10 @@ class TestAbstractObjectInstanceRewindCapture {
 
     private static final class TestObjectWithGenericState extends AbstractObjectInstance {
         private int phase;
+        private boolean armed;
+        private Mode mode = Mode.IDLE;
+        @com.openggf.game.rewind.RewindDeferred(reason = "test reference requires explicit identity handling")
+        private Object deferredReference = new Object();
 
         TestObjectWithGenericState(ObjectSpawn spawn) {
             super(spawn, "TestObjectWithGenericState");
@@ -210,22 +215,192 @@ class TestAbstractObjectInstanceRewindCapture {
         }
     }
 
-    @Test
-    void eligibleClassCapturesAndRestoresGenericSidecar() {
-        GenericRewindEligibility.registerForTestOrMigration(TestObjectWithGenericState.class);
-        try {
-            TestObjectWithGenericState obj = new TestObjectWithGenericState(spawn(0, 0));
-            obj.phase = 7;
+    private static final class TestObjectWithArrayState extends AbstractObjectInstance {
+        private final int[] finalOffsets = {1, 2, 3};
+        private byte[] slopeData = {4, 5};
+        private int[][] waypoints = {{6, 7}, {8, 9}};
 
-            PerObjectRewindSnapshot snap = obj.captureRewindState();
-            assertNotNull(snap.genericState());
-
-            obj.phase = 2;
-            obj.restoreRewindState(snap);
-
-            assertEquals(7, obj.phase);
-        } finally {
-            GenericRewindEligibility.clearForTest();
+        TestObjectWithArrayState(ObjectSpawn spawn) {
+            super(spawn, "TestObjectWithArrayState");
         }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
+    private record TestConfig(int halfWidth, String artKey, int[] delays) {}
+
+    private static final class TestObjectWithRecordState extends AbstractObjectInstance {
+        private TestConfig config = new TestConfig(32, "platform", new int[] {7, 11});
+
+        TestObjectWithRecordState(ObjectSpawn spawn) {
+            super(spawn, "TestObjectWithRecordState");
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
+    private record HelperState(int x, int timer) {}
+
+    private static final class TestStatefulHelper implements RewindStateful<HelperState> {
+        private int x = 3;
+        private int timer = 5;
+
+        @Override
+        public HelperState captureRewindStateValue() {
+            return new HelperState(x, timer);
+        }
+
+        @Override
+        public void restoreRewindStateValue(HelperState state) {
+            x = state.x();
+            timer = state.timer();
+        }
+    }
+
+    private static final class TestObjectWithStatefulHelpers extends AbstractObjectInstance {
+        private final TestStatefulHelper child = new TestStatefulHelper();
+        private TestStatefulHelper[] children = {new TestStatefulHelper(), new TestStatefulHelper()};
+        private List<TestStatefulHelper> childList = new ArrayList<>(
+                List.of(new TestStatefulHelper(), new TestStatefulHelper()));
+
+        TestObjectWithStatefulHelpers(ObjectSpawn spawn) {
+            super(spawn, "TestObjectWithStatefulHelpers");
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
+    private enum Mode {
+        IDLE,
+        ACTIVE
+    }
+
+    private static final class TestBadnikWithGenericState extends AbstractBadnikInstance {
+        private int phase;
+
+        TestBadnikWithGenericState(ObjectSpawn spawn) {
+            super(spawn, "TestBadnikWithGenericState");
+        }
+
+        @Override
+        protected void updateMovement(int frameCounter, PlayableEntity player) {
+            // no-op
+        }
+
+        @Override
+        protected int getCollisionSizeIndex() {
+            return 0;
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
+    @Test
+    void defaultClassCapturesAndRestoresScalarGenericSidecar() {
+        TestObjectWithGenericState obj = new TestObjectWithGenericState(spawn(0, 0));
+        obj.phase = 7;
+        obj.armed = true;
+        obj.mode = Mode.ACTIVE;
+        Object originalReference = obj.deferredReference;
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNotNull(snap.genericState());
+
+        obj.phase = 2;
+        obj.armed = false;
+        obj.mode = Mode.IDLE;
+        obj.deferredReference = new Object();
+        obj.restoreRewindState(snap);
+
+        assertEquals(7, obj.phase);
+        assertTrue(obj.armed);
+        assertEquals(Mode.ACTIVE, obj.mode);
+        assertNotSame(originalReference, obj.deferredReference);
+    }
+
+    @Test
+    void defaultClassCapturesAndRestoresCompactArrayGenericSidecar() {
+        TestObjectWithArrayState obj = new TestObjectWithArrayState(spawn(0, 0));
+        int[] originalFinalOffsets = obj.finalOffsets;
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNotNull(snap.genericState());
+
+        obj.finalOffsets[0] = 99;
+        obj.slopeData[1] = 99;
+        obj.waypoints[1][0] = 99;
+        obj.restoreRewindState(snap);
+
+        assertSame(originalFinalOffsets, obj.finalOffsets);
+        assertArrayEquals(new int[] {1, 2, 3}, obj.finalOffsets);
+        assertArrayEquals(new byte[] {4, 5}, obj.slopeData);
+        assertArrayEquals(new int[] {6, 7}, obj.waypoints[0]);
+        assertArrayEquals(new int[] {8, 9}, obj.waypoints[1]);
+    }
+
+    @Test
+    void defaultClassCapturesAndRestoresSupportedRecordGenericSidecar() {
+        TestObjectWithRecordState obj = new TestObjectWithRecordState(spawn(0, 0));
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNotNull(snap.genericState());
+
+        obj.config.delays()[0] = 99;
+        obj.config = new TestConfig(64, "changed", new int[] {1});
+        obj.restoreRewindState(snap);
+
+        assertEquals(32, obj.config.halfWidth());
+        assertEquals("platform", obj.config.artKey());
+        assertArrayEquals(new int[] {7, 11}, obj.config.delays());
+    }
+
+    @Test
+    void defaultClassCapturesAndRestoresStatefulHelperGenericSidecar() {
+        TestObjectWithStatefulHelpers obj = new TestObjectWithStatefulHelpers(spawn(0, 0));
+        TestStatefulHelper originalChild = obj.child;
+        TestStatefulHelper[] originalChildren = obj.children;
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNotNull(snap.genericState());
+
+        obj.child.x = 99;
+        obj.child.timer = 99;
+        obj.children[0].x = 88;
+        obj.children[1].timer = 77;
+        obj.childList.get(0).timer = 66;
+        obj.childList.get(1).x = 55;
+        obj.restoreRewindState(snap);
+
+        assertSame(originalChild, obj.child);
+        assertSame(originalChildren, obj.children);
+        assertEquals(3, obj.child.x);
+        assertEquals(5, obj.child.timer);
+        assertEquals(3, obj.children[0].x);
+        assertEquals(5, obj.children[1].timer);
+        assertEquals(5, obj.childList.get(0).timer);
+        assertEquals(3, obj.childList.get(1).x);
+    }
+
+    @Test
+    void defaultBadnikClassPreservesGenericSidecarWhenAddingBadnikExtra() {
+        TestBadnikWithGenericState obj = new TestBadnikWithGenericState(spawn(0, 0));
+        obj.phase = 7;
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+
+        assertNotNull(snap.badnikExtra());
+        assertNotNull(snap.genericState());
     }
 }

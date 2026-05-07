@@ -47,7 +47,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -55,6 +57,88 @@ public class ObjectManager {
     private static final int BUCKET_COUNT = RenderPriority.MAX - RenderPriority.MIN + 1;
     private static final int ANIM_ROLL = 0x02;
     private static final int ANIM_SPINDASH = 0x09;
+    private static final String S2_BUZZER_FLAME_CHILD_CLASS =
+            "com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance$BuzzerFlameChild";
+    private static final List<RewindDynamicObjectCodec> TEST_OR_MIGRATION_REWIND_DYNAMIC_OBJECT_CODECS =
+            new CopyOnWriteArrayList<>();
+    private static final List<RewindDynamicObjectCodec> BUILT_IN_REWIND_DYNAMIC_OBJECT_CODECS = List.of(
+            new RewindDynamicObjectCodec() {
+                @Override
+                public boolean supports(ObjectInstance instance) {
+                    return instance instanceof com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance;
+                }
+
+                @Override
+                public String className() {
+                    return com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance.class.getName();
+                }
+
+                @Override
+                public ObjectInstance recreate(DynamicObjectRecreateContext context,
+                        com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
+                    var extra = (PerObjectRewindSnapshot.BadnikProjectileRewindExtra)
+                            entry.state().objectSubclassExtra();
+                    return new com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance(
+                            entry.spawn(),
+                            com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance.ProjectileType.valueOf(
+                                    extra.projectileType()),
+                            extra.currentX(),
+                            extra.currentY(),
+                            extra.xVelocity(),
+                            extra.yVelocity(),
+                            extra.applyGravity(),
+                            extra.hFlip(),
+                            extra.initialDelay(),
+                            extra.fixedFrame());
+                }
+            },
+            new RewindDynamicObjectCodec() {
+                @Override
+                public boolean supports(ObjectInstance instance) {
+                    return instance.getClass().getName().equals(S2_BUZZER_FLAME_CHILD_CLASS);
+                }
+
+                @Override
+                public String className() {
+                    return S2_BUZZER_FLAME_CHILD_CLASS;
+                }
+
+                @Override
+                public ObjectInstance recreate(DynamicObjectRecreateContext context,
+                        com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
+                    try {
+                        var extra = (PerObjectRewindSnapshot.BuzzerFlameRewindExtra)
+                                entry.state().objectSubclassExtra();
+                        com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance parent =
+                                context.objectManager().findBuzzerParentForRewind(extra.parentSlotIndex());
+                        if (parent == null) {
+                            return null;
+                        }
+                        Class<?> cls = Class.forName(entry.className());
+                        var ctor = cls.getDeclaredConstructor(
+                                ObjectSpawn.class,
+                                com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance.class);
+                        ctor.setAccessible(true);
+                        return (ObjectInstance) ctor.newInstance(entry.spawn(), parent);
+                    } catch (ReflectiveOperationException e) {
+                        throw new IllegalStateException(
+                                "Failed to recreate dynamic rewind object " + entry.className(), e);
+                    }
+                }
+            }
+    );
+
+    interface RewindDynamicObjectCodec {
+        boolean supports(ObjectInstance instance);
+
+        String className();
+
+        ObjectInstance recreate(
+                DynamicObjectRecreateContext context,
+                com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry);
+    }
+
+    record DynamicObjectRecreateContext(ObjectManager objectManager) {}
 
     private final Placement placement;
     private final ObjectRegistry registry;
@@ -2435,53 +2519,51 @@ public class ObjectManager {
         };
     }
 
-    private static boolean isRewindRestorableDynamicObject(ObjectInstance inst) {
-        return inst instanceof com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance
-                || inst.getClass().getName().equals(
-                        "com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance$BuzzerFlameChild");
+    static boolean isRewindRestorableDynamicObject(ObjectInstance inst) {
+        return rewindDynamicObjectCodecFor(inst).isPresent();
+    }
+
+    static void registerRewindDynamicObjectCodecForTest(RewindDynamicObjectCodec codec) {
+        TEST_OR_MIGRATION_REWIND_DYNAMIC_OBJECT_CODECS.add(codec);
+    }
+
+    static void clearRewindDynamicObjectCodecsForTest() {
+        TEST_OR_MIGRATION_REWIND_DYNAMIC_OBJECT_CODECS.clear();
+    }
+
+    private static Optional<RewindDynamicObjectCodec> rewindDynamicObjectCodecFor(ObjectInstance inst) {
+        for (RewindDynamicObjectCodec codec : TEST_OR_MIGRATION_REWIND_DYNAMIC_OBJECT_CODECS) {
+            if (codec.supports(inst)) {
+                return Optional.of(codec);
+            }
+        }
+        for (RewindDynamicObjectCodec codec : BUILT_IN_REWIND_DYNAMIC_OBJECT_CODECS) {
+            if (codec.supports(inst)) {
+                return Optional.of(codec);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<RewindDynamicObjectCodec> rewindDynamicObjectCodecForClassName(String className) {
+        for (RewindDynamicObjectCodec codec : TEST_OR_MIGRATION_REWIND_DYNAMIC_OBJECT_CODECS) {
+            if (codec.className().equals(className)) {
+                return Optional.of(codec);
+            }
+        }
+        for (RewindDynamicObjectCodec codec : BUILT_IN_REWIND_DYNAMIC_OBJECT_CODECS) {
+            if (codec.className().equals(className)) {
+                return Optional.of(codec);
+            }
+        }
+        return Optional.empty();
     }
 
     private ObjectInstance recreateDynamicObject(
             com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
-        try {
-            if (entry.className().equals(
-                    com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance.class.getName())) {
-                var extra = (PerObjectRewindSnapshot.BadnikProjectileRewindExtra)
-                        entry.state().objectSubclassExtra();
-                return new com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance(
-                        entry.spawn(),
-                        com.openggf.game.sonic2.objects.badniks.BadnikProjectileInstance.ProjectileType.valueOf(
-                                extra.projectileType()),
-                        extra.currentX(),
-                        extra.currentY(),
-                        extra.xVelocity(),
-                        extra.yVelocity(),
-                        extra.applyGravity(),
-                        extra.hFlip(),
-                        extra.initialDelay(),
-                        extra.fixedFrame());
-            }
-            if (entry.className().equals(
-                    "com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance$BuzzerFlameChild")) {
-                var extra = (PerObjectRewindSnapshot.BuzzerFlameRewindExtra)
-                        entry.state().objectSubclassExtra();
-                com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance parent =
-                        findBuzzerParentForRewind(extra.parentSlotIndex());
-                if (parent == null) {
-                    return null;
-                }
-                Class<?> cls = Class.forName(entry.className());
-                var ctor = cls.getDeclaredConstructor(
-                        ObjectSpawn.class,
-                        com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance.class);
-                ctor.setAccessible(true);
-                return (ObjectInstance) ctor.newInstance(entry.spawn(), parent);
-            }
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(
-                    "Failed to recreate dynamic rewind object " + entry.className(), e);
-        }
-        return null;
+        return rewindDynamicObjectCodecForClassName(entry.className())
+                .map(codec -> codec.recreate(new DynamicObjectRecreateContext(this), entry))
+                .orElse(null);
     }
 
     private com.openggf.game.sonic2.objects.badniks.BuzzerBadnikInstance findBuzzerParentForRewind(

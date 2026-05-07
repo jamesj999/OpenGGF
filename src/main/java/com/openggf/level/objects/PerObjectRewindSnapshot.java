@@ -102,12 +102,10 @@ public record PerObjectRewindSnapshot(
         );
     }
 
-    public sealed interface BadnikSubclassRewindExtra
-            permits MasherRewindExtra, BuzzerRewindExtra, CoconutsRewindExtra {
+    public interface BadnikSubclassRewindExtra {
     }
 
-    public sealed interface ObjectSubclassRewindExtra
-            permits ArzPlatformRewindExtra, BadnikProjectileRewindExtra, BuzzerFlameRewindExtra {
+    public interface ObjectSubclassRewindExtra {
     }
 
     /**

@@ -134,7 +134,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
     // Instance state
     // =========================================================================
     private int waitTimer = -1;
-    private Runnable waitCallback;
+    private WaitCallback waitCallback = WaitCallback.NONE;
     private boolean arenaYLocked;
     private boolean arenaXLocked;
     private boolean customFlashDirty;
@@ -161,6 +161,17 @@ public class HczEndBossInstance extends AbstractBossInstance {
     @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
 
+    private enum WaitCallback {
+        NONE,
+        DESCENT_COMPLETE,
+        PRE_ATTACK_WAIT_COMPLETE,
+        ST_DESCENT_COMPLETE,
+        ST_RISE_COMPLETE,
+        BEGIN_ATTACK_PHASE,
+        ATTACK_PASS_COMPLETE,
+        BEGIN_FLEE_SEQUENCE
+    }
+
     // =========================================================================
     // Constructor
     // =========================================================================
@@ -179,7 +190,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         state.hitCount = HIT_COUNT;
         state.renderFlags = 0;
         waitTimer = -1;
-        waitCallback = null;
+        waitCallback = WaitCallback.NONE;
         arenaYLocked = false;
         arenaXLocked = false;
         customFlashDirty = false;
@@ -457,7 +468,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         // Begin descent into arena
         state.routine = ROUTINE_DESCEND;
         state.yVel = 0x80;
-        setWait(0xEF, this::onDescentComplete);
+        setWait(0xEF, WaitCallback.DESCENT_COMPLETE);
     }
 
     // =========================================================================
@@ -504,7 +515,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         swingDown = false;
         state.yVel = 0;
         directionCounter = 0x9F; // initial direction counter (ROM: loc_6AF80)
-        setWait(0x3F, this::onPreAttackWaitComplete);
+        setWait(0x3F, WaitCallback.PRE_ATTACK_WAIT_COMPLETE);
     }
 
     /**
@@ -519,11 +530,11 @@ public class HczEndBossInstance extends AbstractBossInstance {
             // Sonic/Tails path
             state.routine = ROUTINE_ST_DESCEND;
             state.yVel = 0x80;
-            setWait(0x9F, this::onStDescentComplete);
+            setWait(0x9F, WaitCallback.ST_DESCENT_COMPLETE);
         } else {
             // Knuckles path — skip intermediate descent/rise
             state.routine = ROUTINE_PRE_ATTACK;
-            setWait(0x1FF, this::beginAttackPhase);
+            setWait(0x1FF, WaitCallback.BEGIN_ATTACK_PHASE);
         }
     }
 
@@ -533,7 +544,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private void onStDescentComplete() {
         state.yVel = -0x100;
         state.routine = ROUTINE_ST_RISE;
-        setWait(0x4F, this::onStRiseComplete);
+        setWait(0x4F, WaitCallback.ST_RISE_COMPLETE);
     }
 
     /**
@@ -545,7 +556,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         state.y = hoverCentreY;
         state.yFixed = hoverCentreY << 16;
         state.yVel = 0;
-        setWait(0xFF, this::beginAttackPhase);
+        setWait(0xFF, WaitCallback.BEGIN_ATTACK_PHASE);
     }
 
     /**
@@ -562,7 +573,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         facingRight = (state.xVel > 0);
         directionCounter = 0x9F;
         attackPassCounter = 8;
-        setWait(0xBF, this::onAttackPassComplete);
+        setWait(0xBF, WaitCallback.ATTACK_PASS_COMPLETE);
         // Re-init swing
         swingVelocity = SWING_AMPLITUDE;
         swingDown = false;
@@ -612,7 +623,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         if (attackPassCounter >= 0) {
             // More passes remaining — fire blade, wait 0x5F, same callback
             bladeFireSignal = true;
-            setWait(0x5F, this::onAttackPassComplete);
+            setWait(0x5F, WaitCallback.ATTACK_PASS_COMPLETE);
         } else {
             // All passes done — save velocity, jump directly to phase decision
             // ROM: bra.w loc_6AFC8 (immediate, no wait)
@@ -653,7 +664,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         state.xVel = 0;
         state.yVel = 0;
         waitTimer = -1;
-        waitCallback = null;
+        waitCallback = WaitCallback.NONE;
         propellerActive = false;
         defeatSignal = true;
         state.invulnerable = false;
@@ -663,7 +674,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         services().fadeOutMusic();
         services().gameState().setCurrentBossId(0);
         // Wait DEFEAT_WAIT frames for explosions, then begin flee
-        setWait(DEFEAT_WAIT, this::beginFleeSequence);
+        setWait(DEFEAT_WAIT, WaitCallback.BEGIN_FLEE_SEQUENCE);
     }
 
     /**
@@ -788,17 +799,29 @@ public class HczEndBossInstance extends AbstractBossInstance {
         if (waitTimer >= 0) {
             return;
         }
-        Runnable callback = waitCallback;
-        waitCallback = null;
+        WaitCallback callback = waitCallback;
+        waitCallback = WaitCallback.NONE;
         waitTimer = -1;
-        if (callback != null) {
-            callback.run();
-        }
+        runWaitCallback(callback);
     }
 
-    private void setWait(int frames, Runnable callback) {
+    private void setWait(int frames, WaitCallback callback) {
         waitTimer = frames;
         waitCallback = callback;
+    }
+
+    private void runWaitCallback(WaitCallback callback) {
+        switch (callback) {
+            case DESCENT_COMPLETE -> onDescentComplete();
+            case PRE_ATTACK_WAIT_COMPLETE -> onPreAttackWaitComplete();
+            case ST_DESCENT_COMPLETE -> onStDescentComplete();
+            case ST_RISE_COMPLETE -> onStRiseComplete();
+            case BEGIN_ATTACK_PHASE -> beginAttackPhase();
+            case ATTACK_PASS_COMPLETE -> onAttackPassComplete();
+            case BEGIN_FLEE_SEQUENCE -> beginFleeSequence();
+            case NONE -> {
+            }
+        }
     }
 
     // =========================================================================

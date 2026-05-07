@@ -1,11 +1,17 @@
 package com.openggf.game.rewind;
 
 import com.openggf.game.rewind.snapshot.GenericObjectSnapshot;
+import com.openggf.level.Pattern;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
+import com.openggf.sprites.animation.SpriteAnimationSet;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,6 +97,16 @@ class TestGenericFieldCapturer {
 
     static class WithUnsupportedArray {
         MutablePojo[] values = {new MutablePojo()};
+    }
+
+    static class WithStructuralObjectFields {
+        SpriteAnimationSet animSet;
+        ObjectSpriteSheet spriteSheet;
+        SpriteMappingPiece debrisPiece;
+        Pattern[] patterns;
+        List<SpriteMappingFrame> mappingFrames;
+        Object expectedExitPointForTest;
+        List<Object> gameplayObjects;
     }
 
     @Test
@@ -276,6 +292,27 @@ class TestGenericFieldCapturer {
         assertFalse(GenericFieldCapturer.isSupportedDeclaredTypeForAudit(unannotatedFinal));
         assertTrue(GenericFieldCapturer.isSupportedDeclaredTypeForAudit(annotatedFinal));
         assertTrue(GenericFieldCapturer.isSupportedDeclaredTypeForAudit(javaTransient));
+    }
+
+    @Test
+    void objectAuditClassifiesKnownStructuralObjectFieldsWithoutCapturingThem() throws Exception {
+        assertTrue(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("animSet")));
+        assertTrue(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("spriteSheet")));
+        assertTrue(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("debrisPiece")));
+        assertTrue(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("patterns")));
+        assertTrue(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("mappingFrames")));
+        assertTrue(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("expectedExitPointForTest")));
+
+        assertFalse(GenericFieldCapturer.isCapturedByDefaultObjectScalarPolicy(
+                WithStructuralObjectFields.class.getDeclaredField("animSet")));
+        assertFalse(GenericFieldCapturer.hasDefaultObjectCaptureDecision(
+                WithStructuralObjectFields.class.getDeclaredField("gameplayObjects")));
     }
 
     private static BitSet bitSet(int... bits) {

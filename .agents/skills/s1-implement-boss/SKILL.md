@@ -268,6 +268,8 @@ Before finalizing a boss or boss child, classify every instance field for rewind
 
 Use `@RewindTransient(reason = "...")` only for structural or derived fields: `ObjectServices`, stable spawn identity, parent/child graph references, renderers/art caches, listeners/callbacks, immutable config, debug-only state, or values rebuilt from ROM data/live managers. If a field is synchronization-relevant but not generically capturable, convert it to a primitive/record/supported array, add an explicit snapshot/codec, or keep the class on its legacy/manual rewind path. Boss `dynamicSpawn` references are not structural by default; capture coordinates explicitly or defer generic migration.
 
+Prefer standard value forms before boss-specific adapters: replace callback `Runnable` fields with rewindable enum continuation tokens, and make small mutable helper or owned-child state implement `RewindStateful<S>` so the generic capturer snapshots its value while preserving live object identity.
+
 ### Phase 9: Code Quality
 
 Ensure the implementation:

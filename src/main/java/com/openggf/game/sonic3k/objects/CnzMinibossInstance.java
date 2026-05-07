@@ -173,7 +173,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     /** ROM: {@code $2E(a0)} wait-frame counter. -1 indicates "no wait pending". */
     private int waitTimer = -1;
     /** ROM: {@code $34(a0)} post-wait handler pointer. Fires when {@link #waitTimer} expires. */
-    private Runnable waitCallback;
+    private WaitCallback waitCallback = WaitCallback.NONE;
     /**
      * ROM: bit 0 of {@code $38(a0)} — Swing_UpAndDown direction flag.
      * {@code false} = ascending (velocity decreasing toward {@code -SWING_MAX_VEL}),
@@ -242,6 +242,16 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      * semantic for the engine's {@code simulateHitForTest} path.
      */
     private boolean defeatInitiated;
+
+    private enum WaitCallback {
+        NONE,
+        GO2,
+        GO3,
+        CHANGE_DIR,
+        OPEN_GO,
+        CLOSE_GO,
+        END_GO
+    }
 
     public CnzMinibossInstance(ObjectSpawn spawn) {
         super(spawn, "CNZMiniboss");
@@ -387,7 +397,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         state.yVel = yVel;
         // ROM sonic3k.asm:144892-144893 — move.w #$11F,$2E(a0) +
         //                                 move.l #Obj_CNZMinibossGo2,$34(a0).
-        setWait(Sonic3kConstants.CNZ_MINIBOSS_INIT_WAIT, this::onGo2);
+        setWait(Sonic3kConstants.CNZ_MINIBOSS_INIT_WAIT, WaitCallback.GO2);
         // ROM sonic3k.asm:176909 — SetUp_CNZMinibossInit's jsr
         // (SetUp_ObjAttributes).l ends with `addq.b #2,routine(a0)`, so
         // routine advances from 0 to ROUTINE_LOWER (2) on the same frame
@@ -508,8 +518,8 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     private void updateClosing() {
         if (waitTimer < 0) {
             waitTimer = CNZ_MINIBOSS_CLOSING_WAIT;
-            if (waitCallback == null) {
-                waitCallback = this::onCloseGo;
+            if (waitCallback == WaitCallback.NONE) {
+                waitCallback = WaitCallback.CLOSE_GO;
             }
         }
         tickWait();
@@ -624,7 +634,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // Obj_CNZMinibossEnd chain installs Obj_CNZMinibossEndGo at $34(a0)
         // and relies on the fade/wait loop to tick it. Arm that here with a
         // conservative fade-shaped wait.
-        setWait(CNZ_MINIBOSS_DEFEAT_WAIT, this::onEndGo);
+        setWait(CNZ_MINIBOSS_DEFEAT_WAIT, WaitCallback.END_GO);
     }
 
     /**
@@ -708,7 +718,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // The ROM wait-timer for the Closing body comes from the animation
         // script (T6) — T5 arms the callback but leaves the timer -1 so
         // tickWait() stays quiescent until T6 wires the full Closing body.
-        setWait(-1, this::onCloseGo);
+        setWait(-1, WaitCallback.CLOSE_GO);
     }
 
     /**
@@ -736,7 +746,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         parentSignalBit1 = true;
         // ROM sonic3k.asm:144907-144908 — move.w #$90,$2E(a0) +
         //                                 move.l #Obj_CNZMinibossGo3,$34(a0).
-        setWait(Sonic3kConstants.CNZ_MINIBOSS_GO2_WAIT, this::onGo3);
+        setWait(Sonic3kConstants.CNZ_MINIBOSS_GO2_WAIT, WaitCallback.GO3);
         // ROM sonic3k.asm:144909 — bra.w SetUp_CNZMinibossSwing (tail call).
         setUpSwing();
     }
@@ -776,7 +786,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // ROM sonic3k.asm:144920 — move.w #$9F,$2E(a0). Then falls through
         // to Obj_CNZMinibossCloseGo which installs the ChangeDir callback
         // and advances the routine to the Move-duplicate slot (routine 6).
-        setWait(Sonic3kConstants.CNZ_MINIBOSS_SWING_WAIT, this::onChangeDir);
+        setWait(Sonic3kConstants.CNZ_MINIBOSS_SWING_WAIT, WaitCallback.CHANGE_DIR);
         onCloseGo();
     }
 
@@ -816,7 +826,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // CloseGo: $9F if we fell through from Go3, or a fresh timer written
         // by the Closing callback in T6. T5's onGo3 writes $9F above, so
         // the first ChangeDir fires after $9F frames for the natural flow.
-        waitCallback = this::onChangeDir;
+        waitCallback = WaitCallback.CHANGE_DIR;
         // ROM sonic3k.asm:144925 — bclr #3,$38(a0). Clears the in-hit-window
         // flag set by CNZMiniboss_CheckPlayerHit. Tracked alongside openState
         // for documentation; T6 wires the full $38 bit map.
@@ -846,7 +856,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         state.xVel = xVel;
         // ROM sonic3k.asm:144937 — move.w #$13F,$2E(a0).
         // $34 stays = ChangeDir so the swing keeps oscillating.
-        setWait(Sonic3kConstants.CNZ_MINIBOSS_CHANGEDIR_WAIT, this::onChangeDir);
+        setWait(Sonic3kConstants.CNZ_MINIBOSS_CHANGEDIR_WAIT, WaitCallback.CHANGE_DIR);
     }
 
     /**
@@ -876,7 +886,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // ROM sonic3k.asm:144946 — move.b #$A,routine(a0).
         state.routine = ROUTINE_WAIT_HIT;
         // ROM sonic3k.asm:144947 — move.l #Obj_CNZMinibossChangeDir,$34(a0).
-        waitCallback = this::onChangeDir;
+        waitCallback = WaitCallback.CHANGE_DIR;
         waitTimer = -1; // WaitHit has no Obj_Wait tail — timer stays idle.
         // ROM sonic3k.asm:144948 — bset #6,$38(a0). Open-state flag.
         openState = true;
@@ -894,7 +904,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      * parity with {@code $34} writes that occur outside of
      * {@code Obj_Wait} itself (e.g. {@link #handleWaitHitHandoff()}).
      */
-    private void setWait(int frames, Runnable callback) {
+    private void setWait(int frames, WaitCallback callback) {
         waitTimer = frames;
         waitCallback = callback;
     }
@@ -912,10 +922,24 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         if (waitTimer >= 0) {
             return;
         }
-        Runnable callback = waitCallback;
-        waitCallback = null;
-        if (callback != null) {
-            callback.run();
+        runWaitCallback();
+    }
+
+    private void runWaitCallback() {
+        if (waitCallback == WaitCallback.NONE) {
+            return;
+        }
+        WaitCallback callback = waitCallback;
+        waitCallback = WaitCallback.NONE;
+        switch (callback) {
+            case GO2 -> onGo2();
+            case GO3 -> onGo3();
+            case CHANGE_DIR -> onChangeDir();
+            case OPEN_GO -> onOpenGo();
+            case CLOSE_GO -> onCloseGo();
+            case END_GO -> onEndGo();
+            case NONE -> {
+            }
         }
     }
 
@@ -1020,7 +1044,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
                 // fires ChangeDir immediately, which is what the T5 entry
                 // test asserts (x_vel sign flips).
                 waitTimer = 0;
-                waitCallback = this::onChangeDir;
+                waitCallback = WaitCallback.CHANGE_DIR;
             }
             case ROUTINE_OPENING -> {
                 // ROM: CheckPlayerHit writes routine=8 AND $34=OpenGo; the
@@ -1028,14 +1052,14 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
                 // OpenGo when the animation completes. Seed a fresh wait so
                 // updateOpening() has something to tick against.
                 waitTimer = CNZ_MINIBOSS_OPENING_WAIT;
-                waitCallback = this::onOpenGo;
+                waitCallback = WaitCallback.OPEN_GO;
             }
             case ROUTINE_WAIT_HIT -> {
                 // ROM: WaitHit body has no Obj_Wait tail. Clear any stale
                 // timer so the routine idles correctly until statusBit6TopHit
                 // flips via simulateHitForTest().
                 waitTimer = -1;
-                waitCallback = null;
+                waitCallback = WaitCallback.NONE;
             }
             case ROUTINE_LOWER2 -> {
                 // ROM: Lower2 has no Obj_Wait tail (subq.b $43 directly in
@@ -1044,7 +1068,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
                 // that force Lower2 must follow up with
                 // setLower2CounterForTest() to seed the $43 value.
                 waitTimer = -1;
-                waitCallback = null;
+                waitCallback = WaitCallback.NONE;
             }
             case ROUTINE_CLOSING -> {
                 // ROM: Closing is normally entered from handleWaitHitHandoff
@@ -1053,7 +1077,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
                 // a known wait length so updateClosing's first tick runs
                 // against a deterministic counter.
                 waitTimer = CNZ_MINIBOSS_CLOSING_WAIT;
-                waitCallback = this::onCloseGo;
+                waitCallback = WaitCallback.CLOSE_GO;
             }
             default -> {
                 // Leave timer/callback untouched for routines that don't

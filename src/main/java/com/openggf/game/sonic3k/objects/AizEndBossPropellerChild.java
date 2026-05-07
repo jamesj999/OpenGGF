@@ -104,7 +104,14 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
      */
     private int knuxFireCounter;
     /** Current callback to invoke when animStepsRemaining goes below 0. */
-    private Runnable animCallback;
+    private AnimCallback animCallback;
+
+    private enum AnimCallback {
+        NONE,
+        ON_EXTEND_COMPLETE,
+        ON_FIRE_TIMER_COMPLETE,
+        ON_RETRACT_COMPLETE
+    }
 
     public AizEndBossPropellerChild(AizEndBossInstance boss, AizEndBossArmChild arm, int subtype) {
         super(boss, "AIZEndBossPropeller", 3, 0);
@@ -120,7 +127,7 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
         this.childDy = 0;
         this.fireWindowConsumed = false;
         this.knuxFireCounter = 0;
-        this.animCallback = null;
+        this.animCallback = AnimCallback.NONE;
     }
 
     @Override
@@ -162,10 +169,8 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
                 waitTimer = 3; // ROM: move.w #3,$2E(a0)
                 advancePosition();
                 animStepsRemaining--;
-                if (animStepsRemaining < 0 && animCallback != null) {
-                    Runnable cb = animCallback;
-                    animCallback = null;
-                    cb.run();
+                if (animStepsRemaining < 0) {
+                    runAnimCallback();
                 }
             }
             case ROUTINE_WAIT -> {
@@ -173,10 +178,8 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
                 // Unlike ROUTINE_ANIMATE, this does NOT call advancePosition().
                 if (waitTimer >= 0) {
                     waitTimer--;
-                } else if (animCallback != null) {
-                    Runnable cb = animCallback;
-                    animCallback = null;
-                    cb.run();
+                } else {
+                    runAnimCallback();
                 }
             }
         }
@@ -193,7 +196,7 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
         // ROM: initial delay depends on parent ARM's subtype, not character.
         // subtype 0 (left arm) = no delay, subtype != 0 (right arm) = $4F delay.
         waitTimer = (subtype != 0) ? 0x4F : 0;
-        animCallback = this::onExtendComplete;
+        animCallback = AnimCallback.ON_EXTEND_COMPLETE;
     }
 
     /**
@@ -225,7 +228,7 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
             if (knuxFireCounter >= 0) {
                 // $3A still non-negative: fire again after $2F wait
                 waitTimer = 0x2F;               // ROM: move.w #$2F,$2E(a0)
-                animCallback = this::onExtendComplete; // callback stays at loc_697D8
+                animCallback = AnimCallback.ON_EXTEND_COMPLETE; // callback stays at loc_697D8
                 spawnFlameProjectile();          // ROM: bra.w loc_69B5E
                 return;
             }
@@ -235,7 +238,7 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
         // Sonic path / final Knuckles fire (loc_697E6)
         boss.clearPropellerFire();               // ROM: bclr #1,$38(a1)
         waitTimer = 0x5F;                        // ROM: move.w #$5F,$2E(a0)
-        animCallback = this::onFireTimerComplete; // ROM: move.l #loc_69824,$34(a0)
+        animCallback = AnimCallback.ON_FIRE_TIMER_COMPLETE; // ROM: move.l #loc_69824,$34(a0)
         spawnFlameProjectile();                   // ROM: bra.w loc_69B5E
     }
 
@@ -247,7 +250,7 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
         routine = ROUTINE_ANIMATE;
         animStepsRemaining = 1; // ROM: move.b #1,anim_frame(a0)
         waitTimer = 0; // ROM: clr.w $2E(a0)
-        animCallback = this::onRetractComplete;
+        animCallback = AnimCallback.ON_RETRACT_COMPLETE;
     }
 
     /**
@@ -264,6 +267,20 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
         childDx = -0x1C;
         childDy = 0;
         mappingFrame = 4;
+    }
+
+    private void runAnimCallback() {
+        if (animCallback == AnimCallback.NONE) {
+            return;
+        }
+        AnimCallback callback = animCallback;
+        animCallback = AnimCallback.NONE;
+        switch (callback) {
+            case ON_EXTEND_COMPLETE -> onExtendComplete();
+            case ON_FIRE_TIMER_COMPLETE -> onFireTimerComplete();
+            case ON_RETRACT_COMPLETE -> onRetractComplete();
+            case NONE -> {}
+        }
     }
 
     /** ROM: sub_69AD8 — Advance position from the angle-based table. */

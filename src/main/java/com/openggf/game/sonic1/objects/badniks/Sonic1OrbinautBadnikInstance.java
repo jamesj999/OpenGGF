@@ -51,6 +51,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     private int angleStep;
     private int activeSpikes;
 
+    @RewindTransient(reason = "ObjectManager-owned satellite child references; child objects snapshot independently")
     private List<OrbSpikeObjectInstance> spikes;
     private boolean initialized;
 

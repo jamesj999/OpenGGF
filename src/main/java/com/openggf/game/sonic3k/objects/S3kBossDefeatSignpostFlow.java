@@ -1,6 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -29,6 +32,11 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
 
     private enum Phase { WAIT_FADE, SPAWN_SIGNPOST, AWAIT_RESULTS, AWAIT_ACT_TRANSITION }
 
+    public enum CleanupAction {
+        NONE,
+        RESTORE_AIZ_FIRE_PALETTE
+    }
+
     /** ROM: Obj_EndSignControl timer = $77 (119 frames). */
     private static final int FADE_TIMER = 0x77;
 
@@ -39,7 +47,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     private int timer;
     private final int signpostX;
     private final int apparentAct;
-    private final Runnable zoneCleanupCallback;
+    private final CleanupAction cleanupAction;
     private boolean initialized;
 
     /**
@@ -49,13 +57,13 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
      * @param apparentAct         ROM's Apparent_act value (0 = act 1, 1 = act 2 display).
      *                            For mid-act bosses like AIZ1 miniboss, this is 0 even though
      *                            the engine may have reloaded act 2 resources.
-     * @param zoneCleanupCallback called after spawning the signpost (e.g. palette restore)
+     * @param cleanupAction action to run after spawning the signpost (e.g. palette restore)
      */
-    public S3kBossDefeatSignpostFlow(int signpostX, int apparentAct, Runnable zoneCleanupCallback) {
+    public S3kBossDefeatSignpostFlow(int signpostX, int apparentAct, CleanupAction cleanupAction) {
         super(null, "S3kBossDefeatSignpostFlow");
         this.signpostX = signpostX;
         this.apparentAct = apparentAct;
-        this.zoneCleanupCallback = zoneCleanupCallback;
+        this.cleanupAction = cleanupAction == null ? CleanupAction.NONE : cleanupAction;
         this.phase = Phase.WAIT_FADE;
         this.timer = FADE_TIMER;
     }
@@ -149,17 +157,37 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         spawnDynamicObject(signpost);
         LOG.fine("S3K defeat flow spawned signpost at X=" + signpostX);
 
-        // Run zone-specific cleanup (e.g. palette restore)
-        if (zoneCleanupCallback != null) {
-            try {
-                zoneCleanupCallback.run();
-            } catch (Exception e) {
-                LOG.fine("Zone cleanup callback failed: " + e.getMessage());
-            }
-        }
+        runCleanupAction();
 
         phase = Phase.AWAIT_RESULTS;
         LOG.fine("S3K defeat flow SPAWN_SIGNPOST -> AWAIT_RESULTS");
+    }
+
+    private void runCleanupAction() {
+        try {
+            switch (cleanupAction) {
+                case NONE -> {
+                    // No zone-specific cleanup.
+                }
+                case RESTORE_AIZ_FIRE_PALETTE -> restoreAizFirePalette();
+            }
+        } catch (Exception e) {
+            LOG.fine("Zone cleanup action failed: " + e.getMessage());
+        }
+    }
+
+    private void restoreAizFirePalette() throws Exception {
+        // AfterBoss_AIZ2: restore fire palette to palette line 1.
+        // ROM: lea (Pal_AIZFire).l,a1 / jsr (PalLoad_Line1).l.
+        byte[] palData = services().rom().readBytes(Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
+        S3kPaletteWriteSupport.applyLine(
+                services().paletteOwnershipRegistryOrNull(),
+                services().currentLevel(),
+                services().graphicsManager(),
+                S3kPaletteOwners.AIZ_MINIBOSS,
+                S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
+                1,
+                palData);
     }
 
     // =========================================================================

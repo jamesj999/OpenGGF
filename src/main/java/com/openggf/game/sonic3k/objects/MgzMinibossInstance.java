@@ -622,7 +622,8 @@ public final class MgzMinibossInstance extends AbstractBossInstance {
         // inheriting the control object's x_pos — the miniboss's X at the moment of
         // defeat, not the camera lock point.
         int signpostX = state.x;
-        spawnChild(() -> new S3kBossDefeatSignpostFlow(signpostX, services().currentAct(), null));
+        spawnChild(() -> new S3kBossDefeatSignpostFlow(
+                signpostX, services().currentAct(), S3kBossDefeatSignpostFlow.CleanupAction.NONE));
     }
 
     private static Palette.Color colorFromGenesisWord(int word) {

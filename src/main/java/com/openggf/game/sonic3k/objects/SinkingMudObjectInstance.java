@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -49,6 +50,7 @@ public class SinkingMudObjectInstance extends AbstractObjectInstance
     private final Map<PlayableEntity, Boolean> standingNextUpdate = new IdentityHashMap<>();
     private final Set<PlayableEntity> killedThisFrame =
             Collections.newSetFromMap(new IdentityHashMap<>());
+    @RewindTransient(reason = "per-frame player query cache rebuilt during update")
     private List<PlayableEntity> trackedPlayers = List.of();
 
     public SinkingMudObjectInstance(ObjectSpawn spawn) {

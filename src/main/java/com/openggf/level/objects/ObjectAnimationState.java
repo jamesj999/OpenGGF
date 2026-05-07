@@ -2,6 +2,7 @@ package com.openggf.level.objects;
 
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
+import java.util.Objects;
 
 /**
  * Lightweight animation runner for object mappings (AnimateSprite-style).
@@ -30,6 +31,14 @@ public class ObjectAnimationState {
 
     public int getMappingFrame() {
         return mappingFrame;
+    }
+
+    public ObjectAnimationState copyForRewind() {
+        ObjectAnimationState copy = new ObjectAnimationState(animationSet, animId, mappingFrame);
+        copy.lastAnimId = lastAnimId;
+        copy.frameIndex = frameIndex;
+        copy.frameTick = frameTick;
+        return copy;
     }
 
     /**
@@ -108,5 +117,20 @@ public class ObjectAnimationState {
             return 0;
         }
         return target;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof ObjectAnimationState state
+                && animId == state.animId
+                && lastAnimId == state.lastAnimId
+                && frameIndex == state.frameIndex
+                && frameTick == state.frameTick
+                && mappingFrame == state.mappingFrame;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(animId, lastAnimId, frameIndex, frameTick, mappingFrame);
     }
 }

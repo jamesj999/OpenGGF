@@ -373,6 +373,8 @@ Before finalizing a new object or badnik, classify every instance field for rewi
 
 Use `@RewindTransient(reason = "...")` only for structural or derived fields: `ObjectServices`, stable `ObjectSpawn` identity, renderers/art caches, listeners/callbacks, immutable config, debug-only state, or values rebuilt from ROM data/live managers. If a field is synchronization-relevant but not generically capturable, convert it to a primitive/record/supported array, add an explicit snapshot/codec, or keep the class on its legacy/manual rewind path. Dynamic spawn coordinates are gameplay state; capture them explicitly rather than treating the live `ObjectSpawn` reference as structural.
 
+Prefer standard value forms before object-specific adapters: replace callback `Runnable` fields with rewindable enum continuation tokens, and make small mutable helper or owned-child state implement `RewindStateful<S>` so the generic capturer snapshots its value while preserving live object identity.
+
 ### Phase 3: Code Quality
 
 Ensure the implementation:

@@ -76,8 +76,17 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private int waitTimer = -1;
     @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController explosionController;
-    private Runnable waitCallback;
+    private WaitCallback waitCallback = WaitCallback.NONE;
     private int savedCameraMaxX;
+
+    private enum WaitCallback {
+        NONE,
+        INITIAL_DELAY_COMPLETE,
+        DESCEND_COMPLETE,
+        SWING_COMPLETE,
+        PRE_EXIT_COMPLETE,
+        EXIT_COMPLETE
+    }
 
     public AizMinibossCutsceneInstance(ObjectSpawn spawn) {
         super(spawn, "AIZMinibossCutscene");
@@ -88,7 +97,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         state.routine = ROUTINE_INIT;
         state.hitCount = COLLISION_PROPERTY_UNKILLABLE;
         waitTimer = -1;
-        waitCallback = null;
+        waitCallback = WaitCallback.NONE;
         savedCameraMaxX = 0;
     }
 
@@ -197,13 +206,13 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
-        setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
+        setWait(WAIT_AFTER_TRIGGER, WaitCallback.INITIAL_DELAY_COMPLETE);
     }
 
     private void onInitialDelayComplete() {
         state.routine = ROUTINE_DESCEND;
         state.yVel = DESCEND_VEL;
-        setWait(DESCEND_TIME, this::onDescendComplete);
+        setWait(DESCEND_TIME, WaitCallback.DESCEND_COMPLETE);
 
         var objectManager = services().objectManager();
         spawnChild(new AizMinibossBodyChild(this), objectManager);
@@ -221,12 +230,12 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         state.routine = ROUTINE_SWING;
         state.yVel = 0;
         swingMotion.setup1(state);
-        setWait(SWING_TIME, this::onSwingComplete);
+        setWait(SWING_TIME, WaitCallback.SWING_COMPLETE);
     }
 
     private void onSwingComplete() {
         // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
-        setWait(PRE_EXIT_TIME, this::onPreExitComplete);
+        setWait(PRE_EXIT_TIME, WaitCallback.PRE_EXIT_COMPLETE);
         // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
         var camera = services().camera();
         explosionController = new S3kBossExplosionController(
@@ -260,7 +269,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         services().fadeOutMusic();
 
         int exitFrames = isAiz1() ? EXIT_TIME_AIZ1 : EXIT_TIME_OTHER;
-        setWait(exitFrames, this::onExitComplete);
+        setWait(exitFrames, WaitCallback.EXIT_COMPLETE);
 
         if (services().levelEventProvider() instanceof com.openggf.game.sonic3k.events.AizObjectEventBridge) {
             S3kAizEventWriteSupport.setEventsFg5(services(), true);
@@ -307,7 +316,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         setDestroyed(true);
     }
 
-    private void setWait(int frames, Runnable callback) {
+    private void setWait(int frames, WaitCallback callback) {
         waitTimer = frames;
         waitCallback = callback;
     }
@@ -320,10 +329,22 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (waitTimer >= 0) {
             return;
         }
-        Runnable callback = waitCallback;
-        waitCallback = null;
-        if (callback != null) {
-            callback.run();
+        runWaitCallback();
+    }
+
+    private void runWaitCallback() {
+        if (waitCallback == WaitCallback.NONE) {
+            return;
+        }
+        WaitCallback callback = waitCallback;
+        waitCallback = WaitCallback.NONE;
+        switch (callback) {
+            case INITIAL_DELAY_COMPLETE -> onInitialDelayComplete();
+            case DESCEND_COMPLETE -> onDescendComplete();
+            case SWING_COMPLETE -> onSwingComplete();
+            case PRE_EXIT_COMPLETE -> onPreExitComplete();
+            case EXIT_COMPLETE -> onExitComplete();
+            case NONE -> {}
         }
     }
 

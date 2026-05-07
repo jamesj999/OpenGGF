@@ -85,9 +85,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private final AizMinibossSwingMotion swingMotion = new AizMinibossSwingMotion();
 
     private int waitTimer = -1;
-    private Runnable waitCallback;
+    private WaitCallback waitCallback = WaitCallback.NONE;
     /** Callback for when the current horizontal swing count expires. */
-    private Runnable horizontalCallback;
+    private HorizontalCallback horizontalCallback = HorizontalCallback.NONE;
     private boolean defeatRenderComplete;
     private int pendingDefeatTimer = -1;
     private boolean levelEndUnlockStarted;
@@ -95,6 +95,23 @@ public class AizMinibossInstance extends AbstractBossInstance {
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
     @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
+
+    private enum WaitCallback {
+        NONE,
+        INITIAL_DELAY_COMPLETE,
+        DESCEND_COMPLETE,
+        SWING_PREP_COMPLETE,
+        FLAME_PREP_COMPLETE,
+        VERTICAL_ARC_PREP,
+        HORIZONTAL_ARC_START,
+        BREATH_CYCLE_COMPLETE
+    }
+
+    private enum HorizontalCallback {
+        NONE,
+        HORIZONTAL_ARC_PIVOT,
+        HORIZONTAL_ARC_COMPLETE
+    }
 
     public AizMinibossInstance(ObjectSpawn spawn) {
         super(spawn, "AIZMiniboss");
@@ -105,8 +122,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.routine = ROUTINE_INIT;
         state.hitCount = HIT_COUNT;
         waitTimer = -1;
-        waitCallback = null;
-        horizontalCallback = null;
+        waitCallback = WaitCallback.NONE;
+        horizontalCallback = HorizontalCallback.NONE;
         defeatRenderComplete = false;
         pendingDefeatTimer = -1;
         levelEndUnlockStarted = false;
@@ -180,8 +197,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.xVel = 0;
         state.yVel = 0;
         waitTimer = -1;
-        waitCallback = null;
-        horizontalCallback = null;
+        waitCallback = WaitCallback.NONE;
+        horizontalCallback = HorizontalCallback.NONE;
 
         // Clear invulnerability immediately to stop palette flash
         state.invulnerable = false;
@@ -283,7 +300,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
-        setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
+        setWait(WAIT_AFTER_TRIGGER, WaitCallback.INITIAL_DELAY_COMPLETE);
     }
 
     private void maintainArenaCameraLock() {
@@ -348,7 +365,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private void onInitialDelayComplete() {
         state.routine = ROUTINE_DESCEND;
         state.yVel = DESCEND_VEL;
-        setWait(DESCEND_TIME, this::onDescendComplete);
+        setWait(DESCEND_TIME, WaitCallback.DESCEND_COMPLETE);
 
         var objectManager = services().objectManager();
         spawnChild(new AizMinibossBodyChild(this), objectManager);
@@ -368,11 +385,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
         setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_BARREL_ACTIVATE);
         state.yVel = 0;
         swingMotion.setup1(state);
-        setWait(SWING_PREP_TIME, this::onSwingPrepComplete);
+        setWait(SWING_PREP_TIME, WaitCallback.SWING_PREP_COMPLETE);
     }
 
     private void onSwingPrepComplete() {
-        setWait(FLAME_PREP_TIME, this::onFlamePrepComplete);
+        setWait(FLAME_PREP_TIME, WaitCallback.FLAME_PREP_COMPLETE);
     }
 
     private void onFlamePrepComplete() {
@@ -383,7 +400,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         spawnBreathFlames();
         // No frame timer — phase progresses via swing half-cycle counting
         waitTimer = -1;
-        waitCallback = null;
+        waitCallback = WaitCallback.NONE;
     }
 
     /**
@@ -422,11 +439,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if ((bits & PARENT_BIT_ALT_VERTICAL) != 0) {
             // First pass: move up, then horizontal arc
             state.yVel = -DESCEND_VEL;
-            setWait(VERTICAL_DRIFT_TIME, this::onVerticalArcPrep);
+            setWait(VERTICAL_DRIFT_TIME, WaitCallback.VERTICAL_ARC_PREP);
         } else {
             // Second pass: move down, restart attack cycle at loc_68ACC
             state.yVel = DESCEND_VEL;
-            setWait(VERTICAL_DRIFT_TIME, this::onDescendComplete);
+            setWait(VERTICAL_DRIFT_TIME, WaitCallback.DESCEND_COMPLETE);
         }
     }
 
@@ -435,7 +452,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.routine = ROUTINE_HOLD;
         state.xVel = 0;
         state.yVel = 0;
-        setWait(HOLD_TIME, this::onHorizontalArcStart);
+        setWait(HOLD_TIME, WaitCallback.HORIZONTAL_ARC_START);
     }
 
     /**
@@ -457,8 +474,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         swingMotion.setup1(state);
         // No frame timer — phase progresses via swing half-cycle counting
         waitTimer = -1;
-        waitCallback = null;
-        horizontalCallback = this::onHorizontalArcPivot;
+        waitCallback = WaitCallback.NONE;
+        horizontalCallback = HorizontalCallback.HORIZONTAL_ARC_PIVOT;
     }
 
     /**
@@ -468,11 +485,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private void updateHorizontalSwingCount() {
         var result = swingMotion.updateAndCount(state);
         if (result == AizMinibossSwingMotion.CountResult.EXPIRED) {
-            if (horizontalCallback != null) {
-                Runnable cb = horizontalCallback;
-                horizontalCallback = null;
-                cb.run();
-            }
+            runHorizontalCallback();
             return;
         }
         state.applyVelocity();
@@ -487,7 +500,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         swingMotion.setCycleCounter(HORIZONTAL_CYCLE_COUNT);
         state.renderFlags ^= 1;
         state.applyVelocity(); // ROM: jmp (MoveSprite2).l
-        horizontalCallback = this::onHorizontalArcComplete;
+        horizontalCallback = HorizontalCallback.HORIZONTAL_ARC_COMPLETE;
     }
 
     /**
@@ -498,7 +511,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.routine = ROUTINE_HOLD;
         state.xVel = 0;
         state.yVel = 0;
-        setWait(HOLD_TIME, this::onBreathCycleComplete);
+        setWait(HOLD_TIME, WaitCallback.BREATH_CYCLE_COMPLETE);
     }
 
     private void updateWaitOnly() {
@@ -553,33 +566,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
             // Use spawnChild() so CONSTRUCTION_CONTEXT is set — the constructor calls services()
             spawnChild(() -> new S3kBossDefeatSignpostFlow(
                     state.x, 0,
-                    () -> {
-                        // AfterBoss_AIZ2: restore fire palette to palette line 1.
-                        // ROM: lea (Pal_AIZFire).l,a1 / jsr (PalLoad_Line1).l
-                        // PalLoad_Line1 copies 32 bytes to Normal_palette_line_2
-                        // (S3K 1-based naming: line_2 = engine index 1).
-                        // The real miniboss fights in the post-fire section (technically AIZ2),
-                        // so we restore Pal_AIZFire, NOT Pal_AIZ (green AIZ1 palette).
-                        try {
-                            byte[] palData = services().rom().readBytes(
-                                    Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
-                            S3kPaletteWriteSupport.applyLine(
-                                    services().paletteOwnershipRegistryOrNull(),
-                                    services().currentLevel(),
-                                    services().graphicsManager(),
-                                    S3kPaletteOwners.AIZ_MINIBOSS,
-                                    S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
-                                    1,
-                                    palData);
-                        } catch (Exception e) {
-                            LOG.fine(() -> "AizMinibossInstance.updateDefeated: " + e.getMessage());
-                        }
-                    }
-            ));
+                    S3kBossDefeatSignpostFlow.CleanupAction.RESTORE_AIZ_FIRE_PALETTE));
         }
     }
 
-    private void setWait(int frames, Runnable callback) {
+    private void setWait(int frames, WaitCallback callback) {
         waitTimer = frames;
         waitCallback = callback;
     }
@@ -592,10 +583,39 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (waitTimer >= 0) {
             return;
         }
-        Runnable callback = waitCallback;
-        waitCallback = null;
-        if (callback != null) {
-            callback.run();
+        runWaitCallback();
+    }
+
+    private void runWaitCallback() {
+        if (waitCallback == WaitCallback.NONE) {
+            return;
+        }
+        WaitCallback callback = waitCallback;
+        waitCallback = WaitCallback.NONE;
+        switch (callback) {
+            case INITIAL_DELAY_COMPLETE -> onInitialDelayComplete();
+            case DESCEND_COMPLETE -> onDescendComplete();
+            case SWING_PREP_COMPLETE -> onSwingPrepComplete();
+            case FLAME_PREP_COMPLETE -> onFlamePrepComplete();
+            case VERTICAL_ARC_PREP -> onVerticalArcPrep();
+            case HORIZONTAL_ARC_START -> onHorizontalArcStart();
+            case BREATH_CYCLE_COMPLETE -> onBreathCycleComplete();
+            case NONE -> {
+            }
+        }
+    }
+
+    private void runHorizontalCallback() {
+        if (horizontalCallback == HorizontalCallback.NONE) {
+            return;
+        }
+        HorizontalCallback callback = horizontalCallback;
+        horizontalCallback = HorizontalCallback.NONE;
+        switch (callback) {
+            case HORIZONTAL_ARC_PIVOT -> onHorizontalArcPivot();
+            case HORIZONTAL_ARC_COMPLETE -> onHorizontalArcComplete();
+            case NONE -> {
+            }
         }
     }
 
