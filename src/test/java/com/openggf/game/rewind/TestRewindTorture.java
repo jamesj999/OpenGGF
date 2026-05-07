@@ -100,56 +100,78 @@ class TestRewindTorture {
     // surfaces a path-based diff identifying the snapshot key + field that
     // didn't round-trip after repeated rewinds.
     //
-    // Known divergences (as of landing):
-    //   - {@code tortureFixedAdjacent}: fails at ~iteration 800 with
-    //     {@code sprites.sprites[1]} (Tails) yHistory + ySubpixel + animation
-    //     state divergence. Indicates a Tails-side state field not faithfully
-    //     restored across many rewinds.
-    //   - {@code tortureProgressiveLongRewinds}: fails at ~iteration 1575
-    //     with {@code object-manager} slot drift
-    //     ({@code dynamicObjects[0].slotIndex: A=18 B=19} +
-    //     {@code usedSlotsBits differs}). Earlier failures at the same test
-    //     (iteration 5 dead=true; iteration 1521 shield/effectApplied) have
-    //     been fixed.
-    //   - {@code tortureRandomSeed42/1337/8675309}: each fails after ~50
-    //     cycles with multiple keys diverging (camera, gamestate, sprites,
-    //     object-manager slot drift, rings state). Random patterns surface
-    //     the broadest range of coverage gaps.
+    // Known divergences (current, after multiple rewind-framework fixes):
+    //   All four currently-disabled tests now converge on the SAME root cause:
+    //   object-manager slot drift caused by transient non-restorable dynamic
+    //   objects (animals, points popups, explosions, shields, invincibility
+    //   stars). These objects spawn during gameplay but lack rewind codecs, so
+    //   their slots are dropped from {@code usedSlotsBits} on capture; on
+    //   restore + replay, dynamic-object spawns can land on different slot
+    //   indices than the reference run, cascading into camera, sprite, and
+    //   placement-cursor divergence in random patterns.
     //
-    // Re-enable each test as the underlying framework gap is fixed; the
-    // shared {@link RewindSnapshotDiff} helper produces actionable per-field
-    // diff lines to direct the fix.
+    //   - {@code tortureFixedAdjacent}: fails at ~iteration 1600 with
+    //     {@code object-manager.dynamicObjects[0].slotIndex: A=18 B=19} +
+    //     {@code usedSlotsBits differs}. (Earlier animation-cursor failures
+    //     fixed in 6024ba968.)
+    //   - {@code tortureProgressiveLongRewinds}: fails at ~iteration 1575
+    //     with the same slot-drift signature. (Earlier failures: iteration
+    //     721 animation cursor fixed in 6024ba968; iteration 1521 monitor
+    //     effectTarget fixed in 2c5332f6c.)
+    //   - {@code tortureRandomSeed42/1337/8675309}: each fails at the
+    //     pattern's first checkpoint (frame 6776, ~iter 50) with the slot-
+    //     drift signature plus downstream camera/sprite/ring-cursor
+    //     divergence. The ring-state divergence (sparkleTimers length,
+    //     lostRingActiveCount) is a downstream symptom of slot drift, not a
+    //     discrete missing-field bug.
+    //
+    // The remaining work is a multi-day architectural refactor:
+    //   1. Capture live {@code usedSlots} BitSet directly (currently
+    //      synthesized from active + restorable + reservedChildSlots, which
+    //      drops bits for non-codec dynamics).
+    //   2. Add rewind codecs for transient dynamic objects: AnimalObject,
+    //      AbstractPointsObject (S1/S2/S3K subclasses), ExplosionObject,
+    //      ShieldObject (with player-binding lookup), InvincibilityStarsObject.
+    //      Each codec must handle constructor-side effects (e.g., RNG draws).
+    //   3. Coordinate shield re-pin in
+    //      {@link AbstractPlayableSprite#refreshPowerUpObjectsAfterRewindRestore}
+    //      with the shield codec so the captured shield slot is honoured on
+    //      restore (currently allocates a fresh free slot).
+    //
+    // Re-enable each test as the architectural fix lands; the shared
+    // {@link RewindSnapshotDiff} helper produces actionable per-field diff
+    // lines to validate.
     // -------------------------------------------------------------------------
 
-    @Disabled("Surfaces sprites[1] (Tails) state divergence at ~iteration 800; pending rewind coverage fix")
+    @Disabled("Object-manager slot drift at ~iteration 1600 (transient non-restorable dynamic objects); pending architectural fix")
     @Test
     void tortureFixedAdjacent() throws Exception {
         runTorture("fixed-adjacent",
                 RewindTorturePattern.FixedAdjacent::new, false);
     }
 
-    @Disabled("Surfaces object-manager slot drift at ~iteration 1575 (post-monitor-fix); pending rewind coverage fix")
+    @Disabled("Object-manager slot drift at ~iteration 1575 (transient non-restorable dynamic objects); pending architectural fix")
     @Test
     void tortureProgressiveLongRewinds() throws Exception {
         runTorture("progressive-long",
                 RewindTorturePattern.ProgressiveLongRewind::new, true);
     }
 
-    @Disabled("Random pattern surfaces multiple snapshot-coverage gaps; pending rewind coverage fix")
+    @Disabled("Object-manager slot drift cascades into camera/sprite/ring divergence at frame 6776; pending architectural fix")
     @Test
     void tortureRandomSeed42() throws Exception {
         runTorture("random-seed-42",
                 () -> new RewindTorturePattern.Random_(42L), false);
     }
 
-    @Disabled("Random pattern surfaces multiple snapshot-coverage gaps; pending rewind coverage fix")
+    @Disabled("Object-manager slot drift cascades into camera/sprite/ring divergence; pending architectural fix")
     @Test
     void tortureRandomSeed1337() throws Exception {
         runTorture("random-seed-1337",
                 () -> new RewindTorturePattern.Random_(1337L), false);
     }
 
-    @Disabled("Random pattern surfaces multiple snapshot-coverage gaps; pending rewind coverage fix")
+    @Disabled("Object-manager slot drift cascades into camera/sprite/ring divergence; pending architectural fix")
     @Test
     void tortureRandomSeed8675309() throws Exception {
         runTorture("random-seed-8675309",
