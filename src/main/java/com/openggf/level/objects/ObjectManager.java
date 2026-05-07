@@ -143,8 +143,67 @@ public class ObjectManager {
                     return AnimalObjectInstance.forRewindRecreate(
                             entry.spawn(), context.objectServices());
                 }
+            },
+            pointsCodec(com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance.class),
+            pointsCodec(com.openggf.game.sonic2.objects.PointsObjectInstance.class),
+            pointsCodec(com.openggf.game.sonic3k.objects.Sonic3kPointsObjectInstance.class),
+            new RewindDynamicObjectCodec() {
+                @Override
+                public boolean supports(ObjectInstance instance) {
+                    return instance instanceof ExplosionObjectInstance;
+                }
+
+                @Override
+                public String className() {
+                    return ExplosionObjectInstance.class.getName();
+                }
+
+                @Override
+                public ObjectInstance recreate(DynamicObjectRecreateContext context,
+                        com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
+                    ObjectSpawn spawn = entry.spawn();
+                    ObjectRenderManager renderManager = context.objectServices().renderManager();
+                    // sfxId=-1 suppresses the constructor's SFX replay. The captured
+                    // animTimer/animFrame are reapplied via restoreRewindState.
+                    return new ExplosionObjectInstance(
+                            spawn.objectId(), spawn.x(), spawn.y(), renderManager, -1);
+                }
             }
     );
+
+    /**
+     * Builds a points-popup codec for one of the {@link AbstractPointsObjectInstance}
+     * subclasses. The recreate path calls the subclass's
+     * {@code (ObjectSpawn, ObjectServices, int points)} constructor with a
+     * placeholder {@code points} value; the captured {@code scoreFrame} (and
+     * other scalars) are reapplied via {@link AbstractObjectInstance#restoreRewindState}.
+     */
+    private static RewindDynamicObjectCodec pointsCodec(Class<? extends AbstractPointsObjectInstance> type) {
+        return new RewindDynamicObjectCodec() {
+            @Override
+            public boolean supports(ObjectInstance instance) {
+                return instance.getClass() == type;
+            }
+
+            @Override
+            public String className() {
+                return type.getName();
+            }
+
+            @Override
+            public ObjectInstance recreate(DynamicObjectRecreateContext context,
+                    com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.DynamicObjectEntry entry) {
+                try {
+                    var ctor = type.getDeclaredConstructor(
+                            ObjectSpawn.class, ObjectServices.class, int.class);
+                    return ctor.newInstance(entry.spawn(), context.objectServices(), 0);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(
+                            "Failed to recreate dynamic rewind object " + type.getName(), e);
+                }
+            }
+        };
+    }
 
     interface RewindDynamicObjectCodec {
         boolean supports(ObjectInstance instance);
