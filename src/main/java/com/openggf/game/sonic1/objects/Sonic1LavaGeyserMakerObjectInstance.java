@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -99,7 +98,6 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
     private final int subtype;
 
     /** Reference to parent push block (gmake_parent / objoff_3C), may be null. */
-    @RewindTransient(reason = "live zone graph link to parent push block; object identity persists across rewind")
     private Sonic1PushBlockObjectInstance parentBlock;
 
     /** Current animation index. */

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.objects.Sonic3kStarPostObjectInstance.BonusStarVariant;
@@ -58,8 +57,6 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
 
     // S3K ring threshold for bonus stars
     private static final int RING_THRESHOLD = 20;
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final Sonic3kStarPostObjectInstance parentStarPost;
     private final BonusStarVariant variant;
     private final int centerX;  // $30

@@ -296,7 +296,6 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private int airAttackPhase;
     private int airAttackPatternCounter;
     private int airAttackPatternOffset;
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController endBossDefeatExplosionController;
     private boolean endBossDefeatHandoffComplete;
     /** True once the 10 falling-debris chunks have been initialised (ROM: bset #7,$38). */

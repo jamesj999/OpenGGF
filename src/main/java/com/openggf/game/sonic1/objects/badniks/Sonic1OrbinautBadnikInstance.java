@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.game.PlayableEntity;
@@ -50,8 +49,6 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
     private int angleStep;
     private int activeSpikes;
-
-    @RewindTransient(reason = "ObjectManager-owned satellite child references; child objects snapshot independently")
     private List<OrbSpikeObjectInstance> spikes;
     private boolean initialized;
 
@@ -248,8 +245,6 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
     private static final class OrbSpikeObjectInstance extends AbstractObjectInstance
             implements TouchResponseProvider {
-
-        @RewindTransient(reason = "parent/child satellite link; live object graph persists across rewind")
         private final Sonic1OrbinautBadnikInstance parent;
 
         private int x;

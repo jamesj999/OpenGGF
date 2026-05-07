@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -110,7 +109,6 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
     private Phase phase;
 
     /** Reference to the Knuckles cutscene object for proximity collection. */
-    @RewindTransient(reason = "cutscene actor link; live object graph persists across rewind")
     private CutsceneKnucklesAiz1Instance knuckles;
 
     // -----------------------------------------------------------------------

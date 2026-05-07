@@ -133,7 +133,6 @@ public class TensionBridgeObjectInstance extends AbstractObjectInstance
     private boolean collapseActive;
     private boolean collapsed;
     private int collapseTimer;
-    @com.openggf.game.rewind.RewindDeferred(reason = "collapse initiator needs explicit player identity snapshot")
     private PlayableEntity playerAtCollapse; // player standing when collapse starts
 
     public TensionBridgeObjectInstance(ObjectSpawn spawn) {

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -58,7 +57,6 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     /** Bomb-port X in the battleship's secondary-camera space (ROM: $2E). */
     private final int sourceSecondaryX;
     /** Ship object that owns the live secondary-camera translation. */
-    @RewindTransient(reason = "source ship live graph link; secondary-camera translation is runtime-owned")
     private final AizBattleshipInstance sourceShip;
     /** Initial world Y used as a fallback when the source ship is unavailable. */
     private final int initialWorldY;

@@ -74,7 +74,6 @@ public class FlipperObjectInstance extends BoxObjectInstance
     // ROM: loc_2B20A runs every frame and checks the standing bit even when the player
     // has moved away. Our onSolidContact callback only fires when there IS a contact,
     // so we must check in update() whether the player has left and release the lock.
-    @com.openggf.game.rewind.RewindDeferred(reason = "locked player needs explicit player identity snapshot")
     private AbstractPlayableSprite lockedPlayer = null;
 
     public FlipperObjectInstance(ObjectSpawn spawn, String name) {

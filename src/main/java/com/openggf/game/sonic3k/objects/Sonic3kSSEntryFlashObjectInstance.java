@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -53,8 +52,6 @@ public class Sonic3kSSEntryFlashObjectInstance extends AbstractObjectInstance {
     private static final int POST_ANIM_WAIT = 0x20;
 
     private enum State { ANIMATING, WAITING, DONE }
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final Sonic3kSSEntryRingObjectInstance parentRing;
 
     private State state = State.ANIMATING;

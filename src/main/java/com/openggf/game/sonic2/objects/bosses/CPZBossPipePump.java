@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -22,9 +21,7 @@ public class CPZBossPipePump extends AbstractObjectInstance {
 
     private static final int SUB_ANIMATE = 2;
     private static final int SUB_END = 4;
-    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final CPZBossPipe parentPipe;
 
     private int x;

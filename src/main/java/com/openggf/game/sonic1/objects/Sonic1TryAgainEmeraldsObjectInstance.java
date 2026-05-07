@@ -3,7 +3,6 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -49,7 +48,6 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
     private static final int DELAY_INCREMENT = 10;
 
     /** Renderer for the emerald art (reuses END_EMERALDS / Map_ECha). */
-    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private final PatternSpriteRenderer renderer;
 
     /** Sub-emerald state arrays. */

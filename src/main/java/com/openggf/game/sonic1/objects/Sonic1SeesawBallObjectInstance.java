@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -74,7 +73,6 @@ public class Sonic1SeesawBallObjectInstance extends AbstractObjectInstance
     private State state = State.RESTING;
 
     // Parent seesaw reference (see_parent = objoff_3C)
-    @RewindTransient(reason = "seesaw parent link; live object graph persists across rewind")
     private final Sonic1SeesawObjectInstance parent;
 
     // Position tracking - 16.16 fixed-point

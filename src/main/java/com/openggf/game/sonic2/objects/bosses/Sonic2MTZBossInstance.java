@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -195,7 +194,6 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
     private boolean initialized;
 
     // Laser shooter child reference
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private MTZLaserShooter laserShooter;
 
     public Sonic2MTZBossInstance(ObjectSpawn spawn) {

@@ -2,14 +2,12 @@ package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 
 import java.util.List;
 import java.util.logging.Logger;
 
 public class ExplosionObjectInstance extends AbstractObjectInstance {
     private static final Logger LOGGER = Logger.getLogger(ExplosionObjectInstance.class.getName());
-    @RewindTransient(reason = "object render manager is runtime-owned and restored through live object services")
     private final ObjectRenderManager renderManager;
     private int pendingSfxId = -1;
     private int animTimer = 0;

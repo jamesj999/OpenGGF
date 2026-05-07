@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -75,7 +74,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     private int direction;   // objoff_36 - 0=moving right, 1=moving left
 
     // For linked platforms
-    @RewindTransient(reason = "linked platform relationship; restored by live object graph")
     private SidewaysPformObjectInstance linkedPlatform;
     private boolean isChild;
 

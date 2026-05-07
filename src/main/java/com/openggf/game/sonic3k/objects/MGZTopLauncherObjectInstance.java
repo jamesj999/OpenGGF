@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -30,7 +29,6 @@ public class MGZTopLauncherObjectInstance extends AbstractObjectInstance {
     private int posY;
     private int remainingDrop = DROP_DISTANCE;
     private int launchVelocity;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private MGZTopPlatformObjectInstance child;
     private boolean childSpawned;
     private boolean descending;

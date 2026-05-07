@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -48,9 +47,7 @@ public class ARZBossArrow extends AbstractObjectInstance
             { 0x0F, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0xF9 }
     };
-    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2ARZBossInstance mainBoss;
-    @RewindTransient(reason = "linked boss child relationship; restored by live object graph")
     private final ARZBossEyes eyes;
     private final boolean fromRightPillar;
 

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.S3kCnzEventWriteSupport;
@@ -65,7 +64,6 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
     private static final int WAIT2_FRAMES = 0x20;
 
     /** Mirrors the parent-boss reference used by {@code parent3(a0)} in ROM. */
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private CnzMinibossInstance boss;
 
     /** 16:8 motion state backing {@code x_pos}/{@code y_pos}/{@code x_vel}/{@code y_vel}. */

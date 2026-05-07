@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -80,7 +79,6 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
     // =========================================================================
     // Instance state
     // =========================================================================
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final HczEndBossInstance boss;
     /** X offset from boss center (0 — turbine is directly below). */
     private final int xOffset;
@@ -92,7 +90,6 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
     private int animCounter;
     private int animSpeed;
     /** Water column child — spawned when turbine becomes ACTIVE. */
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private HczEndBossWaterColumn waterColumn;
 
     // =========================================================================

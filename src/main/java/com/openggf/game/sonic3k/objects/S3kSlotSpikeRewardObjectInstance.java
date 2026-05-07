@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -23,8 +22,6 @@ import java.util.List;
 public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstance {
 
     private static final int EXPIRY_FRAMES = 0x1E;
-
-    @RewindTransient(reason = "bonus-stage controller link; live stage graph persists across rewind")
     private final S3kSlotStageController controller;
     private int framesRemaining = EXPIRY_FRAMES;
     private boolean active;

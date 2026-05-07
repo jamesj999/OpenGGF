@@ -411,7 +411,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected int rightWallPenetrationTimer = 0;
 
-        @RewindTransient(reason = "player sprite renderer is runtime-owned and rebuilt from live render services")
         private PlayerSpriteRenderer spriteRenderer;
         private int mappingFrame = 0;
         private int renderFlagWidthPixels = 0x18;
@@ -454,7 +453,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         // Physics provider fields — populated from GameModule when available
         private PhysicsProfile physicsProfile;
-        @RewindTransient(reason = "game module binding is runtime-owned and re-resolved from the active game module")
         private GameModule runtimeBoundStateModule;
         private PhysicsModifiers physicsModifiers;
         private PhysicsFeatureSet physicsFeatureSet;

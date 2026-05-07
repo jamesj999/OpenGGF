@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -39,8 +38,6 @@ public class AizEndBossArmChild extends AbstractBossChild {
     private static final int ROUTINE_ANIMATE_OPEN = 6;
     private static final int ROUTINE_WAIT_FIRE = 8;
     private static final int ROUTINE_WAIT_RETRACT = 10;
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
     private final int offsetX;
     private final int offsetY;
@@ -50,7 +47,6 @@ public class AizEndBossArmChild extends AbstractBossChild {
     private int waitTimer;
 
     // Propeller child
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizEndBossPropellerChild propeller;
 
     public AizEndBossArmChild(AizEndBossInstance boss, int offsetX, int offsetY, int subtype) {

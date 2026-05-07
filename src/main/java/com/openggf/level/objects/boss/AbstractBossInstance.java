@@ -43,7 +43,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected final BossDefeatSequencer defeatSequencer;
     protected final List<BossChildComponent> childComponents;
     protected final Map<Integer, Integer> customMemory;
-    @com.openggf.game.rewind.RewindDeferred(reason = "boss dynamic spawn requires dedicated coordinate snapshot before generic capture")
     private ObjectSpawn dynamicSpawn;
 
     public AbstractBossInstance(ObjectSpawn spawn, String name) {

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -63,7 +62,6 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
     private final int yVelocity;
     private final SubpixelMotion.State motionState;
     private final boolean facingLeft;
-    @RewindTransient(reason = "parent/child object link; live object graph persists across rewind")
     private final Sonic1BuzzBomberBadnikInstance parent;
 
     private Phase phase;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
@@ -120,11 +119,8 @@ public final class MgzMinibossInstance extends AbstractBossInstance {
     private boolean flashColorsSaved;
     private boolean defeatHandoffQueued;
     private final Palette.Color[] savedFlashColors = new Palette.Color[FLASH_INDICES.length];
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private DrillArmChild leftArm;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private DrillArmChild rightArm;
 
     public MgzMinibossInstance(ObjectSpawn spawn) {
@@ -737,8 +733,6 @@ public final class MgzMinibossInstance extends AbstractBossInstance {
 
     private static final class DrillArmChild extends AbstractObjectInstance implements TouchResponseProvider {
         private static final int PRIORITY_BUCKET = 5;
-
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final MgzMinibossInstance parent;
         private final int xOffset;
         private final int yOffset;
@@ -949,8 +943,6 @@ public final class MgzMinibossInstance extends AbstractBossInstance {
         private static final int ROUTINE_SWING = 4;
         private static final int ROUTINE_WAIT_END = 6;
         private static final int ROUTINE_DESCEND = 8;
-
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final MgzMinibossInstance parent;
         private final boolean mirrored;
         private final int baseY;

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 
 import com.openggf.level.objects.ObjectInstance;
@@ -96,11 +95,9 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
     private int justReturnedFlag; // objoff_3D — set after returning from drop (also used for shake bits)
 
     // Block reference (objoff_36 in ROM — pointer to grabbed block)
-    @com.openggf.game.rewind.RewindDeferred(reason = "grabbed block relationship needs stable object identity snapshot")
     private Sonic1BossBlockInstance grabbedBlock;
 
     // Spike child component
-    @RewindTransient(reason = "boss spike child link; live object graph persists across rewind")
     private SYZBossSpike spikeChild;
 
     public Sonic1SYZBossInstance(ObjectSpawn spawn) {

@@ -5,7 +5,6 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
@@ -31,7 +30,6 @@ public class SplashObjectInstance extends AbstractObjectInstance {
     private static final int[] SPLASH_FRAMES = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     private static final int FRAME_DELAY = 2; // 3 game ticks per frame (original uses delay value of 2)
 
-    @RewindTransient(reason = "splash renderer is runtime-owned by the live playable sprite renderer")
     private final PlayerSpriteRenderer renderer;
     private int animTimer;
     private int frameIndex;

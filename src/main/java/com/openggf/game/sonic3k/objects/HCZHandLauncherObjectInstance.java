@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.debug.DebugColor;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.PlayableEntity;
@@ -83,8 +82,6 @@ public class HCZHandLauncherObjectInstance extends AbstractObjectInstance
     private int currentY;
     private int mappingFrame = FRAME_ARM_EXTENDED;
     private int priority = PRIORITY_NORMAL;
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private HandLauncherArmChild armChild;
     private boolean childSpawned;
     private boolean solidActive = true;
@@ -448,8 +445,6 @@ public class HCZHandLauncherObjectInstance extends AbstractObjectInstance
     }
 
     public static class HandLauncherArmChild extends AbstractObjectInstance {
-
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final HCZHandLauncherObjectInstance parent;
         private int currentFrame;
 

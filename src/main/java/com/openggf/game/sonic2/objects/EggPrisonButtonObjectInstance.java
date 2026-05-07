@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -41,7 +40,6 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     private final int baseY;           // Original Y position (40px above parent)
     private int currentY;              // Current Y position (depresses when triggered)
     private boolean triggered;         // Has button been pressed?
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private EggPrisonObjectInstance parent; // Parent capsule to notify
 
     /**

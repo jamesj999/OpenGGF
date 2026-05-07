@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.solid.PlayerSolidContactResult;
@@ -58,7 +57,6 @@ public class SeesawObjectInstance extends BoxObjectInstance
     private static final int PRIORITY = 4;
 
     // Reference to spawned ball child
-    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private SeesawBallObjectInstance ball;
     private boolean ballSpawned = false;
 
@@ -74,9 +72,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
 
     // Standing player tracking (p1_standing_bit / p2_standing_bit in ROM status)
     // ROM uses object-specific status bits to track which player is standing on THIS seesaw
-    @RewindTransient(reason = "live solid-contact reference; recomputed by solid checkpoints")
     private AbstractPlayableSprite standingPlayer1;
-    @RewindTransient(reason = "live solid-contact reference; recomputed by solid checkpoints")
     private AbstractPlayableSprite standingPlayer2;
 
     public SeesawObjectInstance(ObjectSpawn spawn, String name) {

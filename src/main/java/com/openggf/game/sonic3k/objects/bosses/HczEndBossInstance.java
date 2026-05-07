@@ -157,8 +157,6 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private int targetLockYBottom;
     private int targetLockXLeft;
     private int targetLockXRight;
-
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
 
     private enum WaitCallback {

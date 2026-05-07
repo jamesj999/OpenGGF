@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.objects.AnimalType;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -90,9 +89,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
         }
     }
 
-    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private PatternSpriteRenderer zoneAnimalRenderer;
-    @RewindTransient(reason = "renderer cache is runtime-owned and recreated from ObjectRenderManager")
     private PatternSpriteRenderer endingAnimalRenderer;
     private final int subtype;
 

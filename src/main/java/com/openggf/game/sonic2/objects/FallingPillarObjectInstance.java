@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.debug.DebugRenderContext;
@@ -76,7 +75,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     private int yVel;
     private int mappingFrame;
     private int yFixed;
-    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private FallingPillarObjectInstance childInstance;
     private boolean childSpawned;
 

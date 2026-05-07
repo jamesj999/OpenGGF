@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -37,7 +36,6 @@ public class ARZBossPillar extends AbstractObjectInstance
     private static final int PILLAR_START_Y = 0x510;
 
     private static final SolidObjectParams PILLAR_SOLID_PARAMS = new SolidObjectParams(0x23, 0x44, 0x45, 0, 4);
-    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2ARZBossInstance mainBoss;
 
     private int x;

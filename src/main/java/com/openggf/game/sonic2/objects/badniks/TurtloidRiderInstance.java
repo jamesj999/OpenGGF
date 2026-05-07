@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -32,8 +31,6 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
 
     // Collision: Obj9B_SubObjData collision=$1A -> enemy (0x00) + size 0x1A
     private static final int COLLISION_SIZE_INDEX = 0x1A;
-
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final TurtloidBadnikInstance parent;
     private int currentX;
     private int currentY;

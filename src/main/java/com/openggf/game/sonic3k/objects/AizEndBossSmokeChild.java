@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -22,8 +21,6 @@ import java.util.List;
 public class AizEndBossSmokeChild extends AbstractObjectInstance {
 
     private static final int SMOKE_DURATION = 14; // Approximate duration from animation
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
     private final int posX;
     private final int posY;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -53,8 +52,6 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
             {0x00, 0x18},
             {-0x14, 0x14}
     };
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
     private int currentX;
     private int currentY;

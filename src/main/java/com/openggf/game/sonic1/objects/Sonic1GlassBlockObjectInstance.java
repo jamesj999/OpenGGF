@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.solid.SolidCheckpointBatch;
 
 import com.openggf.debug.DebugRenderContext;
@@ -133,7 +132,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     private boolean playerStanding;
 
     // The spawned reflection child (for cleanup)
-    @RewindTransient(reason = "reflection child link; live object graph persists across rewind")
     private Sonic1GlassReflectionInstance reflectionChild;
 
 

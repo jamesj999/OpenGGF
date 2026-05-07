@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -19,7 +18,6 @@ import java.util.List;
  * Follows parent position and shows expressions based on hit state.
  */
 public class CPZBossRobotnik extends AbstractObjectInstance {
-    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;

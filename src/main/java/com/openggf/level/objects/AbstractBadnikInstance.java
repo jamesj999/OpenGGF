@@ -5,7 +5,6 @@ import com.openggf.debug.DebugColor;
 
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 
 /**
  * Abstract base class for all Badnik enemies.
@@ -22,8 +21,6 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     protected int animTimer;
     protected int animFrame;
     protected boolean facingLeft;
-
-    @RewindTransient(reason = "structural destruction behavior config, not mutable gameplay state")
     private final DestructionConfig destructionConfig;
 
     /**

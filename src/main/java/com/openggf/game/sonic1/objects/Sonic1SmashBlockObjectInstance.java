@@ -5,7 +5,6 @@ import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -418,7 +417,6 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         private int subX, subY;  // 8.8 fixed-point sub-pixel
         private int velX, velY;  // 8.8 fixed-point velocity
         private final SpriteMappingPiece piece;
-        @RewindTransient(reason = "renderer cache is runtime-owned and reused by fragment draw code")
         private final PatternSpriteRenderer renderer;
 
         SmashBlockFragmentInstance(int x, int y, int velX, int velY,

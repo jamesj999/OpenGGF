@@ -91,9 +91,9 @@ Explicit-snapshot rule: fields whose state is already represented by a sibling s
 | `src/main/java/com/openggf/game/rewind/EngineRefTypes.java` | Assignability/prefix helper used by guards to identify fields that require annotation. |
 | `src/main/java/com/openggf/game/rewind/GenericRewindEligibility.java` | Explicit allow-list for runtime classes whose generic sidecar may be captured. |
 | `src/main/java/com/openggf/game/rewind/snapshot/GenericObjectSnapshot.java` | Immutable snapshot wrapper: concrete type + ordered keys + deep-cloned values. |
-| `src/test/java/com/openggf/game/rewind/RewindScanSupport.java` | Test helper that discovers source classes by parsing `package` declarations. |
+| `src/main/java/com/openggf/game/rewind/RewindScanSupport.java` | Shared scanner that discovers source classes by parsing `package` declarations. |
 | `src/test/java/com/openggf/game/rewind/TestGenericFieldCapturer.java` | Unit tests for capture, restore, deep clone, field keys, final policy, and unsupported-type rejection. |
-| `src/test/java/com/openggf/game/rewind/TestRewindFieldInventory.java` | Disabled/manual full inventory scan for all runtime owner classes; used to produce the migration worklist. |
+| `src/main/java/com/openggf/tools/rewind/RewindFieldInventoryTool.java` | Command-line full inventory scan for all runtime owner classes; used to produce the migration worklist. |
 | `src/test/java/com/openggf/game/rewind/TestRewindFieldAudit.java` | Enabled CI audit for classes listed in `GenericRewindEligibility`. |
 | `src/test/java/com/openggf/game/rewind/TestRewindTransientGuard.java` | CI guard requiring engine-ref fields to be `@RewindTransient` or Java `transient`. |
 | `src/test/java/com/openggf/game/rewind/TestNoCustomCaptureOverrides.java` | Guard forbidding new custom overrides outside an allow-list, enabled only after equivalent generic migration is complete for a package. |
@@ -592,7 +592,7 @@ Expected before migration: failures listing engine refs that need annotation.
 **Files:**
 - Create: `src/main/java/com/openggf/game/rewind/GenericRewindEligibility.java`
 - Test: `src/test/java/com/openggf/game/rewind/TestGenericRewindEligibility.java`
-- Create: `src/test/java/com/openggf/game/rewind/TestRewindFieldInventory.java`
+- Create: `src/main/java/com/openggf/tools/rewind/RewindFieldInventoryTool.java`
 - Create: `src/test/java/com/openggf/game/rewind/TestRewindFieldAudit.java`
 
 - [ ] **Step 1: Add `GenericRewindEligibility` before compiling the audit.**
@@ -626,25 +626,22 @@ public final class GenericRewindEligibility {
 }
 ```
 
-- [ ] **Step 2: Add the disabled full inventory test.**
+- [ ] **Step 2: Add the full inventory tool.**
 
 ```java
-package com.openggf.game.rewind;
+package com.openggf.tools.rewind;
 
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import com.openggf.game.rewind.GenericFieldCapturer;
+import com.openggf.game.rewind.RewindScanSupport;
+import com.openggf.game.rewind.RewindTransient;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.fail;
-
-class TestRewindFieldInventory {
-    @Test
-    @Disabled("Manual inventory generator; enabled audit is TestRewindFieldAudit")
-    void allRuntimeOwnerFieldsAreSupportedOrCategorized() throws Exception {
+public final class RewindFieldInventoryTool {
+    public static void main(String[] args) throws Exception {
         List<String> unsupported = new ArrayList<>();
         for (Class<?> top : RewindScanSupport.discoverRuntimeOwnerClasses()) {
             for (Class<?> cls : RewindScanSupport.withNestedRuntimeOwnerClasses(top)) {
@@ -661,7 +658,9 @@ class TestRewindFieldInventory {
             }
         }
         if (!unsupported.isEmpty()) {
-            fail("Unsupported fields inventory:\n" + String.join("\n", unsupported));
+            System.err.println("Unsupported rewind fields:");
+            unsupported.forEach(System.err::println);
+            System.exit(1);
         }
     }
 }
@@ -710,13 +709,12 @@ class TestRewindFieldAudit {
 - [ ] **Step 4: Run the full inventory manually and save the migration worklist.**
 
 ```powershell
-mvn test "-Dtest=TestRewindFieldInventory"
-Copy-Item target/surefire-reports/com.openggf.game.rewind.TestRewindFieldInventory.txt `
-          target/rewind-v1.6-unsupported-field-inventory.txt `
-          -ErrorAction SilentlyContinue
+mvn -Dmse=off -DskipTests test-compile exec:java `
+    "-Dexec.mainClass=com.openggf.tools.rewind.RewindFieldInventoryTool" `
+    *> target/rewind-v1.6-unsupported-field-inventory.txt
 ```
 
-Expected before migration: the inventory test is disabled in normal CI. Remove `@Disabled` temporarily or run the method directly while building the worklist, then restore `@Disabled`.
+Expected before migration: the inventory command exits non-zero and writes the migration worklist.
 
 - [ ] **Step 5: Run the enabled audit.**
 

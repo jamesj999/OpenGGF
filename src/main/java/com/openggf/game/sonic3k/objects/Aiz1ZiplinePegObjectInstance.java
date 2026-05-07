@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -19,8 +18,6 @@ import java.util.List;
  * ROM priority: 0x380 → bucket 7.
  */
 public class Aiz1ZiplinePegObjectInstance extends AbstractObjectInstance {
-
-    @RewindTransient(reason = "placeholder renderer fallback; recreated from live object state")
     private PlaceholderObjectInstance placeholder;
 
     public Aiz1ZiplinePegObjectInstance(ObjectSpawn spawn) {

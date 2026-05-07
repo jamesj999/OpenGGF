@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.solid.ContactKind;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.solid.SolidCheckpointBatch;
@@ -331,7 +330,6 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         private int subX, subY; // 8.8 fixed point sub-pixel
         private int velX, velY; // 8.8 fixed point velocity
         private final SpriteMappingPiece piece;
-        @RewindTransient(reason = "renderer cache is runtime-owned and reused by fragment draw code")
         private final PatternSpriteRenderer renderer;
 
         WallFragmentInstance(int x, int y, int velX, int velY,

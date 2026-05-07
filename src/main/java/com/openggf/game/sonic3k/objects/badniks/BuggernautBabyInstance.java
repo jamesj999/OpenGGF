@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -95,7 +94,6 @@ final class BuggernautBabyInstance extends AbstractObjectInstance {
     private int animIndex;
 
     /** Reference to the current parent (ROM: parent3 at $42). */
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private BuggernautBadnikInstance parent;
 
     BuggernautBabyInstance(ObjectSpawn ownerSpawn, int x, int y,

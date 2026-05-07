@@ -3,7 +3,6 @@ import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.audio.GameSound;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.Sonic2ZoneFeatureProvider;
@@ -96,7 +95,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     // Linked mode state
     private boolean isLinkedMode;
-    @RewindTransient(reason = "runtime manager reference; resolved from live zone feature graph")
     private CNZSlotMachineManager slotMachineManager;
     private int slotReward = 0;
     private int prizesToSpawn = 0;        // Total prizes left to spawn (SlotMachine_Reward equivalent)

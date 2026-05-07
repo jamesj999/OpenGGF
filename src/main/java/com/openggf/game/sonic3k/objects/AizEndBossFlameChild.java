@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -40,10 +39,7 @@ public class AizEndBossFlameChild extends AbstractObjectInstance implements Touc
             {0x00, 0x07},
             {-0x03, 0x05}
     };
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossPropellerChild propeller;
     private final int angle;
     private final int offsetX;

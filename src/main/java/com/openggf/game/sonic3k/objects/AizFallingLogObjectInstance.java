@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -208,7 +207,6 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         private int timer;
         private boolean bobHidden; // $36(a0) bit 0: toggled for visibility bob
         private final String artKey;
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private SplashChild linkedSplash;
 
         FallingLogChild(int x, int y, String artKey) {
@@ -358,8 +356,6 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         private static final int FRAME_DELAY = 3;
         // ROM: andi.b #3,mapping_frame(a0) → 4 frames total
         private static final int FRAME_COUNT = 4;
-
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final FallingLogChild linkedLog;
         private final String artKey;
         private int mappingFrame;

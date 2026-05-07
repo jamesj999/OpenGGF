@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -30,7 +29,6 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
     private static final int X_VELOCITY = 0x200;     // 2 pixels/frame (8.8 fixed)
 
     private final ObjectAnimationState animationState;
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private SolBadnikInstance parent;
     private State state;
     private int angle;

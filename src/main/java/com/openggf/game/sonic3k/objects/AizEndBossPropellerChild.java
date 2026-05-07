@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -74,10 +73,7 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
     private static final int[][][] POS_TABLES = {
             POS_TABLE_DIAGONAL, POS_TABLE_VERTICAL, POS_TABLE_VERTICAL, POS_TABLE_DIAGONAL
     };
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossArmChild arm;
     private final int subtype;
     private int routine;

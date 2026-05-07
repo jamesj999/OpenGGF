@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
@@ -177,11 +176,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private boolean animTerminatorReached;
 
     // Child component references
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private MechaSonicDEZWindow dezWindow;
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private MechaSonicTargetingSensor targetingSensor;
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private MechaSonicLEDWindow ledWindow;
 
     public Sonic2MechaSonicInstance(ObjectSpawn spawn) {

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -69,8 +68,6 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
         RETRACTING,      // Sub 6: move back
         FALLING          // Routine 4: parent dead, falling
     }
-
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final ShellcrackerBadnikInstance parent;
     private final int pieceIndex; // 0, 2, 4, 6, 8, 10, 12, 14
     private final boolean facingRight;

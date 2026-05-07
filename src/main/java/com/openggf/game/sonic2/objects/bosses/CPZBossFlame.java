@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -20,7 +19,6 @@ import java.util.List;
 public class CPZBossFlame extends AbstractObjectInstance {
 
     private static final int[] FLAME_FRAMES = {0, -1, 1};
-    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;

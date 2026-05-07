@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -22,7 +21,6 @@ import java.util.List;
 abstract class AbstractCnzTraversalVisibleStubInstance extends AbstractObjectInstance {
 
     private final String artKey;
-    @RewindTransient(reason = "placeholder renderer fallback; recreated from live object state")
     private PlaceholderObjectInstance placeholder;
 
     protected AbstractCnzTraversalVisibleStubInstance(ObjectSpawn spawn, String name, String artKey) {

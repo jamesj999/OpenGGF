@@ -11,7 +11,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsProvider;
 import com.openggf.game.rewind.GenericFieldCapturer;
-import com.openggf.game.rewind.RewindTransient;
+import com.openggf.game.rewind.GenericRewindEligibility;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
@@ -77,10 +77,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * intentionally uses this constant rather than the per-object height.
      */
     private static final int TOUCH_RESPONSE_Y_MARGIN = 32;
-
-    @RewindTransient(reason = "structural spawn identity; placement/respawn state is captured separately")
     protected final ObjectSpawn spawn;
-    @RewindTransient(reason = "object name is immutable type identity")
     protected final String name;
     private boolean destroyed;
     /**
@@ -95,9 +92,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * latched destroy in the ROM and must be respawnable.
      */
     private boolean destroyedRespawnable;
-    @RewindTransient(reason = "dynamic spawn position is captured explicitly as scalar coordinates")
     private ObjectSpawn dynamicSpawn;
-    @RewindTransient(reason = "object services are runtime-owned and reattached by ObjectManager")
     private ObjectServices services;
 
     /**
@@ -886,6 +881,11 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      *   <li>Any object that uses {@code objoff_*} scratch fields for state machines</li>
      * </ul>
      *
+     * <p>The current default path is centrally gated by
+     * {@link GenericRewindEligibility#usesDefaultObjectSubclassCapture(Class)}:
+     * subclasses without a concrete rewind override automatically capture fields
+     * accepted by {@link GenericFieldCapturer#captureObjectSubclassScalars(AbstractObjectInstance)}.
+     *
      * @return immutable snapshot of this object's standard mutable field surface
      */
     public PerObjectRewindSnapshot captureRewindState() {
@@ -907,7 +907,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 null,  // Base class does not capture badnik subclass extra
                 null   // Base class does not capture player extra; subclass overrides if needed
         );
-        if (!declaresConcreteRewindOverride(getClass())) {
+        if (GenericRewindEligibility.usesDefaultObjectSubclassCapture(getClass())) {
             var genericState = GenericFieldCapturer.captureObjectSubclassScalars(this);
             if (!genericState.keys().isEmpty()) {
                 snapshot = snapshot.withGenericState(genericState);
@@ -943,16 +943,6 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
             GenericFieldCapturer.restore(this, s.genericState());
         }
         // badnikExtra is handled by subclass overrides; base class does nothing
-    }
-
-    private static boolean declaresConcreteRewindOverride(Class<?> type) {
-        try {
-            return type.getDeclaredMethod("captureRewindState").getDeclaringClass() == type
-                    || type.getDeclaredMethod("restoreRewindState", PerObjectRewindSnapshot.class)
-                    .getDeclaringClass() == type;
-        } catch (NoSuchMethodException e) {
-            return false;
-        }
     }
 
     /**

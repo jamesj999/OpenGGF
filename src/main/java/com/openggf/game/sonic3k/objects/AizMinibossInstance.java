@@ -93,7 +93,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private boolean levelEndUnlockStarted;
 
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
 
     private enum WaitCallback {

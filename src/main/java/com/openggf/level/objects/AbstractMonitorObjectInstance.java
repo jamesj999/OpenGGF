@@ -37,7 +37,6 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
     // overrides below using the player's stable sprite code, because
     // PlayableEntity is a live reference type that the generic field capturer
     // cannot serialize.
-    @com.openggf.game.rewind.RewindDeferred(reason = "captured via MonitorRewindExtra by sprite code; restored by SpriteManager lookup")
     protected PlayableEntity effectTarget;
     protected boolean iconPendingInit;
 

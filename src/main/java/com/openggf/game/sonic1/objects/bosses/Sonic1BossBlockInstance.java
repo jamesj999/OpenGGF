@@ -80,7 +80,6 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
     // Instance fields
     private final int blockColumn;   // 0-9, from low byte of obSubtype
     private int blockState;
-    @com.openggf.game.rewind.RewindDeferred(reason = "SYZ boss block grab relationship needs stable object identity snapshot")
     private Sonic1SYZBossInstance grabbingBoss;
 
     // Fragment physics (only used in FRAGMENT state)

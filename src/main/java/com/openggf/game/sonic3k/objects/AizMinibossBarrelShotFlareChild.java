@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -29,8 +28,6 @@ public class AizMinibossBarrelShotFlareChild extends AbstractObjectInstance {
     //                   10 (timer 3=4t), 11 (timer 3=4t) = 16 ticks
     private static final int[] FRAMES = {7, 8, 9, 10, 11};
     private static final int[] DURATIONS = {2, 2, 4, 4, 4};
-
-    @RewindTransient(reason = "anchor object link; live object graph persists across rewind")
     private final AbstractObjectInstance anchor;
     private int currentX;
     private int currentY;

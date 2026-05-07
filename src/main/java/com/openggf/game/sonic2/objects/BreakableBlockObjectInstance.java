@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -366,11 +365,9 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         private int velX;  // 8.8 fixed point
         private int velY;  // 8.8 fixed point
         private final SpriteMappingPiece piece;
-        @RewindTransient(reason = "renderer cache; resolved from live render manager")
         private final PatternSpriteRenderer renderer;
         private final List<SpriteMappingPiece> pieceList;
         private final int frameIndex;
-        @RewindTransient(reason = "render manager reference; restored by live object graph")
         private final ObjectRenderManager renderManager;
 
         public BreakableBlockFragmentInstance(int x, int y, int velX, int velY, SpriteMappingPiece piece,

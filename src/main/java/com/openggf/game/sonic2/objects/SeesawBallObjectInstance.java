@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -66,7 +65,6 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
     private State state = State.RESTING;
 
     // Parent seesaw reference
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final SeesawObjectInstance parent;
 
     // Position tracking - combined 16.16 fixed-point (pixel in bits 16-31, subpixel in bits 0-15)
@@ -88,7 +86,6 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
     private int animTimer;
 
     // Store spawn for dynamic override
-    @RewindTransient(reason = "immutable spawn identity used to recreate child object")
     private final ObjectSpawn originalSpawn;
 
     public SeesawBallObjectInstance(

@@ -217,6 +217,15 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   sidekick, and the engine and ROM-trace main player, with the active selection shown in the
   top-right HUD; the original camera is restored on unpause and gameplay determinism is preserved
   across frame-step.
+- **Rewind framework:** gameplay-scoped keyframe capture, deterministic seek/replay, held-rewind
+  support in Visual Trace Test Mode, and headless parity/benchmark coverage are now in place for
+  trace debugging. Coverage has expanded across player, sidekick, object, ring, level, runtime-zone,
+  palette, parallax, mutation, render-mode, and PLC progress state. Automatic capture is being
+  hardened through an audit-first `GenericFieldCapturer`, stable identity ids for player/object
+  references, the `RewindFieldInventoryTool`, `RewindPolicyRegistry`, and compact schema codecs for
+  value, helper, collection, record, player-reference, and object-reference fields. The current
+  object rollout intentionally centralizes default subclass scalar capture and field policy so broad
+  coverage does not require repeated leaf-object rewrites.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;

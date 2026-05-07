@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
@@ -189,11 +188,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private boolean ownsPlayerControl;
 
     /** Reference to the plane child sprite (biplane visual). */
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizIntroPlaneChild planeChild;
 
     /** Reference to the Knuckles cutscene object. */
-    @RewindTransient(reason = "cutscene actor link; live object graph persists across rewind")
     private CutsceneKnucklesAiz1Instance knuckles;
 
     /** List of active wave children for cleanup. */
@@ -204,9 +201,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     private int mappingFrame;
     private int lastFrameCounter;
-    @RewindTransient(reason = "live object graph relationship; restored by runtime-owned links")
     private PlayerSpriteRenderer sonicRenderer;
-    @RewindTransient(reason = "live object graph relationship; restored by runtime-owned links")
     private PlayerSpriteRenderer superSonicRenderer;
     private boolean renderersLoaded;
 

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
@@ -83,15 +82,10 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
     private static final int STATUS2_RETREAT = 0x40;  // In retreat phase
 
     // Child references
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private CPZBossRobotnik robotnik;
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private CPZBossFlame flame;
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private CPZBossPump pump;
-    @RewindTransient(reason = "child object relationship; restored by live boss graph")
     private CPZBossContainer container;
-    @RewindTransient(reason = "active child relationship; restored by live boss graph")
     private CPZBossPipe currentPipe;
 
     // Status flags

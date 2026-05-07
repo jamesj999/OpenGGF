@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.camera.Camera;
@@ -127,7 +126,6 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     private int breakDelayTimer = 0;
 
     // Button state (now managed by separate button object)
-    @RewindTransient(reason = "child object relationship; restored by live object graph")
     private EggPrisonButtonObjectInstance buttonObject;
     private boolean buttonTriggered = false;  // objoff_32
 
@@ -146,7 +144,6 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     private int brokenAnimDuration = 0;
 
     // Player reference for results screen
-    @RewindTransient(reason = "live player reference; refreshed during update")
     private AbstractPlayableSprite lastPlayer;
     private boolean resultsTriggered = false;
 

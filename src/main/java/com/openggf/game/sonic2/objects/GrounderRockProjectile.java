@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.objects.badniks.GrounderBadnikInstance;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
@@ -58,7 +57,6 @@ public class GrounderRockProjectile extends AbstractObjectInstance {
     private int ySubpixel;
     private int mappingFrame;
     private boolean activated;
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final GrounderBadnikInstance parent;
     private final int rockIndex;
 

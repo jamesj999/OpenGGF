@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -51,7 +50,6 @@ public class Sonic1EggPrisonButtonObjectInstance extends AbstractObjectInstance
     private final int baseY;
     private int currentY;
     private boolean triggered;
-    @RewindTransient(reason = "capsule parent link; live object graph persists across rewind")
     private Sonic1EggPrisonObjectInstance parent;
     private boolean parentResolved;
     private int animTimer;

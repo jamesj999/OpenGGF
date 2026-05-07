@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
@@ -22,8 +21,6 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
 
     private static final int EXPIRY_FRAMES = 0x1A;
     private static final int SPARKLE_FRAMES = 8;  // approximate sparkle duration (ROM routine 1)
-
-    @RewindTransient(reason = "bonus-stage controller link; live stage graph persists across rewind")
     private final S3kSlotStageController controller;
     private int framesRemaining = EXPIRY_FRAMES;
     private boolean active;

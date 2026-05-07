@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
@@ -191,9 +190,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     // =========================================================================
     // Instance state
     // =========================================================================
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final HczEndBossInstance boss;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final HczEndBossTurbine turbine;
 
     private int routine;

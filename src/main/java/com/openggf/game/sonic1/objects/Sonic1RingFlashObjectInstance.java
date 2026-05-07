@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -42,8 +41,6 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
 
     // Flash_Collect: cmpi.b #3,obFrame(a0) - trigger frame for parent deletion
     private static final int TRIGGER_FRAME = 3;
-
-    @RewindTransient(reason = "giant ring parent link; live object graph persists across rewind")
     private final Sonic1GiantRingObjectInstance parent;
     private final int posX;
     private final int posY;

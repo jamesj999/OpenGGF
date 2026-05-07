@@ -13,6 +13,7 @@ import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -28,6 +29,11 @@ class TestRewindTraceSeekDeterminism {
     private static final Path TRACE_DIR =
             Path.of("src/test/resources/traces/s2/ehz1_fullrun");
     private static final int KEYFRAME_INTERVAL = 60;
+
+    @BeforeEach
+    void setup() {
+        cleanup();
+    }
 
     @AfterEach
     void cleanup() {

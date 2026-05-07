@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -89,7 +88,6 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     private int ringBufferIndex;
 
     // Root head reference used for lifecycle/despawn checks.
-    @RewindTransient(reason = "parent/child badnik body graph; live object links persist across rewind")
     private final Sonic1CaterkillerBadnikInstance head;
     // Immediate parent in the segment chain (head for seg1, seg1 for seg2, etc.).
     private final CaterkillerParentState parentState;

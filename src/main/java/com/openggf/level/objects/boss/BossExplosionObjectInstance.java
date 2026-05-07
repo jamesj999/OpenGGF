@@ -1,6 +1,5 @@
 package com.openggf.level.objects.boss;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -18,7 +17,6 @@ public class BossExplosionObjectInstance extends AbstractObjectInstance {
     private static final int FRAME_DELAY = 7;
     private static final int LAST_FRAME = 6;
 
-    @RewindTransient(reason = "object render manager is runtime-owned and restored through live object services")
     private final ObjectRenderManager renderManager;
     private final int sfxId;
     private int mappingFrame;

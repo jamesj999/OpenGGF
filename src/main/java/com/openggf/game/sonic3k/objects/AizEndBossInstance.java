@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.S3kPaletteOwners;
@@ -166,16 +165,12 @@ public class AizEndBossInstance extends AbstractBossInstance {
     private boolean swingDown;
 
     // Defeat sequence
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController defeatExplosionController;
     private boolean defeatRenderComplete;
 
     // Children references
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizEndBossShipChild shipChild;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizEndBossArmChild leftArm;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizEndBossArmChild rightArm;
 
     public AizEndBossInstance(ObjectSpawn spawn) {

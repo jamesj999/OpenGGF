@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -58,11 +57,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         TOP_DROP_SIMPLE,
         TOP_DROP_ADVANCED
     }
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AbstractBossInstance parent;
     /** ROM: parent3 of the shot = the barrel that spawned it. */
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizMinibossFlameBarrelChild barrel;
     private final int barrelSubtype;
     private final Mode mode;

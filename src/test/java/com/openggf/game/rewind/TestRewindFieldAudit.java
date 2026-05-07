@@ -1,11 +1,13 @@
 package com.openggf.game.rewind;
 
+import com.openggf.game.rewind.schema.RewindClassSchema;
+import com.openggf.game.rewind.schema.RewindFieldPolicy;
+import com.openggf.game.rewind.schema.RewindSchemaRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.lang.reflect.Modifier;
@@ -191,24 +193,24 @@ class TestRewindFieldAudit {
             if (GenericFieldCapturer.hasDefaultObjectCaptureDecision(field)) {
                 continue;
             }
+            if (schemaPolicyFor(cls, field) != RewindFieldPolicy.UNSUPPORTED) {
+                continue;
+            }
             uncovered.add(cls.getName() + "#" + field.getName()
                     + " : " + field.getType().getName());
         }
     }
 
     private static boolean declaresRewindOverride(Class<?> cls) {
-        return declaresMethod(cls, "captureRewindState")
-                && declaresMethod(cls, "restoreRewindState", com.openggf.level.objects.PerObjectRewindSnapshot.class);
+        return GenericRewindEligibility.declaresConcreteObjectRewindOverride(cls);
     }
 
-    private static boolean declaresMethod(Class<?> cls, String name, Class<?>... parameterTypes) {
-        try {
-            Method method = cls.getDeclaredMethod(name, parameterTypes);
-            return !Modifier.isAbstract(method.getModifiers())
-                    && !method.isSynthetic()
-                    && !method.isBridge();
-        } catch (NoSuchMethodException e) {
-            return false;
-        }
+    private static RewindFieldPolicy schemaPolicyFor(Class<?> cls, Field field) {
+        RewindClassSchema schema = RewindSchemaRegistry.schemaFor(cls);
+        return schema.fields().stream()
+                .filter(plan -> plan.field().equals(field))
+                .findFirst()
+                .orElseThrow()
+                .policy();
     }
 }

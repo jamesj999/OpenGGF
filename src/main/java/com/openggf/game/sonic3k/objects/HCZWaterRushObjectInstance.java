@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelTriggerManager;
@@ -179,7 +178,6 @@ public class HCZWaterRushObjectInstance extends AbstractObjectInstance {
         private int x;
         private int y;
         private int phase;
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final HCZWaterRushObjectInstance parent;
 
         WaterRushBlockChild(ObjectSpawn spawn, HCZWaterRushObjectInstance parent) {

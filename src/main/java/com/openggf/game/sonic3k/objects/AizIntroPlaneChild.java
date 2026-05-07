@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -38,8 +37,6 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
 
     /** X threshold below which walk-left self-deletes. */
     private static final int DELETE_X = 0x20;
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizPlaneIntroInstance parent;
     private int currentX;
     private int currentY;
@@ -51,9 +48,7 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
     private int ySub;
 
     // Emerald glow children (spawned during init, follow this plane)
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizIntroEmeraldGlowChild glowChild1;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private AizIntroEmeraldGlowChild glowChild2;
 
     // Booster flame children

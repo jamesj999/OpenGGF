@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.solid.SolidCheckpointBatch;
 
 import com.openggf.game.OscillationManager;
@@ -170,7 +169,6 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     private final List<Sonic1GrassFireObjectInstance> fireChildren = new ArrayList<>();
 
     // Type 5 state: the initial walker fire (subtype 0) for cleanup tracking
-    @RewindTransient(reason = "walker flame child link; live object graph persists across rewind")
     private Sonic1GrassFireObjectInstance walkerFire;
 
     public Sonic1LargeGrassyPlatformObjectInstance(ObjectSpawn spawn) {

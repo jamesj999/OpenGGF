@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -45,8 +44,6 @@ public class AizEndBossShipChild extends AbstractBossChild {
     private static final int STATE_NORMAL = 0;
     private static final int STATE_DEFEAT_WAIT = 1;       // ROM: routine 4 (loc_460F8)
     private static final int STATE_DEFEAT_FLYING = 2;     // ROM: routine 6 (loc_4612A)
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final AizEndBossInstance boss;
     private int headAnimTimer;
     private int headFrame;

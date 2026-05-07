@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -33,8 +32,6 @@ public class AizForegroundPlantInstance extends AbstractObjectInstance {
     private final int origY;
     private final int mappingFrame;
     private final int scrollRate;
-
-    @RewindTransient(reason = "placeholder renderer fallback; recreated from live object state")
     private PlaceholderObjectInstance placeholder;
 
     public AizForegroundPlantInstance(ObjectSpawn spawn) {

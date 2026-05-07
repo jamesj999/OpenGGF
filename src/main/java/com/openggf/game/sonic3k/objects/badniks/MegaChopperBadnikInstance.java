@@ -60,12 +60,8 @@ public final class MegaChopperBadnikInstance extends AbstractS3kBadnikInstance
     private int animationTimer;
 
     private int pendingCollisionProperty;
-    @com.openggf.game.rewind.RewindDeferred(reason = "pending main player needs explicit player identity snapshot")
     private AbstractPlayableSprite pendingMainPlayer;
-    @com.openggf.game.rewind.RewindDeferred(reason = "pending sidekick player needs explicit player identity snapshot")
     private AbstractPlayableSprite pendingSidekickPlayer;
-
-    @com.openggf.game.rewind.RewindDeferred(reason = "captured player needs explicit player identity snapshot")
     private AbstractPlayableSprite capturedPlayer;
     private int childDx;
     private int childDy;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -32,7 +31,6 @@ public class CPZBossContainer extends AbstractObjectInstance {
     private static final int CONTAINER_OFFSET_Y = 0x38;
     private static final int CONTAINER_INIT_XVEL = -0x10;
     private static final int[] CONTAINER_FALLOFF_X_OFFSETS = {0x18, 0x30, 0x48};
-    @RewindTransient(reason = "boss child relationship; restored by live object graph")
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;

@@ -11,6 +11,8 @@ The project is in an **alpha** state. Core systems are functional with extensive
 
 Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
 
+The branch also has a gameplay-scoped rewind framework for trace debugging: `RewindController`, `PlaybackController`, keyframe storage, segment caching, and a `RewindRegistry` hosted by `GameplayModeContext`. Coverage now spans core runtime managers plus player, sidekick, object, ring, level, palette, parallax, mutation, render-mode, and PLC progress state. Automatic object/player capture is being migrated through `GenericFieldCapturer`, `GenericRewindEligibility`, `@RewindTransient` / `@RewindDeferred` field policy annotations, `RewindFieldInventoryTool`, stable identity ids in `com.openggf.game.rewind.identity`, and compact schema codecs/policies in `com.openggf.game.rewind.schema`. For object rewind coverage, prefer central eligibility, codecs, and policy-registry rules; avoid per-object annotations or rewind overrides unless the object has genuinely bespoke state, identity links, or child lifecycle that generic capture cannot represent.
+
 Current migration status is still partial. On this branch Sonic 2 already uses the shared stack for HTZ/CNZ runtime state, palette ownership, animated tile channels, CNZ staged overlay rendering, and CNZ mutation-pipeline writes; Sonic 3&K uses it for AIZ/HCZ/CNZ runtime-state adapters, AIZ staged render effects and advanced render modes, HCZ/SOZ animated tile channels, CNZ scroll state, seamless terrain swaps, and scroll-composer-backed handlers in AIZ/HCZ/MGZ.
 
 ### Rendering
@@ -101,6 +103,7 @@ Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the 
     *   `debug` – debug overlay (`DebugRenderer`), enabled via the `DEBUG_VIEW_ENABLED` configuration flag
     *   `game` – core game-agnostic interfaces, providers, `GameServices` façade, `GameRuntime`, `RuntimeManager`, `PlayableEntity`, `DamageCause`, `AbstractZoneRegistry`
     *   `game.dataselect` – shared data select framework: `DataSelectProvider`, `DataSelectSessionController`, `DataSelectHostProfile`, `DataSelectAction`
+    *   `game.rewind` – gameplay-scoped rewind framework: keyframes, deterministic seek/replay, playback state, generic field capture, rewind field annotations, identity ids, policy registry, and compact schema capture foundation
     *   `game.save` – save system: `SaveManager` (JSON + SHA256), `SaveSessionContext`, `SaveSlotSummary`, `SelectedTeam`
     *   `game.sonic1` – Sonic 1 game module, zone registry, level events, objects, badniks, bosses, scroll handlers, audio, title screen, special stage
     *   `game.sonic2` – Sonic 2-specific implementations
@@ -120,7 +123,7 @@ Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the 
     *   `sprites` – sprite classes, including playable character logic
     *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning; implements `PlayableEntity`
     *   `timer` – utility timers for events
-    *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
+    *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools, rewind inventory tools
 *   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration. New or updated tests must use JUnit 5 / Jupiter only; do not add JUnit 4 tests, rules, runners, or `org.junit.*` imports.
 
 ## Coordinate Semantics

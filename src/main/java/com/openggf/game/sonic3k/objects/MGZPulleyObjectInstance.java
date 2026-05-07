@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -75,10 +74,7 @@ public class MGZPulleyObjectInstance extends AbstractObjectInstance
     private final int anchorY;
     private final boolean flipped;
     private final int targetExtension;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final PulleyChainChild chainChild;
-
-    @com.openggf.game.rewind.RewindDeferred(reason = "grabbed players need explicit per-slot player identity snapshot")
     private final AbstractPlayableSprite[] grabbedPlayers = new AbstractPlayableSprite[PLAYER_SLOT_COUNT];
     private final boolean[] grabbed = new boolean[PLAYER_SLOT_COUNT];
     private final int[] releaseCooldown = new int[PLAYER_SLOT_COUNT];
@@ -394,7 +390,6 @@ public class MGZPulleyObjectInstance extends AbstractObjectInstance
     }
 
     private static final class PulleyChainChild extends AbstractObjectInstance {
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final MGZPulleyObjectInstance parent;
 
         PulleyChainChild(ObjectSpawn spawn, MGZPulleyObjectInstance parent) {

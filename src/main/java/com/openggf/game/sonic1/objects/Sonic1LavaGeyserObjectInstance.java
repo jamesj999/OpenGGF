@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -129,11 +128,9 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
     private int originY;
 
     /** Parent reference: for HEAD, this is the GeyserMaker; for BODY, this is the HEAD piece. */
-    @RewindTransient(reason = "geysers share parent/body object links; live object graph persists across rewind")
     private Sonic1LavaGeyserObjectInstance parentGeyser;
 
     /** The GeyserMaker that spawned us (for signaling anim change). */
-    @RewindTransient(reason = "geyser maker parent link; live object graph persists across rewind")
     private Sonic1LavaGeyserMakerObjectInstance makerParent;
 
     /**

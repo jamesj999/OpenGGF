@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -116,9 +115,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
     private State currentState;
 
     // References
-    @RewindTransient(reason = "boss object link; live boss graph persists across rewind")
     private final Sonic1SLZBossInstance boss;
-    @RewindTransient(reason = "paired seesaw object link; live level object graph persists across rewind")
     private final Sonic1SeesawObjectInstance seesaw;
 
     // Position (16.16 fixed-point)

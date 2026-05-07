@@ -81,7 +81,6 @@ public class HczEndBossEggCapsuleInstance extends AbstractObjectInstance
     private int postOpenTimer;
 
     // Explosion controller (spawned when capsule opens)
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController explosionController;
 
     public HczEndBossEggCapsuleInstance(int x, int y) {

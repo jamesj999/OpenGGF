@@ -17,11 +17,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-final class RewindScanSupport {
+public final class RewindScanSupport {
     private static final Pattern PACKAGE_PATTERN =
             Pattern.compile("^\\s*package\\s+([a-zA-Z0-9_.]+)\\s*;");
 
-    static final List<Path> SOURCE_ROOTS = List.of(
+    public static final List<Path> SOURCE_ROOTS = List.of(
             Path.of("src/main/java/com/openggf/level/objects"),
             Path.of("src/main/java/com/openggf/game/sonic1/objects"),
             Path.of("src/main/java/com/openggf/game/sonic2/objects"),
@@ -29,7 +29,7 @@ final class RewindScanSupport {
             Path.of("src/main/java/com/openggf/sprites/playable")
     );
 
-    static List<Class<?>> discoverRuntimeOwnerClasses() throws IOException {
+    public static List<Class<?>> discoverRuntimeOwnerClasses() throws IOException {
         Set<Class<?>> classes = new LinkedHashSet<>();
         List<String> unresolved = new ArrayList<>();
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
@@ -62,7 +62,7 @@ final class RewindScanSupport {
         return List.copyOf(classes);
     }
 
-    static List<Class<?>> withNestedRuntimeOwnerClasses(Class<?> cls) {
+    public static List<Class<?>> withNestedRuntimeOwnerClasses(Class<?> cls) {
         List<Class<?>> result = new ArrayList<>();
         result.add(cls);
         for (Class<?> nested : cls.getDeclaredClasses()) {
@@ -73,7 +73,7 @@ final class RewindScanSupport {
         return result;
     }
 
-    static boolean isRuntimeOwner(Class<?> cls) {
+    public static boolean isRuntimeOwner(Class<?> cls) {
         return AbstractObjectInstance.class.isAssignableFrom(cls)
                 || AbstractPlayableSprite.class.isAssignableFrom(cls)
                 || cls == SidekickCpuController.class

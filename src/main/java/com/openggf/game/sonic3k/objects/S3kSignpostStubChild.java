@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -24,8 +23,6 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
     private static final Logger LOG = Logger.getLogger(S3kSignpostStubChild.class.getName());
 
     private static final int Y_OFFSET = 0x18;
-
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final S3kSignpostInstance parent;
     private int currentX;
     private int currentY;

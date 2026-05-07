@@ -152,6 +152,30 @@ Run the normal rewind suite:
 mvn -Dmse=off "-Dtest=*Rewind*" test
 ```
 
+Generate the full runtime-owner field inventory as a tool, not as a JUnit test:
+
+```bash
+mvn -Dmse=off -DskipTests test-compile exec:java \
+  "-Dexec.mainClass=com.openggf.tools.rewind.RewindFieldInventoryTool"
+```
+
+The command exits non-zero while unsupported fields remain, so redirect its
+output when generating a migration worklist.
+
+To list concrete object classes currently covered by default subclass scalar
+capture:
+
+```bash
+mvn -Dmse=off -DskipTests test-compile exec:java \
+  "-Dexec.mainClass=com.openggf.tools.rewind.RewindFieldInventoryTool" \
+  "-Dexec.args=--object-rollout-candidates"
+```
+
+Use this candidate list before adding per-object rewind annotations or overrides.
+Most scalar object state should be handled by the central default-capture path;
+leaf-object changes should be reserved for bespoke identity links, child/projectile
+lifecycle, or state that requires a custom value record.
+
 `RewindBenchmark` is opt-in so default test runs stay fast:
 
 ```bash
@@ -191,6 +215,38 @@ The main classes live under `com.openggf.game.rewind`:
 | `RewindRegistry` | Ordered registry of subsystem `RewindSnapshottable` adapters. |
 | `CompositeSnapshot` | Per-frame map from stable subsystem key to immutable snapshot record. |
 
+Automatic field capture currently has two side-by-side implementations:
+
+| Type | Purpose |
+| --- | --- |
+| `GenericFieldCapturer` | Audit-first reflection capturer used while migrating manual object/player extras. Stores ordered `FieldKey` entries and deep-cloned values in `GenericObjectSnapshot`. |
+| `RewindTransient` | Reason-bearing annotation for structural, derived, or externally restored fields that must be excluded from automatic capture. |
+| `RewindDeferred` | Reason-bearing annotation for fields that are known rewind state but need an explicit identity or value codec before automatic capture is safe. |
+| `RewindScanSupport` | Source scanner shared by tests and tools for runtime-owner field audits. |
+| `GenericRewindEligibility` | Central eligibility helper for audit classes and default object subclass capture decisions. |
+| `com.openggf.game.rewind.identity` | Stable value ids and a per-capture `RewindIdentityTable` for player, object, and spawn references. |
+| `com.openggf.game.rewind.schema` | Compact schema foundation: cached per-class field plans, little-endian scalar buffers, value/reference codecs, policy registry, context-aware capture, and `CompactFieldCapturer`. This is not yet wired into object snapshots; it is a lower-allocation replacement path being proven in tests. |
+
+Compact capture supports primitives/wrappers, `String`, enums, primitive/enum
+arrays, `BitSet`, simple immutable records, value-only `List` / `Set` / `Map`
+fields, selected helper state (`SubpixelMotion.State`, `ObjectAnimationState`,
+`PlatformBobHelper`, `AnimationTimer`), and player/object references when a
+`RewindCaptureContext` with a populated `RewindIdentityTable` is supplied.
+Final fields are structural by default unless their codec explicitly restores
+in place. `RewindPolicyRegistry` centralizes repeated decisions for runtime and
+rendering service types so shared base classes do not need redundant
+`@RewindTransient` annotations.
+
+For concrete `AbstractObjectInstance` subclasses, default subclass scalar capture
+is enabled centrally by
+`GenericRewindEligibility.usesDefaultObjectSubclassCapture(...)` when the class
+does not declare a concrete `captureRewindState` or `restoreRewindState`
+override. `GenericFieldCapturer.defaultObjectSubclassCapturedFieldsForAudit(...)`
+backs the rollout audit exposed by
+`RewindFieldInventoryTool --object-rollout-candidates`. Fields annotated
+`@RewindDeferred` are excluded from generic capture until a stable identity/value
+codec or manual snapshot path exists.
+
 The controller never runs the game backward. It always restores an earlier state and
 then advances forward using the same simulation path as normal play. This is the
 central determinism guarantee: if seek+replay diverges from original forward play,
@@ -214,10 +270,17 @@ cannot be cheaply re-derived. Do not store raw live object references in snapsho
 store stable identities such as object slots, spawn records, player role, or explicit
 value records.
 
+Prefer extending the central capture stack before editing many leaf object classes:
+add a codec, policy-registry rule, or shared base-class snapshot when the same field
+shape repeats. Add per-object annotations or rewind overrides only for genuinely
+bespoke state, identity links, or child lifecycle that cannot be represented by the
+generic scalar path.
+
 Before considering a new subsystem covered, run:
 
 ```bash
 mvn -Dmse=off "-Dtest=*Rewind*" test
+mvn -Dmse=off "-Dtest=TestRewindStateBuffer,TestRewindSchemaRegistry,TestCompactFieldCapturer,TestCompactFieldCapturerPolicy,TestRewindRecordCodecs,TestRewindHelperCodecs,TestRewindCollectionCodecs,TestRewindPolicyRegistry,TestRewindPlayerReferenceCodecs,TestRewindObjectReferenceCodecs,TestRewindIdentityTable" test
 mvn -Dmse=off "-Dtest=RewindBenchmark" \
   "-Dopenggf.rewind.benchmark.run=true" test
 ```

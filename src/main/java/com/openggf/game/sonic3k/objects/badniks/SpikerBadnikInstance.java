@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -63,14 +62,9 @@ public final class SpikerBadnikInstance extends AbstractS3kBadnikInstance {
     private int launchAnimTimer;
     private boolean collisionEnabled = true;
     private boolean spikesExtended;
-    @com.openggf.game.rewind.RewindDeferred(reason = "pending launch player needs explicit player identity snapshot")
     private AbstractPlayableSprite pendingLaunchPlayer;
-
-    @RewindTransient(reason = "live object graph relationship; restored by runtime-owned links")
     private SpikerSideLauncherChild leftLauncher;
-    @RewindTransient(reason = "live object graph relationship; restored by runtime-owned links")
     private SpikerSideLauncherChild rightLauncher;
-    @RewindTransient(reason = "live object graph relationship; restored by runtime-owned links")
     private SpikerTopSpikeChild topSpike;
 
     public SpikerBadnikInstance(ObjectSpawn spawn) {
@@ -265,8 +259,6 @@ public final class SpikerBadnikInstance extends AbstractS3kBadnikInstance {
             ARMED,
             ATTACK
         }
-
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final SpikerBadnikInstance parent;
         private final boolean leftSide;
 
@@ -414,8 +406,6 @@ public final class SpikerBadnikInstance extends AbstractS3kBadnikInstance {
             implements TouchResponseProvider, TouchResponseListener {
 
         private static final int COLLISION_FLAGS = 0x40 | COLLISION_SIZE_INDEX;
-
-        @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
         private final SpikerBadnikInstance parent;
         private int cooldown;
 

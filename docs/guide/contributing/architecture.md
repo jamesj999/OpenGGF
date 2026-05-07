@@ -17,6 +17,8 @@ com.openggf/
     GameServices.java        -- Global facade over engine and runtime-owned services
     GameRuntime.java         -- Mutable gameplay state container and runtime-owned framework host
     rewind/                  -- Frame rewind primitives, keyframes, registry, playback controller
+      identity/              -- Stable player/object/spawn ids for reference rebinding
+      schema/                -- Compact field-capture schemas, codecs, and state blobs
     zone/                    -- Typed zone runtime state adapters
     palette/                 -- Shared palette ownership/composition
     animation/               -- Shared animated tile channel graph
@@ -69,7 +71,7 @@ com.openggf/
   camera/                    -- Camera position, boundaries, shake
   data/                      -- ROM reading, decompression (Kosinski, Nemesis, etc.)
   debug/                     -- Debug overlays and visualization
-  tools/                     -- Offline tools (RomOffsetFinder, etc.)
+  tools/                     -- Offline tools (RomOffsetFinder, rewind inventory, etc.)
 ```
 
 ## The GameModule / Provider Pattern
@@ -143,7 +145,11 @@ fresh manager-local state.
 The current framework stack includes:
 
 - Rewind framework - gameplay-scoped keyframe capture, restore, deterministic replay, and
-  held-rewind support. See [Rewind System](rewind-system.md).
+  held-rewind support. It also owns the generic and compact-schema field capture
+  paths, stable identity ids, and policy registry used to close object/player
+  snapshot coverage. Default object subclass scalar capture is centrally gated so
+  broad object coverage does not require repeated leaf-object edits. See
+  [Rewind System](rewind-system.md).
 - `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
 - `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring
 - `AnimatedTileChannelGraph` - shared animated tile channels for script-driven and custom uploads

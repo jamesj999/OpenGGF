@@ -35,6 +35,26 @@ Run the regular rewind suite:
 mvn -Dmse=off "-Dtest=*Rewind*" test
 ```
 
+Run the compact schema foundation tests when changing automatic rewind capture,
+field policy classification, or value codecs:
+
+```bash
+mvn -Dmse=off "-Dtest=TestRewindStateBuffer,TestRewindSchemaRegistry,TestCompactFieldCapturer,TestCompactFieldCapturerPolicy,TestRewindRecordCodecs,TestRewindHelperCodecs,TestRewindCollectionCodecs,TestRewindPolicyRegistry,TestRewindPlayerReferenceCodecs,TestRewindObjectReferenceCodecs,TestRewindIdentityTable" test
+```
+
+Generate the runtime-owner field inventory when planning object/player rewind
+coverage work:
+
+```bash
+mvn -Dmse=off -DskipTests test-compile exec:java \
+  "-Dexec.mainClass=com.openggf.tools.rewind.RewindFieldInventoryTool"
+```
+
+Add `"-Dexec.args=--object-rollout-candidates"` to list default object subclass
+capture candidates instead of unsupported fields. Use that list before adding
+per-object rewind annotations or overrides; most scalar object state should move
+through the central default-capture path.
+
 Run the benchmark only when you need timing, footprint, or long-tail determinism data:
 
 ```bash

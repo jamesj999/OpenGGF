@@ -62,7 +62,6 @@ public abstract class AbstractS3kFloatingEndEggCapsuleInstance extends AbstractO
     private boolean releaseTriggered;
     private int postOpenTimer;
     private int buttonRecess;
-    @com.openggf.game.rewind.RewindDeferred(reason = "explosion controller has mutable queued state needing explicit value codec")
     private S3kBossExplosionController explosionController;
 
     protected AbstractS3kFloatingEndEggCapsuleInstance(int initialX, int initialY, String debugName) {

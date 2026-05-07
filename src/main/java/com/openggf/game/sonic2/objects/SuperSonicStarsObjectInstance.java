@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -26,9 +25,7 @@ import java.util.List;
  * 6-frame cycle: small-medium-large-medium-small-empty.
  */
 public class SuperSonicStarsObjectInstance extends AbstractObjectInstance {
-    @RewindTransient(reason = "owning player live reference")
     private final AbstractPlayableSprite player;
-    @RewindTransient(reason = "renderer cache; resolved from live render manager")
     private PatternSpriteRenderer renderer;
 
     /** Speed threshold for triggering the star animation (|gSpeed| >= 0x800). */

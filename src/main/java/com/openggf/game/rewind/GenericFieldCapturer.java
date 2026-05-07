@@ -129,6 +129,11 @@ public final class GenericFieldCapturer {
         return isDefaultObjectValueField(field) || isKnownStructuralObjectField(field);
     }
 
+    public static List<Field> defaultObjectSubclassCapturedFieldsForAudit(Class<?> type) {
+        Objects.requireNonNull(type, "type");
+        return List.copyOf(objectSubclassValueFields(type));
+    }
+
     public static List<Field> inspectedFieldsForAudit(Class<?> type) {
         Objects.requireNonNull(type, "type");
         return List.copyOf(capturableFields(type));
@@ -197,7 +202,8 @@ public final class GenericFieldCapturer {
         int mods = field.getModifiers();
         return Modifier.isStatic(mods)
                 || Modifier.isTransient(mods)
-                || field.isAnnotationPresent(RewindTransient.class);
+                || field.isAnnotationPresent(RewindTransient.class)
+                || field.isAnnotationPresent(RewindDeferred.class);
     }
 
     private static boolean isDefaultObjectValueField(Field field) {

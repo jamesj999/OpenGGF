@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -25,8 +24,6 @@ public class TurtloidJetInstance extends AbstractObjectInstance {
     private static final int JET_FRAME_1 = 6;
     private static final int JET_FRAME_2 = 7;
     private static final int ANIM_SPEED = 1; // Ani_obj9A: dc.b 1, ...
-
-    @RewindTransient(reason = "parent-child relationship; restored by live object graph")
     private final TurtloidBadnikInstance parent;
     private int currentX;
     private int currentY;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -82,7 +81,6 @@ public final class CnzTeleporterInstance extends AbstractObjectInstance {
     private boolean beamSpawned;
     private boolean playerCaptured;
     private boolean playerHidden;
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private CnzTeleporterBeamInstance beam;
 
     public CnzTeleporterInstance(ObjectSpawn spawn) {

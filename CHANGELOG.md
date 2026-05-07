@@ -6,6 +6,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Rewind automatic-capture tooling.** Moves `RewindScanSupport` into
+  main sources so both tests and tools can share the runtime-owner source
+  scanner, and replaces the disabled manual field-inventory JUnit test
+  with `com.openggf.tools.rewind.RewindFieldInventoryTool`. The tool
+  emits unsupported rewind fields and exits non-zero until a migration
+  worklist is closed; `--object-rollout-candidates` reports concrete
+  object classes currently covered by default subclass scalar capture.
+  Adds the compact schema foundation under
+  `com.openggf.game.rewind.schema`: cached class schemas, field policy
+  classification, little-endian scalar buffers, codecs for supported value
+  shapes, immutable state blobs, policy registry support, context-aware
+  capture, and `CompactFieldCapturer` tests. Adds stable rewind identity
+  value records/table for players, objects, and spawns, plus compact codecs
+  for helper state, value collections/maps, immutable records, player
+  references, and object references. This path runs beside
+  `GenericFieldCapturer`; object/player snapshot rollout remains a
+  follow-up after policy and codec coverage are proven.
+- **Rewind object rollout now minimizes leaf-object churn.**
+  `GenericRewindEligibility.usesDefaultObjectSubclassCapture(...)`
+  centrally opts concrete `AbstractObjectInstance` subclasses into
+  default subclass scalar capture when they do not declare custom
+  `captureRewindState` / `restoreRewindState` overrides.
+  `GenericFieldCapturer.defaultObjectSubclassCapturedFieldsForAudit(...)`
+  and `RewindFieldInventoryTool --object-rollout-candidates` expose the
+  audit surface. Generic capture now also excludes `@RewindDeferred`
+  fields, and shared type/policy decisions should live in codecs or
+  `RewindPolicyRegistry` instead of repeated per-object annotations.
 - **Rewind: snapshot monitor `effectTarget` by sprite code.**
   `AbstractMonitorObjectInstance.effectTarget` (the player who broke
   the monitor and is owed the power-up at icon apex) was annotated

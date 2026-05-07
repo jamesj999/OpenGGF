@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -86,9 +85,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     private int damageCooldown;
 
     // Cylinder management
-    @RewindTransient(reason = "boss child component graph; cylinder instances stay owned by ObjectManager")
     private FZCylinder[] cylinders;
-    @RewindTransient(reason = "boss child component graph; plasma launcher stays owned by ObjectManager")
     private FZPlasmaLauncher plasmaLauncher;
     private boolean childComponentsSpawned;
 

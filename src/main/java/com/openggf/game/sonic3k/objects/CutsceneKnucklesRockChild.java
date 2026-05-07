@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -26,7 +25,6 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     private static final Logger LOG = Logger.getLogger(CutsceneKnucklesRockChild.class.getName());
 
     /** Parent Knuckles object whose triggered flag we poll. */
-    @RewindTransient(reason = "parent/child object relationship; restored by live object graph")
     private final CutsceneKnucklesAiz1Instance parent;
 
     /** Current mapping frame index. Incremented on break. */

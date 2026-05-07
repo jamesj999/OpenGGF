@@ -2,7 +2,6 @@ package com.openggf.sprites;
 
 import org.apache.commons.lang3.StringUtils;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.rewind.RewindTransient;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
@@ -10,7 +9,6 @@ import com.openggf.physics.Sensor;
 public abstract class AbstractSprite implements Sprite {
 	protected final SonicConfigurationService configService = com.openggf.game.RuntimeManager
 			.getEngineServices().configuration();
-	@RewindTransient(reason = "graphics manager is runtime-owned by engine services")
 	protected final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager
 			.getEngineServices().graphics();
 
