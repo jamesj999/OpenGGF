@@ -31,4 +31,19 @@ public final class RewindObjectStateBlob {
     public Object[] opaqueValues() {
         return Arrays.copyOf(opaqueValues, opaqueValues.length);
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof RewindObjectStateBlob other)) return false;
+        return schemaId == other.schemaId
+                && type == other.type
+                && Arrays.equals(scalarData, other.scalarData)
+                && Arrays.equals(opaqueValues, other.opaqueValues);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(schemaId, type, Arrays.hashCode(scalarData), Arrays.hashCode(opaqueValues));
+    }
 }
