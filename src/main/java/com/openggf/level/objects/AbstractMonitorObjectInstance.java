@@ -1,6 +1,8 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.sprites.Sprite;
+import com.openggf.sprites.managers.SpriteManager;
 
 /**
  * Shared base class for monitor (item box) objects across all games.
@@ -31,7 +33,11 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
     protected int iconVelY;
     protected int iconWaitFrames;
     protected boolean effectApplied;
-    @com.openggf.game.rewind.RewindDeferred(reason = "pending monitor recipient needs explicit player identity snapshot")
+    // Captured/restored explicitly via captureRewindState/restoreRewindState
+    // overrides below using the player's stable sprite code, because
+    // PlayableEntity is a live reference type that the generic field capturer
+    // cannot serialize.
+    @com.openggf.game.rewind.RewindDeferred(reason = "captured via MonitorRewindExtra by sprite code; restored by SpriteManager lookup")
     protected PlayableEntity effectTarget;
     protected boolean iconPendingInit;
 
@@ -113,5 +119,32 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
      */
     protected void onIconDeactivated() {
         // Default no-op; subclasses may override.
+    }
+
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        PerObjectRewindSnapshot snapshot = super.captureRewindState();
+        String code = (effectTarget instanceof Sprite sprite) ? sprite.getCode() : null;
+        return snapshot.withObjectSubclassExtra(
+                new PerObjectRewindSnapshot.MonitorRewindExtra(code));
+    }
+
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot snapshot) {
+        super.restoreRewindState(snapshot);
+        // Default to null so a missing/unmatched extra leaves no stale recipient.
+        effectTarget = null;
+        if (snapshot.objectSubclassExtra()
+                instanceof PerObjectRewindSnapshot.MonitorRewindExtra extra
+                && extra.effectTargetSpriteCode() != null) {
+            ObjectServices ctx = tryServices();
+            SpriteManager spriteManager = ctx != null ? ctx.spriteManager() : null;
+            if (spriteManager != null) {
+                Sprite sprite = spriteManager.getSprite(extra.effectTargetSpriteCode());
+                if (sprite instanceof PlayableEntity player) {
+                    effectTarget = player;
+                }
+            }
+        }
     }
 }

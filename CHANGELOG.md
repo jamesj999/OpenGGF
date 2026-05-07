@@ -6,6 +6,43 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Rewind: snapshot monitor `effectTarget` by sprite code.**
+  `AbstractMonitorObjectInstance.effectTarget` (the player who broke
+  the monitor and is owed the power-up at icon apex) was annotated
+  `@RewindDeferred` and so was excluded from snapshotting. Rewinding
+  back into a frame mid-icon-rise nulled out the field, and the apex
+  guard `if (!effectApplied && effectTarget != null)` skipped the
+  `applyPowerup` call -- the player never received the
+  shield/speed-shoes/etc. that the reference forward-run granted. The
+  divergence surfaced as `sprites[0].playerExtra.shield: A=true B=false`
+  plus the monitor slot's `effectApplied` field at iteration 1521 of
+  `TestRewindTorture#tortureProgressiveLongRewinds` (the next gap after
+  the `lastAnimationId` fix). `AbstractMonitorObjectInstance` now
+  overrides `captureRewindState`/`restoreRewindState` to capture the
+  player's stable sprite code in a new `MonitorRewindExtra` record on
+  `objectSubclassExtra`, resolving back via `SpriteManager.getSprite`
+  on restore. The `@RewindDeferred` annotation is retained as the
+  audit-policy flag (effectTarget is still excluded from
+  genericState), with its `reason` updated to point at the manual
+  capture path. The torture test stays `@Disabled` because a separate
+  object-manager slot-drift coverage gap surfaces at iteration ~1575;
+  description updated.
+- **Rewind: capture `PlayableSpriteAnimation.lastAnimationId`.**
+  `lastAnimationId` is the previous-animation tracker compared against
+  `sprite.animationId` on every animation update; a mismatch resets the
+  script's `animationFrameIndex` and `animationTick` to 0. Without
+  snapshotting it, repeated forward+rewind cycles (e.g. via
+  `TestRewindTorture#tortureProgressiveLongRewinds`) drifted the
+  tracker out of sync with the captured animation cursor, producing
+  spurious script resets (or skipping real ones) on the first replay
+  step. `mappingFrame`, `animationFrameIndex`, and `animationTick`
+  diverged after roughly 720 progressive-long cycles. Adds a
+  `PlayableSpriteAnimation.RewindState` record carrying
+  `lastAnimationId`, captured/restored alongside the existing
+  movement and spindash-dust state on `PlayerRewindExtra`. The torture
+  test stays `@Disabled` because a separate snapshot-coverage gap
+  (monitor-icon `effectTarget` is `@RewindDeferred`, breaking shield
+  acquisition replay) surfaces deeper in the run; description updated.
 - **Rewind torture test infrastructure.** Adds `TestRewindTorture` (S2
   EHZ1 trace) plus three pluggable `RewindTorturePattern`
   implementations -- adjacent rewinds (`FixedAdjacent` cycles of

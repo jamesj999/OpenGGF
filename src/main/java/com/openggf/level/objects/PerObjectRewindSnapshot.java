@@ -196,6 +196,27 @@ public record PerObjectRewindSnapshot(
     ) implements ObjectSubclassRewindExtra {}
 
     /**
+     * Captures the {@link com.openggf.level.objects.AbstractMonitorObjectInstance}
+     * {@code effectTarget} player identity by its stable sprite code so the
+     * pending power-up recipient round-trips across rewind. The base monitor
+     * class otherwise relies on the genericState mechanism to capture its scalar
+     * fields; {@code effectTarget} is excluded from genericState because it
+     * holds a {@link com.openggf.game.PlayableEntity} reference, which the
+     * generic capturer cannot serialize. Without this extra, rewinding into a
+     * frame mid-icon-rise would null out {@code effectTarget} and the apex
+     * {@code applyPowerup} call would be skipped, leaving the player without
+     * the shield/speed-shoes/etc. that the reference forward-run granted.
+     *
+     * <p>{@code effectTargetSpriteCode} is null when no monitor break is in
+     * flight (i.e. {@code effectTarget} is null); the restore lookup tolerates
+     * a missing or unmatched code by leaving {@code effectTarget} null, which
+     * matches the live behavior of an inactive monitor.
+     */
+    public record MonitorRewindExtra(
+            String effectTargetSpriteCode
+    ) implements ObjectSubclassRewindExtra {}
+
+    /**
      * Mutable scalar gameplay state on a sidekick's CPU controller. Structural
      * runtime wiring (leader, respawn strategy, carry trigger, owning sidekick)
      * is intentionally excluded and restored from the live controller graph.
@@ -330,6 +351,7 @@ public record PerObjectRewindSnapshot(
             int animationTick,
             com.openggf.sprites.managers.PlayableSpriteMovement.RewindState movementState,
             com.openggf.sprites.managers.SpindashDustController.RewindState spindashDustState,
+            com.openggf.sprites.managers.PlayableSpriteAnimation.RewindState animationState,
             SidekickCpuRewindExtra sidekickCpuExtra,
             // Sidekick follow-history circular buffers (read by SidekickCpuController
             // each frame to position the follower; the leader writes new entries every
