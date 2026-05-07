@@ -581,6 +581,38 @@ Out of 8 S1 credits-demo trace replay tests, 3 currently pass (00 GHZ1, 06 SBZ2,
 
 Per CLAUDE.md "Trace Replay Tests" the comparison-only invariant forbids hydrating engine state from `TraceEvent.StateSnapshot` events; trace data is read-only diagnostic input. Any per-credit override to mask these failures would be a spec violation. The bugs need to be diagnosed and fixed in the engine (likely physics, ring/object collision, or zone-specific systems such as LZ water/SBZ junction objects) and the failing tests turned green by ROM-accurate code paths, not bootstrap papering.
 
+### LZ3 (`TestS1Credits03Lz3TraceReplay`) y-bump root cause (2026-05-07)
+
+The 2px Y drift starting at frame 221 is caused by a documented bug in the
+ORIGINAL Sonic 1 REV01 ROM. `LZWindTunnels` (`docs/s1disasm/_inc/LZWaterFeatures.asm`)
+overwrites the low byte of `d0` with `v_vbla_byte` (line 313) but later uses
+`d0` as if it still held the saved player X for the curve check (line 329).
+Disassembly comment at line 309: `d0 is overwritten but later used as if it
+wasn't!`. The `if FixBugs` branch wraps `move.w d1,d0` to restore the saved
+X.
+
+The bug fires the curve adjustment (`+2`/`-2` to `obY`) on frames where it
+would otherwise be skipped — most notably every 64 frames when the rushing
+water sound branch reloads `d0` with `sfx_Waterfall = 0x00D0`. The recorded
+trace, captured on REV01 hardware, contains those occasional `+2` bumps.
+
+The engine implements the FIXED behaviour (only fires the curve when the
+player is actually inside the curve zone `playerX - 0x80 < left`). Replicating
+the bug accurately would require knowing ROM's `v_vbla_byte` phase at the
+demo's load-into-LZ moment, which the credits-demo trace recorder does not
+capture (the trace's `v_framecount` is zero throughout). Without a recorded
+vblank phase we cannot deterministically synchronize the engine's vblank
+counter with the ROM's, and naive emulation (counting from 0) fires the
+curve at the wrong frames and increases the error count.
+
+The `Sonic1LZWaterEvents` X-push and Y-input nudges have been migrated from
+`setCentreX`/`setCentreY` (which zero sub-pixels) to
+`setCentreXPreserveSubpixel`/`setCentreYPreserveSubpixel` so that ROM-accurate
+word-only writes (`addq.w #4,obX`, `subq.w #1,obY`, `addq.w #1,obY`,
+`add.w d0,obY`) preserve `obSubpixelX`/`obSubpixelY`. This brings the trace's
+`sub_x` line into agreement (was a persistent `0x6400` desync) but the y
+divergence from the curve-bug remains.
+
 ### Removal Condition
 
-Remove this entry once each listed test has been diagnosed (root-cause identified in the engine), fixed at the source, and is consistently green against the recorded ROM trace.
+Remove this entry once each listed test has been diagnosed (root-cause identified in the engine), fixed at the source, and is consistently green against the recorded ROM trace. The LZ3 entry specifically requires either capturing `v_vbla_byte` in the credits-demo trace recorder + emulating the bug, or accepting the FixBugs behaviour as a permanent engine choice.

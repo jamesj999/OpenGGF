@@ -372,8 +372,19 @@ public class ObjectManager {
      * Refreshes the object-state snapshot used by inline-order touch checks.
      * Called at frame start before player physics so ReactToItem sees the
      * current frame's pre-object-update positions.
+     * <p>
+     * Also refreshes the cached camera bounds. ROM parity: BuildSprites runs
+     * at the end of frame N-1 (after DeformLayers), so the obRender bit 7
+     * gate read by ReactToItem at frame N reflects the camera position at
+     * START of frame N. Without this refresh, AbstractObjectInstance's
+     * static cameraBounds would still hold the camera-y from BEFORE frame
+     * N-1's camera step, producing a one-frame-stale gate that drops touch
+     * responses for objects sitting at the new viewport edge (e.g. SYZ3
+     * credits demo ring s74 at frame 233 lands one pixel inside the ROM
+     * viewport but one pixel outside the stale-bounds viewport).
      */
     public void snapshotTouchResponseState() {
+        updateCameraBounds();
         for (ObjectInstance inst : activeObjects.values()) {
             inst.snapshotTouchResponseState();
         }
@@ -393,6 +404,13 @@ public class ObjectManager {
         List<? extends PlayableEntity> activeSidekicks = sidekicks != null ? sidekicks : List.of();
         frameCounter++;
         vblaCounter++;
+        // Inline-physics path: snapshotTouchResponseState() ran earlier this
+        // frame and already refreshed the cached camera bounds. The second
+        // call here is harmless redundancy (the post-camera-step bounds
+        // haven't shifted between snapshot and update) -- it's kept so the
+        // non-inline path (which doesn't snapshot) still gets fresh bounds
+        // before the exec loop. Do not consolidate without verifying both
+        // call paths first.
         updateCameraBounds();
         SolidExecutionRegistry solidExecutionRegistry = objectServices.solidExecutionRegistry();
         solidExecutionRegistry.beginFrame(frameCounter, collectActivePlayers(player, activeSidekicks));
@@ -4034,13 +4052,30 @@ public class ObjectManager {
                     continue;
                 }
 
-                // ROM parity: ReactToItem checks "tst.b obRender(a1) / bpl.s .next"
-                // for each object. If obRender bit 7 is clear (object not yet displayed
-                // by DisplaySprite), the entire object is skipped. This covers:
-                // (a) First-frame objects whose DisplaySprite hasn't run yet
-                // (b) Objects that were offscreen on the previous frame
-                // (c) Objects created by higher-slot makers that haven't run yet
-                // Use isOnScreen() as the engine's equivalent of obRender bit 7.
+                // ROM parity (S1-specific provenance):
+                // S1's ReactToItem (docs/s1disasm/_incObj/sub ReactToItem.asm:26-27)
+                // gates each iteration on `tst.b obRender(a1) / bpl.s .next`. If
+                // obRender bit 7 is clear (object not yet displayed by
+                // DisplaySprite), the entire object is skipped. This covers:
+                //   (a) First-frame objects whose DisplaySprite hasn't run yet
+                //   (b) Objects that were offscreen on the previous frame
+                //   (c) Objects created by higher-slot makers that haven't run yet
+                //
+                // Note: this gate is NOT universal across games. S2's TouchResponse
+                // (docs/s2disasm/s2.asm Touch_Loop ~line 84537) iterates objects
+                // and only checks `collision_flags(a1)` -- there is no render-flag
+                // gate, so an off-screen object with a non-zero collision_flags is
+                // still considered for touch. S3K does not iterate at all: it
+                // pre-builds Collision_response_list during ExecuteObjects and
+                // walks only objects that opted in, so the equivalent of the bit-7
+                // check happens at list-add time, not at touch time.
+                //
+                // The engine's TouchResponseProvider.requiresRenderFlagForTouch()
+                // defaults to true for portability with the S1 behaviour (the most
+                // restrictive of the three). Per-object opt-out is available if a
+                // future S2/S3K-specific object needs to skip the render-flag gate.
+                // Use isOnScreenForTouch() as the engine's equivalent of obRender
+                // bit 7.
                 if (instance.isSkipSolidContactThisFrame()) {
                     continue;
                 }

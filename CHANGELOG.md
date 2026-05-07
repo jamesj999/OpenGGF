@@ -6,6 +6,158 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Rewind torture test infrastructure.** Adds `TestRewindTorture` (S2
+  EHZ1 trace) plus three pluggable `RewindTorturePattern`
+  implementations -- adjacent rewinds (`FixedAdjacent` cycles of
+  `forward=2, rewind=1`), end-to-end long rewinds with progressive
+  landing (`ProgressiveLongRewind`), and seeded random
+  forward/rewind cycles (`Random_`). The driver runs the pattern
+  end-to-end against the trace, asserting `controller.currentFrame()`
+  matches the simulated logical frame after every cycle and comparing
+  full `CompositeSnapshot` content against a precomputed forward-only
+  reference at scheduled checkpoints. The shared
+  `RewindSnapshotDiff` helper produces path-based per-key diffs
+  (e.g. `object-manager.slot[16].state.dynamicSpawnX: A=0 B=551`)
+  capped at 20 leaf-diff lines per key, indexing
+  `ObjectManagerSnapshot.slots` / `childSpawns` by slot identity so
+  `IdentityHashMap`-induced ordering noise does not mask real state
+  divergence. All five test methods are currently `@Disabled`
+  pending the snapshot-coverage gaps each surfaces -- the
+  infrastructure itself is the deliverable for future rewind work.
+  Includes one fix surfaced by the test:
+  `AbstractBadnikInstance.restoreRewindState` previously called
+  `updateDynamicSpawn(currentX, currentY)` unconditionally after
+  hydrating `BadnikRewindExtra`, which overwrote
+  `dynamicSpawn = null` (set by the base-class restore from
+  `s.hasDynamicSpawn() == false`) at frame-0-style snapshots where
+  `currentX/Y` are at spawn position but `dynamicSpawn` had never been
+  touched. Now gated by `s.hasDynamicSpawn()` so capture-after-restore
+  round-trips at every frame.
+- **LZ wind tunnels now preserve the player's subpixel fraction across
+  the tunnel's per-frame X push and Y curve/input nudges.** ROM
+  `LZWindTunnels` (`docs/s1disasm/_inc/LZWaterFeatures.asm:338,341,348,353`)
+  applies its `addq.w #4,obX(a1)` X push, `add.w d0,obY(a1)` curve,
+  and `subq.w #1,obY(a1)` / `addq.w #1,obY(a1)` up/down input nudges
+  with word-only writes that touch only the pixel half of `obX`/`obY`,
+  leaving `obSubpixelX`/`obSubpixelY` (offsets 0xA / 0xE) untouched.
+  The engine called `setCentreX` / `setCentreY`, which zero
+  `xSubpixel`/`ySubpixel`, so every frame Sonic stayed inside the
+  tunnel the engine wiped his subpixel fraction. Migrated all four
+  call sites (LZ + SBZ3 wind-tunnel updates) to
+  `setCentreXPreserveSubpixel` / `setCentreYPreserveSubpixel`. The
+  trace-replay sub_x desync of `0x6400` against the LZ3 credits-demo
+  recording now matches ROM. The frame-221 +2 Y bump that remains is
+  a separate, documented REV01 ROM-bug discrepancy (`d0` is overwritten
+  by `move.b (v_vbla_byte).w,d0` then read as if it still held `obX`
+  for the curve check); see `docs/KNOWN_DISCREPANCIES.md`.
+  Also moved the wind-tunnel and water-slide rushing-water sound
+  timers from a local frame counter to the global `v_vbla_byte`
+  (`ObjectManager.getVblaCounter()`) so the sound cadence matches the
+  ROM's global-vblank phasing rather than drifting whenever Sonic
+  enters/exits the tunnel zone.
+- **SBZ Rotating Junction (object 0x66) now preserves the player's
+  subpixel fraction across `Jun_ChgPos` and the grab-midpoint adjust.**
+  ROM `Jun_ChgPos`
+  (`docs/s1disasm/_incObj/66 Rotating Junction.asm:167-172`) sets the
+  player's pixel position with `move.w d0,obX(a1)` /
+  `move.w d0,obY(a1)`, which writes only the upper word of each
+  4-byte position field (`obX = 8`, `obSubpixelX = 0xA`,
+  `obY = 0xC`, `obSubpixelY = 0xE` per `_Constants.asm:142-150`) and
+  leaves the subpixel fraction untouched. The grab body
+  (`obj66:87-93`) similarly relies on word-only `add.w` and `asr.w`
+  on `obX(a1)`/`obY(a1)` while the disc rotates Sonic into place.
+  The engine implementation called `setCentreX` /  `setCentreY`,
+  which zero `xSubpixel`/`ySubpixel` on every write, so each
+  junction frame advance was wiping any subpixel Sonic had
+  accumulated before being grabbed. After release, gravity-driven
+  `SpeedToPos` then accumulated from a zero subpixel base while the
+  ROM continued from a non-zero residue, producing a 1-pixel drift
+  by the time Sonic re-landed. On the SBZ1 credits demo this
+  surfaced at trace frame 285 (`y=0x01A8` vs ROM `0x01A9`) with
+  `ENG sub_y=0xA800` vs `ROM sub_y=0x2000`, and the 1-pixel offset
+  cascaded through the rest of the demo (58 errors). Switching the
+  two write sites to the `*PreserveSubpixel` helpers mirrors the
+  word-only ROM stores. Greens `TestS1Credits05Sbz1TraceReplay`.
+  Adds focused regression `TestSonic1JunctionSubpixelPreservation`.
+
+- **Touch-response on-screen gate now checks Y as well as X.**
+  `AbstractObjectInstance.isOnScreenForTouch()` previously returned true
+  for any object whose pre-update X was within the camera viewport,
+  ignoring Y entirely. ROM's gate is `obRender(a1) bit 7`, set by
+  `BuildSprites` (`docs/s1disasm/_inc/BuildSprites.asm:71-78` for the
+  default `.assumeHeight` branch when `obRender` bit 4 is clear, the
+  case for rings and most gameplay objects), which marks an object
+  off-screen when `obY - cameraY` is outside `[-32, 256)` — i.e. the
+  visible 224-line viewport plus a 32 px margin above and below.
+  ROM's `ReactToItem` (`docs/s1disasm/_incObj/sub ReactToItem.asm:26-27`)
+  reads that bit with `tst.b obRender(a1) / bpl.s .next` and skips
+  objects whose bit 7 is clear, so a ring whose Y has scrolled past
+  the camera viewport is not eligible for touch responses. The engine
+  was over-collecting: the SYZ3 credits demo at frame 253 collected an
+  off-screen ring s43 at (0x186E, 0x0662) while the camera was at
+  (0x17C2, 0x0556), giving rings=21 vs ROM rings=20. The fix uses
+  `cameraBounds.contains(preUpdateX, preUpdateY, halfWidth, 32)` so
+  the gate matches the previous frame's BuildSprites pass with the
+  same 32 px Y margin the ROM uses. Greens the SYZ3 credits demo
+  trace replay at frame 253. Adds focused regression
+  `TestS1OffscreenYRingTouchSkip` and refreshes the cached
+  `cameraBounds` inside `ObjectManager.snapshotTouchResponseState()` so
+  the inline-physics path's gate sees the post-camera-update bounds
+  matching ROM's BuildSprites-then-ReactToItem ordering.
+  `TestHTZBossTouchResponse` setUp now also pins `camera.setY` to the
+  boss arena Y; previously the test relied on the X-only on-screen
+  gate to bypass a Y mismatch between camera (Y=0) and boss (Y=0x0580).
+- **Touch-response Y gate is now S1-only.** The new
+  `cameraBounds.contains(x, y, halfWidth, 32)` Y check above is
+  ROM-correct for S1 only. ROM S2 `Touch_Loop`
+  (`docs/s2disasm/s2.asm` ~84502-84551) has no equivalent render-flag
+  gate at all — every active object is iterated regardless. ROM S3K
+  `TouchResponse` (`docs/skdisasm/sonic3k.asm:20655`) consumes a
+  pre-built `Collision_response_list` where the gate happens upstream
+  during list build, not at touch time. Applying the X+Y check
+  universally regressed S3K MGZ trace replay's first-fail from frame
+  2395 to frame 1659 (Tails picked up an unintended `tails_rolling`
+  state from objects ROM had on the response list). Added
+  `PhysicsFeatureSet.touchResponseUsesRenderFlagYGate` per the
+  per-game framework: `SONIC_1=true`, `SONIC_2=false`, `SONIC_3K=false`.
+  `AbstractObjectInstance.isOnScreenForTouch()` branches on the flag —
+  S1 keeps the X+Y gate (preserves the SYZ3 fix above); S2/S3K fall
+  back to the pre-Task-3 X-only gate (`cameraBounds.containsX(x)`).
+  Restores S3K MGZ trace replay first-fail to frame 2395, with
+  S1 SYZ3 still at trace match.
+- **MZ Push Block: skip inline solid resolution while in falling/sliding
+  state.** `Sonic1PushBlockObjectInstance.updateActive` now gates its
+  `checkpointAll()` call on the entering `solidState` being 0, mirroring
+  ROM's `loc_C186` dispatch
+  (`docs/s1disasm/_incObj/33 Pushable Blocks.asm:238-289`): only the state-0
+  branch (`loc_C218`) calls `Solid_ChkEnter`. ROM's state-4 (`loc_C1AA`)
+  and state-6 (`loc_C1F2`) paths return without ever testing for the
+  player. Without the gate, the engine published a STANDING contact on
+  the same frame the block transitioned from state 4 (falling) to state
+  0 (lava motion), which established a riding state one frame too early.
+  On the IMMEDIATELY next frame, `processInlineRidingObject`'s
+  `shiftX(deltaX)` platform-rider carry then dragged the player along
+  with the block's lava-slide -1 px movement — one frame ahead of ROM,
+  where `MvSonicOnPtfm` only fires once `obSolid==2` (set on a different
+  frame). Greens the MZ2 credits demo trace at frame 341 (ROM x=0x0E1A,
+  ENG was 0x0E19). Adds focused regression
+  `TestS1PushBlockSideContact` exercising the lava-slide first-frame
+  carry against the live MZ2 credits demo input.
+- **SLZ Elevator: post-jump rider pull-up.** `Sonic1ElevatorObjectInstance`
+  now opts into `SolidObjectProvider.carriesAirborneRiderAfterExitPlatform`
+  so the inline-riding carry runs after `ExitPlatform` clears the player's
+  on-object bit on the same frame Sonic launches. Mirrors ROM
+  `Elev_Action` (`docs/s1disasm/_incObj/59 SLZ Elevators.asm:84-101`),
+  which calls `ExitPlatform` → `Elev_Move` → unconditional
+  `MvSonicOnPtfm2` (`docs/s1disasm/_incObj/15 Swinging Platforms.asm:177-194`)
+  even when the rider has just jumped. Without the override the engine
+  applied the `Sonic_Jump` `addq.w #5, obY(a0)` rolling-radius adjust but
+  missed the elevator's continued-riding y_pos write, which left the
+  player ~2 px below ROM whenever the elevator moved up at the same
+  time as the jump. Greens the SLZ3 credits demo trace at frame 500
+  (ROM y=0x01F0, ENG was 0x01F2). Adds focused regression
+  `TestS1JumpFromElevator` exercising the same jump-while-riding code
+  path against a live SLZ act-3 fixture.
 - **Architecture cleanup: renamed `EngineServices` → `EngineContext`.**
   Aligns with the design vocabulary in
   `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`,

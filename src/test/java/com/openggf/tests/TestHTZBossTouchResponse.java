@@ -43,8 +43,12 @@ public class TestHTZBossTouchResponse {
     public void setUp() throws Exception {
         TestEnvironment.resetAll();
         // Position camera at boss arena so isOnScreenForTouch() passes for the boss.
-        // The default camera bounds (x=0, width=320) exclude HTZ_BOSS_X=0x3040.
+        // The default camera bounds (x=0, y=0, 320x224) exclude HTZ_BOSS_X=0x3040
+        // and HTZ_BOSS_Y=0x0580. ROM parity (BuildSprites Y check, see
+        // AbstractObjectInstance#isOnScreenForTouch) requires the camera Y to
+        // also be within range so the boss's render flag bit 7 stays set.
         GameServices.camera().setX((short) HTZ_BOSS_X);
+        GameServices.camera().setY((short) HTZ_BOSS_Y);
         touchTable = mock(TouchResponseTable.class);
         when(touchTable.getWidthRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
         when(touchTable.getHeightRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);

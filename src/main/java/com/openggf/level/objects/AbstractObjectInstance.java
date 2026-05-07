@@ -6,7 +6,10 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.graphics.GLCommand;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
+import com.openggf.game.PhysicsFeatureSet;
+import com.openggf.game.PhysicsProvider;
 import com.openggf.game.rewind.GenericFieldCapturer;
 import com.openggf.game.rewind.RewindTransient;
 import com.openggf.level.LevelManager;
@@ -49,6 +52,31 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * Avoids repeated camera lookups when checking visibility.
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
+
+    /**
+     * Y-axis half-margin used by {@link #isOnScreenForTouch()} to mirror ROM's
+     * BuildSprites {@code .assumeHeight} band. ROM (S1
+     * {@code docs/s1disasm/_inc/BuildSprites.asm:71-78}, S2/S3K equivalents)
+     * computes {@code obY - cameraY + 0x80} and checks the result against
+     * {@code [0x60, 0x180)} -- equivalently, an object's Y must fall within
+     * {@code [cameraY - 32, cameraY + 224 + 32)} for {@code obRender} bit 7 to
+     * be set. The 32-pixel padding above and below the visible 224-line
+     * viewport is what this constant captures.
+     * <p>
+     * This margin is deliberately coarser than ROM's {@code btst #4}
+     * explicit-height path (which uses each object's per-object half-height
+     * read from {@code height_pixels}). The trade-off is intentional: the
+     * touch gate accepts touch tests for slightly more objects than ROM
+     * would, but never rejects an object ROM would accept (i.e. it never
+     * wrongly skips a touch). False positives are filtered by the
+     * subsequent collision-flags / box test inside {@code TouchResponses};
+     * false negatives would silently break game-state parity and have no
+     * downstream filter. For per-object override semantics see
+     * {@link #getOnScreenHalfHeight()}, which the solid-contact gate
+     * ({@link #isOnScreen()}) consults instead -- the touch gate
+     * intentionally uses this constant rather than the per-object height.
+     */
+    private static final int TOUCH_RESPONSE_Y_MARGIN = 32;
 
     @RewindTransient(reason = "structural spawn identity; placement/respawn state is captured separately")
     protected final ObjectSpawn spawn;
@@ -576,14 +604,75 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     /**
      * ROM parity for ReactToItem: returns true if the object was on-screen
      * as of the pre-update snapshot (equivalent to obRender bit 7 from
-     * the previous frame's DisplaySprite). Uses pre-update X position since
-     * the ROM's MarkObjGone / DisplaySprite only checks X distance from
-     * camera, not Y. Objects below the visible area (like lava surfaces)
-     * are still considered "on screen" if their X is within range.
+     * the previous frame's BuildSprites).
+     * <p>
+     * The render-flag-driven Y gate is S1-specific. ROM S1's
+     * {@code ReactToItem} ({@code docs/s1disasm/_incObj/sub
+     * ReactToItem.asm:26-27}) reads {@code obRender(a1) / bpl.s .next}
+     * and skips objects whose bit 7 has been cleared by
+     * {@code BuildSprites} ({@code docs/s1disasm/_inc/BuildSprites.asm:71-78},
+     * {@code .assumeHeight} branch when {@code obRender} bit 4 is clear).
+     * That bit clears for any object whose Y falls outside
+     * {@code [cameraY - 32, cameraY + 256)} (the visible 224-line viewport
+     * plus a 32-px margin above and below). ROM S2 {@code Touch_Loop}
+     * ({@code docs/s2disasm/s2.asm} ~84502-84551) has no equivalent
+     * render-flag gate; S3K {@code TouchResponse}
+     * ({@code docs/skdisasm/sonic3k.asm:20655}) consumes a pre-built
+     * {@code Collision_response_list} where the gate happens upstream
+     * during list build, not at touch time.
+     * <p>
+     * The engine therefore branches on
+     * {@link PhysicsFeatureSet#touchResponseUsesRenderFlagYGate()}: S1
+     * gets the X+Y check; S2/S3K fall back to the X-only check the
+     * engine used pre-Task-3 (commits b4ff4ea01/86871035c). Without this
+     * gating the universal X+Y check filters S3K objects ROM allows to
+     * interact with Tails, regressing MGZ trace replay first-fail from
+     * frame 2395 to frame 1659.
+     * <p>
+     * Uses pre-update position so the gate matches the previous frame's
+     * BuildSprites pass, mirroring the ROM ordering where the render
+     * flag set this frame would not be observable until the next frame's
+     * ReactToItem. The S1 xMargin uses {@link #getOnScreenHalfWidth()}
+     * (default 16 px = ROM {@code width_pixels} for typical sprites) and
+     * the yMargin uses 32 to mirror the {@code .assumeHeight} 32-pixel
+     * band; this makes the gate slightly more inclusive than the
+     * {@code btst #4} explicit-height path (which uses the per-object
+     * half-height) but never more restrictive, so it will not introduce
+     * false-negative collision skips for objects whose ROM render flag
+     * would have been set.
      */
     public boolean isOnScreenForTouch() {
         if (!preUpdateValid) return false; // No snapshot → first frame, skip
+        if (resolveTouchResponseUsesRenderFlagYGate()) {
+            // S1: include the BuildSprites .assumeHeight Y band.
+            return cameraBounds.contains(preUpdateX, preUpdateY,
+                    getOnScreenHalfWidth(), TOUCH_RESPONSE_Y_MARGIN);
+        }
+        // S2/S3K: pre-Task-3 X-only behaviour. Matches ROM S2 Touch_Loop
+        // (no render-flag gate) and S3K Collision_response_list (gate
+        // happens upstream during list build, not at touch time).
         return cameraBounds.containsX(preUpdateX);
+    }
+
+    /**
+     * Resolves whether the active game gates {@link #isOnScreenForTouch()}
+     * on the BuildSprites Y-band. Defaults to {@code true} when no game
+     * module / feature set is available so test fixtures (which often run
+     * without a fully-bootstrapped runtime) keep the stricter S1 gate the
+     * regression suite was calibrated against.
+     */
+    private boolean resolveTouchResponseUsesRenderFlagYGate() {
+        ObjectServices ctx = tryServices();
+        GameModule module = ctx != null ? ctx.gameModule() : null;
+        if (module == null) {
+            return true;
+        }
+        PhysicsProvider physProvider = module.getPhysicsProvider();
+        PhysicsFeatureSet featureSet = physProvider != null ? physProvider.getFeatureSet() : null;
+        if (featureSet == null) {
+            return true;
+        }
+        return featureSet.touchResponseUsesRenderFlagYGate();
     }
 
     /**

@@ -391,9 +391,19 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         int xOff = POSITION_DATA[dataIndex];      // signed byte -> sign-extended
         int yOff = POSITION_DATA[dataIndex + 1];   // signed byte -> sign-extended
 
-        // Set player centre to disc position + offset
-        player.setCentreX((short) (getX() + xOff));
-        player.setCentreY((short) (getY() + yOff));
+        // Set player centre to disc position + offset.
+        //
+        // ROM Jun_ChgPos (docs/s1disasm/_incObj/66 Rotating Junction.asm:167-172) uses
+        //   add.w obX(a0),d0 / move.w d0,obX(a1)
+        //   add.w obY(a0),d0 / move.w d0,obY(a1)
+        // The move.w writes only the upper word (pixel) of the 32-bit position field
+        // and leaves obSubpixelX/obSubpixelY untouched. The plain setCentreX/setCentreY
+        // helpers zero the subpixel; use the *PreserveSubpixel variants to mirror the
+        // ROM. Without this preservation the SBZ1 credits demo desyncs by 1 pixel after
+        // the junction releases the player and gravity-driven SpeedToPos resumes
+        // (manifested as a 0x7800 sub-y mismatch at trace frame 285).
+        player.setCentreXPreserveSubpixel((short) (getX() + xOff));
+        player.setCentreYPreserveSubpixel((short) (getY() + yOff));
     }
 
     // ========================================================================
@@ -452,8 +462,15 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         changePlayerPosition(player);
         int targetX = player.getCentreX();
         int targetY = player.getCentreY();
-        player.setCentreX((short) ((targetX + savedX) >> 1));
-        player.setCentreY((short) ((targetY + savedY) >> 1));
+        // ROM Jun_Action grab body (docs/s1disasm/_incObj/66 Rotating Junction.asm:87-93):
+        //   move.w obX(a1),d2 / move.w obY(a1),d3   ; save player x/y (pixel only)
+        //   bsr.w  Jun_ChgPos                       ; positions player via move.w
+        //   add.w  d2,obX(a1) / add.w  d3,obY(a1)   ; word-add to obX/obY pixel words
+        //   asr.w  obX(a1)    / asr.w  obY(a1)      ; word-shift the pixel words
+        // Each instruction operates on the upper 16 bits only, leaving the subpixel
+        // fraction (obSubpixelX/Y) untouched. Use *PreserveSubpixel to mirror.
+        player.setCentreXPreserveSubpixel((short) ((targetX + savedX) >> 1));
+        player.setCentreYPreserveSubpixel((short) ((targetY + savedY) >> 1));
     }
 
     // ========================================================================
