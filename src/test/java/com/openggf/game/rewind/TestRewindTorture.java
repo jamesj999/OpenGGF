@@ -126,7 +126,7 @@ class TestRewindTorture {
                 RewindTorturePattern.FixedAdjacent::new, false);
     }
 
-    @Disabled("Surfaces sprites[0].dead divergence after long forward+rewind cycles; pending rewind coverage fix")
+    @Disabled("Surfaces sprites[0].shield divergence at ~iteration 1521 (post-animation-fix); pending rewind coverage fix")
     @Test
     void tortureProgressiveLongRewinds() throws Exception {
         runTorture("progressive-long",

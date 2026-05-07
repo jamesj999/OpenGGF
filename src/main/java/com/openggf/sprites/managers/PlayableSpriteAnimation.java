@@ -27,6 +27,32 @@ public class PlayableSpriteAnimation {
         this.sprite = sprite;
     }
 
+    /**
+     * Captures the previous-animation tracker. {@link #lastAnimationId} gates
+     * {@link #resetScriptState()} on every {@link #update(int)} call: when the
+     * sprite's {@code animationId} differs from {@code lastAnimationId}, the
+     * script's frame index/tick are reset to 0. Without snapshotting it,
+     * a rewound run can have the same {@code animationId} in the sprite
+     * snapshot but a stale {@code lastAnimationId} from the live forward run,
+     * causing a spurious script reset (or skipping a real one) on the first
+     * replay tick. That drift propagates into {@code mappingFrame},
+     * {@code animationFrameIndex}, and {@code animationTick} after long
+     * forward+rewind cycles (surfaced by TestRewindTorture).
+     */
+    public RewindState captureRewindState() {
+        return new RewindState(lastAnimationId);
+    }
+
+    public void restoreRewindState(RewindState state) {
+        if (state == null) {
+            lastAnimationId = -1;
+            return;
+        }
+        lastAnimationId = state.lastAnimationId();
+    }
+
+    public record RewindState(int lastAnimationId) {}
+
     public void update(int frameCounter) {
         if (sprite == null) {
             return;

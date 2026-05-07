@@ -330,6 +330,7 @@ public record PerObjectRewindSnapshot(
             int animationTick,
             com.openggf.sprites.managers.PlayableSpriteMovement.RewindState movementState,
             com.openggf.sprites.managers.SpindashDustController.RewindState spindashDustState,
+            com.openggf.sprites.managers.PlayableSpriteAnimation.RewindState animationState,
             SidekickCpuRewindExtra sidekickCpuExtra,
             // Sidekick follow-history circular buffers (read by SidekickCpuController
             // each frame to position the follower; the leader writes new entries every

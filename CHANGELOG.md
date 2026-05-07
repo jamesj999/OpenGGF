@@ -6,6 +6,22 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Rewind: capture `PlayableSpriteAnimation.lastAnimationId`.**
+  `lastAnimationId` is the previous-animation tracker compared against
+  `sprite.animationId` on every animation update; a mismatch resets the
+  script's `animationFrameIndex` and `animationTick` to 0. Without
+  snapshotting it, repeated forward+rewind cycles (e.g. via
+  `TestRewindTorture#tortureProgressiveLongRewinds`) drifted the
+  tracker out of sync with the captured animation cursor, producing
+  spurious script resets (or skipping real ones) on the first replay
+  step. `mappingFrame`, `animationFrameIndex`, and `animationTick`
+  diverged after roughly 720 progressive-long cycles. Adds a
+  `PlayableSpriteAnimation.RewindState` record carrying
+  `lastAnimationId`, captured/restored alongside the existing
+  movement and spindash-dust state on `PlayerRewindExtra`. The torture
+  test stays `@Disabled` because a separate snapshot-coverage gap
+  (monitor-icon `effectTarget` is `@RewindDeferred`, breaking shield
+  acquisition replay) surfaces deeper in the run; description updated.
 - **Rewind torture test infrastructure.** Adds `TestRewindTorture` (S2
   EHZ1 trace) plus three pluggable `RewindTorturePattern`
   implementations -- adjacent rewinds (`FixedAdjacent` cycles of
