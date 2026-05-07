@@ -28,4 +28,23 @@ class TestRewindEncounterValidation {
 
         RewindEncounterValidator.assertRewindReplayMatchesForwardRun(scenario);
     }
+
+    @Test
+    void s2Ehz1MidRunTraversalMatchesAfterRewindReplay() throws Exception {
+        RewindEncounterScenario scenario = new RewindEncounterScenario(
+                "s2-ehz1-mid-run-traversal",
+                SonicGame.SONIC_2,
+                "EHZ",
+                1,
+                "transient-dynamics",
+                "mid-run traversal crossing badnik kills, animals, points popups",
+                Path.of("src/test/resources/traces/s2/ehz1_fullrun"),
+                0,
+                0,
+                180,
+                1500,
+                List.of("camera", "object-manager", "rings", "sprites"));
+
+        RewindEncounterValidator.assertRewindReplayMatchesForwardRun(scenario);
+    }
 }
