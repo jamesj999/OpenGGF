@@ -500,6 +500,11 @@ public final class RewindCodecs {
         public boolean capturesFinalFields() {
             return true;
         }
+
+        @Override
+        public boolean requiresExistingTargetValue() {
+            return true;
+        }
     }
 
     private static final class MapCodec implements RewindCodec {
@@ -574,6 +579,11 @@ public final class RewindCodecs {
         public boolean capturesFinalFields() {
             return true;
         }
+
+        @Override
+        public boolean requiresExistingTargetValue() {
+            return true;
+        }
     }
 
     private static final class SubpixelMotionStateCodec implements RewindCodec {
@@ -609,6 +619,11 @@ public final class RewindCodecs {
 
         @Override
         public boolean capturesFinalFields() {
+            return true;
+        }
+
+        @Override
+        public boolean requiresExistingTargetValue() {
             return true;
         }
     }
@@ -650,6 +665,11 @@ public final class RewindCodecs {
 
         @Override
         public boolean capturesFinalFields() {
+            return true;
+        }
+
+        @Override
+        public boolean requiresExistingTargetValue() {
             return true;
         }
     }

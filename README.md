@@ -225,7 +225,10 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   references, the `RewindFieldInventoryTool`, `RewindPolicyRegistry`, and compact schema codecs for
   value, helper, collection, record, player-reference, and object-reference fields. The current
   object rollout intentionally centralizes default subclass scalar capture and field policy so broad
-  coverage does not require repeated leaf-object rewrites.
+  coverage does not require repeated leaf-object rewrites. Compact schema-backed sidecars now cover
+  default non-badnik object subclass scalar state when codecs are available, with inventory modes for
+  annotation density, object rollout candidates, child/spawn graph hotspots, and encounter replay
+  validation.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;

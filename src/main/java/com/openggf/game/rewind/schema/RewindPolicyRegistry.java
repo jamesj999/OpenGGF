@@ -92,6 +92,10 @@ public final class RewindPolicyRegistry {
         return Optional.empty();
     }
 
+    public static synchronized Optional<RewindFieldPolicy> policyForAudit(Field field) {
+        return policyFor(field);
+    }
+
     static synchronized void clearForTest() {
         FIELD_POLICIES.clear();
         DECLARED_TYPE_POLICIES.clear();

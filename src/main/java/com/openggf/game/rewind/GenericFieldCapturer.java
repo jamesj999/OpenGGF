@@ -1,6 +1,8 @@
 package com.openggf.game.rewind;
 
 import com.openggf.game.rewind.snapshot.GenericObjectSnapshot;
+import com.openggf.game.rewind.schema.CompactFieldCapturer;
+import com.openggf.game.rewind.schema.RewindObjectStateBlob;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -26,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -57,6 +60,25 @@ public final class GenericFieldCapturer {
     public static GenericObjectSnapshot captureObjectSubclassScalars(AbstractObjectInstance target) {
         Objects.requireNonNull(target, "target");
         return captureFields(target, objectSubclassValueFields(target.getClass()));
+    }
+
+    public static Optional<RewindObjectStateBlob> captureObjectSubclassScalarsCompact(
+            AbstractObjectInstance target) {
+
+        Objects.requireNonNull(target, "target");
+        if (!CompactFieldCapturer.supportsDefaultObjectSubclassScalars(target.getClass())) {
+            return Optional.empty();
+        }
+        return Optional.of(CompactFieldCapturer.captureDefaultObjectSubclassScalars(target));
+    }
+
+    public static void restoreObjectSubclassScalarsCompact(
+            AbstractObjectInstance target,
+            RewindObjectStateBlob snapshot) {
+
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(snapshot, "snapshot");
+        CompactFieldCapturer.restoreDefaultObjectSubclassScalars(target, snapshot);
     }
 
     private static GenericObjectSnapshot captureFields(Object target, List<Field> fields) {

@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.rewind.snapshot.GenericObjectSnapshot;
+import com.openggf.game.rewind.schema.RewindObjectStateBlob;
 
 /**
  * Immutable capture of the standard mutable field surface of
@@ -68,7 +69,12 @@ public record PerObjectRewindSnapshot(
 
         // Optional generic sidecar for explicitly eligible classes. Legacy
         // extras remain authoritative until parity tests migrate each class.
-        GenericObjectSnapshot genericState
+        GenericObjectSnapshot genericState,
+
+        // Compact schema-backed sidecar for default object-subclass state.
+        // Present when every default-captured subclass field has a compact codec;
+        // genericState remains the compatibility fallback for unsupported shapes.
+        RewindObjectStateBlob compactGenericState
 ) {
     public PerObjectRewindSnapshot(
             boolean destroyed,
@@ -98,6 +104,42 @@ public record PerObjectRewindSnapshot(
                 badnikSubclassExtra,
                 null,
                 playerExtra,
+                null,
+                null
+        );
+    }
+
+    public PerObjectRewindSnapshot(
+            boolean destroyed,
+            boolean destroyedRespawnable,
+            boolean hasDynamicSpawn,
+            int dynamicSpawnX,
+            int dynamicSpawnY,
+            int preUpdateX,
+            int preUpdateY,
+            boolean preUpdateValid,
+            int preUpdateCollisionFlags,
+            boolean skipTouchThisFrame,
+            boolean solidContactFirstFrame,
+            int slotIndex,
+            int respawnStateIndex,
+            BadnikRewindExtra badnikExtra,
+            BadnikSubclassRewindExtra badnikSubclassExtra,
+            ObjectSubclassRewindExtra objectSubclassExtra,
+            PlayerRewindExtra playerExtra,
+            GenericObjectSnapshot genericState
+    ) {
+        this(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                badnikSubclassExtra,
+                objectSubclassExtra,
+                playerExtra,
+                genericState,
                 null
         );
     }
@@ -384,7 +426,8 @@ public record PerObjectRewindSnapshot(
                 badnikSubclassExtra,
                 objectSubclassExtra,
                 extra,
-                genericState
+                genericState,
+                compactGenericState
         );
     }
 
@@ -400,7 +443,8 @@ public record PerObjectRewindSnapshot(
                 extra,
                 objectSubclassExtra,
                 playerExtra,
-                genericState
+                genericState,
+                compactGenericState
         );
     }
 
@@ -416,7 +460,8 @@ public record PerObjectRewindSnapshot(
                 badnikSubclassExtra,
                 extra,
                 playerExtra,
-                genericState
+                genericState,
+                compactGenericState
         );
     }
 
@@ -432,7 +477,25 @@ public record PerObjectRewindSnapshot(
                 badnikSubclassExtra,
                 objectSubclassExtra,
                 playerExtra,
-                genericState
+                genericState,
+                compactGenericState
+        );
+    }
+
+    /** Returns a copy of this snapshot with the compact generic sidecar attached. */
+    public PerObjectRewindSnapshot withCompactGenericState(RewindObjectStateBlob compactGenericState) {
+        return new PerObjectRewindSnapshot(
+                destroyed, destroyedRespawnable,
+                hasDynamicSpawn, dynamicSpawnX, dynamicSpawnY,
+                preUpdateX, preUpdateY, preUpdateValid, preUpdateCollisionFlags,
+                skipTouchThisFrame, solidContactFirstFrame,
+                slotIndex, respawnStateIndex,
+                badnikExtra,
+                badnikSubclassExtra,
+                objectSubclassExtra,
+                playerExtra,
+                genericState,
+                compactGenericState
         );
     }
 }

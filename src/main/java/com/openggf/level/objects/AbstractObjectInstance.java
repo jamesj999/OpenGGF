@@ -12,6 +12,7 @@ import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsProvider;
 import com.openggf.game.rewind.GenericFieldCapturer;
 import com.openggf.game.rewind.GenericRewindEligibility;
+import com.openggf.game.rewind.schema.RewindObjectStateBlob;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
@@ -19,6 +20,7 @@ import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.solid.SolidCheckpointBatch;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 public abstract class AbstractObjectInstance implements ObjectInstance {
@@ -908,9 +910,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 null   // Base class does not capture player extra; subclass overrides if needed
         );
         if (GenericRewindEligibility.usesDefaultObjectSubclassCapture(getClass())) {
-            var genericState = GenericFieldCapturer.captureObjectSubclassScalars(this);
-            if (!genericState.keys().isEmpty()) {
-                snapshot = snapshot.withGenericState(genericState);
+            var compactState = this instanceof AbstractBadnikInstance
+                    ? Optional.<RewindObjectStateBlob>empty()
+                    : GenericFieldCapturer.captureObjectSubclassScalarsCompact(this);
+            if (compactState.isPresent()) {
+                snapshot = snapshot.withCompactGenericState(compactState.get());
+            } else {
+                var genericState = GenericFieldCapturer.captureObjectSubclassScalars(this);
+                if (!genericState.keys().isEmpty()) {
+                    snapshot = snapshot.withGenericState(genericState);
+                }
             }
         }
         return snapshot;
@@ -939,7 +948,9 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         this.solidContactFirstFrame = s.solidContactFirstFrame();
         this.slotIndex = s.slotIndex();
         this.respawnStateIndex = s.respawnStateIndex();
-        if (s.genericState() != null) {
+        if (s.compactGenericState() != null) {
+            GenericFieldCapturer.restoreObjectSubclassScalarsCompact(this, s.compactGenericState());
+        } else if (s.genericState() != null) {
             GenericFieldCapturer.restore(this, s.genericState());
         }
         // badnikExtra is handled by subclass overrides; base class does nothing

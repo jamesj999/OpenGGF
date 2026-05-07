@@ -23,7 +23,7 @@ import java.util.Objects;
  * for the original implementation; this class hoists the helpers so torture
  * tests can reuse them.
  */
-final class RewindSnapshotDiff {
+public final class RewindSnapshotDiff {
 
     private RewindSnapshotDiff() {}
 
@@ -31,7 +31,7 @@ final class RewindSnapshotDiff {
      * Returns a list of human-readable mismatch strings for a single key, or
      * an empty list if the values agree under the key's content-equality rule.
      */
-    static List<String> diffKey(String key, Object av, Object bv) {
+    public static List<String> diffKey(String key, Object av, Object bv) {
         List<String> diffs = new ArrayList<>();
         if (av == null && bv == null) return diffs;
         if (av == null || bv == null) {
@@ -142,7 +142,7 @@ final class RewindSnapshotDiff {
      * auto-generate .equals() with array reference equality, which makes
      * naive .equals() report false negatives for any record with array fields).
      */
-    static boolean keyEquals(String key, Object a, Object b) {
+    public static boolean keyEquals(String key, Object a, Object b) {
         return switch (key) {
             case "level" -> compareLevel(a, b);
             case "object-manager" -> compareObjectManager(a, b);

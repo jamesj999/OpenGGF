@@ -33,6 +33,16 @@ All notable changes to the OpenGGF project are documented in this file.
   audit surface. Generic capture now also excludes `@RewindDeferred`
   fields, and shared type/policy decisions should live in codecs or
   `RewindPolicyRegistry` instead of repeated per-object annotations.
+- **Rewind blueprint follow-through.** Default non-badnik object subclasses
+  now capture compact schema-backed sidecar state through
+  `PerObjectRewindSnapshot.compactGenericState` whenever all default scalar
+  fields have codecs, falling back to the legacy generic snapshot only for
+  unsupported shapes. `RewindFieldInventoryTool --annotation-density`
+  reports transient/deferred annotation density and redundant transient
+  annotations. `ChildGraphPolicyInventoryTool` adds an audit-only scan for
+  child/spawn graph hotspots and policy prompts. A new encounter-validation
+  test harness compares engine forward-only snapshots against engine
+  rewind+replay snapshots, with an enabled S2 EHZ1 baseline scenario.
 - **Rewind: snapshot monitor `effectTarget` by sprite code.**
   `AbstractMonitorObjectInstance.effectTarget` (the player who broke
   the monitor and is owed the power-up at icon apex) was annotated

@@ -176,6 +176,22 @@ Most scalar object state should be handled by the central default-capture path;
 leaf-object changes should be reserved for bespoke identity links, child/projectile
 lifecycle, or state that requires a custom value record.
 
+To audit annotation density and redundant transient annotations:
+
+```bash
+mvn -Dmse=off -DskipTests test-compile exec:java \
+  "-Dexec.mainClass=com.openggf.tools.rewind.RewindFieldInventoryTool" \
+  "-Dexec.args=--annotation-density"
+```
+
+To identify child/spawn graph hotspots that still need an explicit parent-owned,
+independent, deterministic, or cosmetic policy decision:
+
+```bash
+mvn -Dmse=off -DskipTests test-compile exec:java \
+  "-Dexec.mainClass=com.openggf.tools.rewind.ChildGraphPolicyInventoryTool"
+```
+
 `RewindBenchmark` is opt-in so default test runs stay fast:
 
 ```bash
@@ -225,7 +241,7 @@ Automatic field capture currently has two side-by-side implementations:
 | `RewindScanSupport` | Source scanner shared by tests and tools for runtime-owner field audits. |
 | `GenericRewindEligibility` | Central eligibility helper for audit classes and default object subclass capture decisions. |
 | `com.openggf.game.rewind.identity` | Stable value ids and a per-capture `RewindIdentityTable` for player, object, and spawn references. |
-| `com.openggf.game.rewind.schema` | Compact schema foundation: cached per-class field plans, little-endian scalar buffers, value/reference codecs, policy registry, context-aware capture, and `CompactFieldCapturer`. This is not yet wired into object snapshots; it is a lower-allocation replacement path being proven in tests. |
+| `com.openggf.game.rewind.schema` | Compact schema foundation: cached per-class field plans, little-endian scalar buffers, value/reference codecs, policy registry, context-aware capture, and `CompactFieldCapturer`. Default non-badnik object subclass scalar state uses this path when every default field has codec support; unsupported shapes fall back to the legacy generic snapshot. |
 
 Compact capture supports primitives/wrappers, `String`, enums, primitive/enum
 arrays, `BitSet`, simple immutable records, value-only `List` / `Set` / `Map`
@@ -246,6 +262,17 @@ backs the rollout audit exposed by
 `RewindFieldInventoryTool --object-rollout-candidates`. Fields annotated
 `@RewindDeferred` are excluded from generic capture until a stable identity/value
 codec or manual snapshot path exists.
+
+`PerObjectRewindSnapshot.compactGenericState` stores the compact sidecar for
+default object subclass fields. Restore prefers that blob when present and uses
+`genericState` only as compatibility fallback. Classes with concrete
+`captureRewindState` / `restoreRewindState` overrides remain responsible for
+their own bespoke state.
+
+Encounter validation lives under `src/test/java/com/openggf/game/rewind/encounter`.
+Those tests compare engine forward-only snapshots against engine rewind+replay
+snapshots for selected subsystem keys. Trace/BK2 data may supply inputs, but ROM
+trace state is not used as a rewind oracle.
 
 The controller never runs the game backward. It always restores an earlier state and
 then advances forward using the same simulation path as normal play. This is the
@@ -281,6 +308,7 @@ Before considering a new subsystem covered, run:
 ```bash
 mvn -Dmse=off "-Dtest=*Rewind*" test
 mvn -Dmse=off "-Dtest=TestRewindStateBuffer,TestRewindSchemaRegistry,TestCompactFieldCapturer,TestCompactFieldCapturerPolicy,TestRewindRecordCodecs,TestRewindHelperCodecs,TestRewindCollectionCodecs,TestRewindPolicyRegistry,TestRewindPlayerReferenceCodecs,TestRewindObjectReferenceCodecs,TestRewindIdentityTable" test
+mvn -Dmse=off "-Dtest=TestRewindEncounterValidation" test
 mvn -Dmse=off "-Dtest=RewindBenchmark" \
   "-Dopenggf.rewind.benchmark.run=true" test
 ```

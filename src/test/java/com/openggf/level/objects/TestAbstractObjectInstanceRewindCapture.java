@@ -215,6 +215,42 @@ class TestAbstractObjectInstanceRewindCapture {
         }
     }
 
+    private static final class TestObjectWithAnimationState extends AbstractObjectInstance {
+        private ObjectAnimationState animationState = new ObjectAnimationState(null, 3, 12);
+
+        TestObjectWithAnimationState(ObjectSpawn spawn) {
+            super(spawn, "TestObjectWithAnimationState");
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
+    private static final class TestObjectWithCustomRewindOverride extends AbstractObjectInstance {
+        private int phase;
+
+        TestObjectWithCustomRewindOverride(ObjectSpawn spawn) {
+            super(spawn, "TestObjectWithCustomRewindOverride");
+        }
+
+        @Override
+        public PerObjectRewindSnapshot captureRewindState() {
+            return super.captureRewindState();
+        }
+
+        @Override
+        public void restoreRewindState(PerObjectRewindSnapshot s) {
+            super.restoreRewindState(s);
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // no-op
+        }
+    }
+
     private static final class TestObjectWithArrayState extends AbstractObjectInstance {
         private final int[] finalOffsets = {1, 2, 3};
         private byte[] slopeData = {4, 5};
@@ -308,7 +344,7 @@ class TestAbstractObjectInstanceRewindCapture {
     }
 
     @Test
-    void defaultClassCapturesAndRestoresScalarGenericSidecar() {
+    void defaultClassCapturesAndRestoresScalarCompactSidecar() {
         TestObjectWithGenericState obj = new TestObjectWithGenericState(spawn(0, 0));
         obj.phase = 7;
         obj.armed = true;
@@ -316,7 +352,9 @@ class TestAbstractObjectInstanceRewindCapture {
         Object originalReference = obj.deferredReference;
 
         PerObjectRewindSnapshot snap = obj.captureRewindState();
-        assertNotNull(snap.genericState());
+        assertNotNull(snap.compactGenericState());
+        assertNull(snap.genericState());
+        assertEquals(TestObjectWithGenericState.class, snap.compactGenericState().type());
 
         obj.phase = 2;
         obj.armed = false;
@@ -331,11 +369,39 @@ class TestAbstractObjectInstanceRewindCapture {
     }
 
     @Test
+    void defaultClassFallsBackToGenericSidecarForNullableAnimationState() {
+        TestObjectWithAnimationState obj = new TestObjectWithAnimationState(spawn(0, 0));
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNull(snap.compactGenericState());
+        assertNotNull(snap.genericState());
+
+        obj.animationState = null;
+        obj.restoreRewindState(snap);
+
+        assertNotNull(obj.animationState);
+        assertEquals(3, obj.animationState.getAnimId());
+        assertEquals(12, obj.animationState.getMappingFrame());
+    }
+
+    @Test
+    void customRewindOverridesAreNotRoutedThroughCompactSidecar() {
+        TestObjectWithCustomRewindOverride obj = new TestObjectWithCustomRewindOverride(spawn(0, 0));
+        obj.phase = 7;
+
+        PerObjectRewindSnapshot snap = obj.captureRewindState();
+
+        assertNull(snap.compactGenericState());
+        assertNull(snap.genericState());
+    }
+
+    @Test
     void defaultClassCapturesAndRestoresCompactArrayGenericSidecar() {
         TestObjectWithArrayState obj = new TestObjectWithArrayState(spawn(0, 0));
         int[] originalFinalOffsets = obj.finalOffsets;
 
         PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNull(snap.compactGenericState());
         assertNotNull(snap.genericState());
 
         obj.finalOffsets[0] = 99;
@@ -355,6 +421,7 @@ class TestAbstractObjectInstanceRewindCapture {
         TestObjectWithRecordState obj = new TestObjectWithRecordState(spawn(0, 0));
 
         PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNull(snap.compactGenericState());
         assertNotNull(snap.genericState());
 
         obj.config.delays()[0] = 99;
@@ -373,6 +440,7 @@ class TestAbstractObjectInstanceRewindCapture {
         TestStatefulHelper[] originalChildren = obj.children;
 
         PerObjectRewindSnapshot snap = obj.captureRewindState();
+        assertNull(snap.compactGenericState());
         assertNotNull(snap.genericState());
 
         obj.child.x = 99;
@@ -401,6 +469,7 @@ class TestAbstractObjectInstanceRewindCapture {
         PerObjectRewindSnapshot snap = obj.captureRewindState();
 
         assertNotNull(snap.badnikExtra());
+        assertNull(snap.compactGenericState());
         assertNotNull(snap.genericState());
     }
 }

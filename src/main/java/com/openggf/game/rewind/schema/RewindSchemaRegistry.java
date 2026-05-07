@@ -1,8 +1,11 @@
 package com.openggf.game.rewind.schema;
 
 import com.openggf.game.rewind.FieldKey;
+import com.openggf.game.rewind.GenericFieldCapturer;
 import com.openggf.game.rewind.RewindDeferred;
 import com.openggf.game.rewind.RewindTransient;
+import com.openggf.level.objects.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractObjectInstance;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -21,6 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class RewindSchemaRegistry {
     private static final ConcurrentMap<Class<?>, RewindClassSchema> SCHEMAS = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<Class<?>, RewindClassSchema> DEFAULT_OBJECT_SUBCLASS_SCHEMAS =
+            new ConcurrentHashMap<>();
     private static final AtomicInteger NEXT_SCHEMA_ID = new AtomicInteger(1);
 
     public static RewindClassSchema schemaFor(Class<?> type) {
@@ -28,8 +33,19 @@ public final class RewindSchemaRegistry {
         return SCHEMAS.computeIfAbsent(type, RewindSchemaRegistry::buildSchema);
     }
 
+    static RewindClassSchema defaultObjectSubclassSchemaFor(Class<?> type) {
+        Objects.requireNonNull(type, "type");
+        if (!AbstractObjectInstance.class.isAssignableFrom(type) || type == AbstractObjectInstance.class) {
+            throw new IllegalArgumentException("Default object-subclass schema requires a concrete "
+                    + "AbstractObjectInstance subclass: " + type.getName());
+        }
+        return DEFAULT_OBJECT_SUBCLASS_SCHEMAS.computeIfAbsent(type,
+                RewindSchemaRegistry::buildDefaultObjectSubclassSchema);
+    }
+
     public static void clearForTest() {
         SCHEMAS.clear();
+        DEFAULT_OBJECT_SUBCLASS_SCHEMAS.clear();
         NEXT_SCHEMA_ID.set(1);
         RewindPolicyRegistry.clearForTest();
     }
@@ -37,6 +53,12 @@ public final class RewindSchemaRegistry {
     private static RewindClassSchema buildSchema(Class<?> type) {
         int schemaId = NEXT_SCHEMA_ID.getAndIncrement();
         List<RewindFieldPlan> fields = plannedFields(type);
+        return new RewindClassSchema(schemaId, type, fields);
+    }
+
+    private static RewindClassSchema buildDefaultObjectSubclassSchema(Class<?> type) {
+        int schemaId = NEXT_SCHEMA_ID.getAndIncrement();
+        List<RewindFieldPlan> fields = defaultObjectSubclassPlannedFields(type);
         return new RewindClassSchema(schemaId, type, fields);
     }
 
@@ -52,6 +74,35 @@ public final class RewindSchemaRegistry {
             for (Field field : sortedDeclaredFields(cls)) {
                 RewindCodec codec = RewindCodecs.codecFor(field).orElse(null);
                 fields.add(new RewindFieldPlan(FieldKey.of(field), field, policyFor(field, codec), codec));
+            }
+        }
+        return fields;
+    }
+
+    private static List<RewindFieldPlan> defaultObjectSubclassPlannedFields(Class<?> type) {
+        List<Class<?>> hierarchy = new ArrayList<>();
+        for (Class<?> cls = type;
+                cls != null && cls != Object.class && cls != AbstractObjectInstance.class;
+                cls = cls.getSuperclass()) {
+            hierarchy.add(cls);
+        }
+        Collections.reverse(hierarchy);
+
+        List<RewindFieldPlan> fields = new ArrayList<>();
+        for (Class<?> cls : hierarchy) {
+            if (cls == AbstractBadnikInstance.class) {
+                continue;
+            }
+            for (Field field : sortedDeclaredFields(cls)) {
+                if (!GenericFieldCapturer.isCapturedByDefaultObjectScalarPolicy(field)) {
+                    continue;
+                }
+                RewindCodec codec = RewindCodecs.codecFor(field).orElse(null);
+                fields.add(new RewindFieldPlan(
+                        FieldKey.of(field),
+                        field,
+                        defaultObjectSubclassPolicyFor(field, codec),
+                        codec));
             }
         }
         return fields;
@@ -93,6 +144,19 @@ public final class RewindSchemaRegistry {
             return RewindFieldPolicy.CAPTURED;
         }
         return RewindFieldPolicy.UNSUPPORTED;
+    }
+
+    private static RewindFieldPolicy defaultObjectSubclassPolicyFor(Field field, RewindCodec codec) {
+        if (codec == null) {
+            return RewindFieldPolicy.UNSUPPORTED;
+        }
+        if (Modifier.isFinal(field.getModifiers()) && !codec.capturesFinalFields()) {
+            return RewindFieldPolicy.UNSUPPORTED;
+        }
+        if (codec.requiresExistingTargetValue()) {
+            return RewindFieldPolicy.UNSUPPORTED;
+        }
+        return RewindFieldPolicy.CAPTURED;
     }
 
     private RewindSchemaRegistry() {}

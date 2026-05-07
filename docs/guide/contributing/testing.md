@@ -55,6 +55,23 @@ capture candidates instead of unsupported fields. Use that list before adding
 per-object rewind annotations or overrides; most scalar object state should move
 through the central default-capture path.
 
+Use `"-Dexec.args=--annotation-density"` to report `@RewindTransient` /
+`@RewindDeferred` density by class, declared type, and package, including
+redundant transient annotations that central policy already infers.
+
+Run the child/spawn graph audit when planning object family coverage:
+
+```bash
+mvn -Dmse=off -DskipTests test-compile exec:java \
+  "-Dexec.mainClass=com.openggf.tools.rewind.ChildGraphPolicyInventoryTool"
+```
+
+Run the focused encounter validation foundation:
+
+```bash
+mvn -Dmse=off "-Dtest=TestRewindEncounterValidation" test
+```
+
 Run the benchmark only when you need timing, footprint, or long-tail determinism data:
 
 ```bash

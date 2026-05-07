@@ -33,6 +33,10 @@ public interface RewindCodec {
         return false;
     }
 
+    default boolean requiresExistingTargetValue() {
+        return false;
+    }
+
     final class OpaqueIndex {
         private int value;
 
