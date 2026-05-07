@@ -105,10 +105,12 @@ class TestRewindTorture {
     //     {@code sprites.sprites[1]} (Tails) yHistory + ySubpixel + animation
     //     state divergence. Indicates a Tails-side state field not faithfully
     //     restored across many rewinds.
-    //   - {@code tortureProgressiveLongRewinds}: fails at ~iteration 5 with
-    //     {@code sprites.sprites[0].dead=true}. Long rewinds followed by full
-    //     forward-replay cause Sonic to die in the rewind path even though
-    //     the forward-only reference run does not.
+    //   - {@code tortureProgressiveLongRewinds}: fails at ~iteration 1575
+    //     with {@code object-manager} slot drift
+    //     ({@code dynamicObjects[0].slotIndex: A=18 B=19} +
+    //     {@code usedSlotsBits differs}). Earlier failures at the same test
+    //     (iteration 5 dead=true; iteration 1521 shield/effectApplied) have
+    //     been fixed.
     //   - {@code tortureRandomSeed42/1337/8675309}: each fails after ~50
     //     cycles with multiple keys diverging (camera, gamestate, sprites,
     //     object-manager slot drift, rings state). Random patterns surface
@@ -126,7 +128,7 @@ class TestRewindTorture {
                 RewindTorturePattern.FixedAdjacent::new, false);
     }
 
-    @Disabled("Surfaces sprites[0].shield divergence at ~iteration 1521 (post-animation-fix); pending rewind coverage fix")
+    @Disabled("Surfaces object-manager slot drift at ~iteration 1575 (post-monitor-fix); pending rewind coverage fix")
     @Test
     void tortureProgressiveLongRewinds() throws Exception {
         runTorture("progressive-long",
