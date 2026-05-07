@@ -795,6 +795,11 @@ public class Sonic3kConstants {
     // 00 06 03 2A F8 00 56 40 10 09 ...
     public static final int ANIPLC_CNZ_ADDR = 0x028882;
 
+    // AniPLC_ICZ: 1 script (indoor ice background shimmer, both acts)
+    // Verified by S&K ROM search for:
+    // 00 00 03 2B 99 40 23 C0 08 04 00 04 08 0C 10 14 18 1C
+    public static final int ANIPLC_ICZ_ADDR = 0x028990;
+
     // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
     // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
     // Verified by move.l #addr,d1 instruction at ROM 0x02786A
@@ -831,6 +836,20 @@ public class Sonic3kConstants {
     // strip uploads into VRAM tile $308+.
     public static final int ART_UNC_ANI_CNZ_6_ADDR = 0x2B5B80;
     public static final int ART_UNC_ANI_CNZ_6_SIZE = 0x2000;
+
+    // ICZ direct-DMA source art used by AnimateTiles_ICZ. These assets live in
+    // the lock-on S3 data block; LockOn Pointers.asm gives the sizes and ROM
+    // search anchors ArtUnc_AniICZ__1 at 0x2B8580.
+    public static final int ART_UNC_ANI_ICZ_1_ADDR = 0x2B8580;
+    public static final int ART_UNC_ANI_ICZ_1_SIZE = 0x1000;
+    public static final int ART_UNC_ANI_ICZ_2_ADDR = 0x2B9580;
+    public static final int ART_UNC_ANI_ICZ_2_SIZE = 0x0200;
+    public static final int ART_UNC_ANI_ICZ_3_ADDR = 0x2B9780;
+    public static final int ART_UNC_ANI_ICZ_3_SIZE = 0x0100;
+    public static final int ART_UNC_ANI_ICZ_4_ADDR = 0x2B9880;
+    public static final int ART_UNC_ANI_ICZ_4_SIZE = 0x0080;
+    public static final int ART_UNC_ANI_ICZ_5_ADDR = 0x2B9900;
+    public static final int ART_UNC_ANI_ICZ_5_SIZE = 0x0040;
 
     // ===== Title Screen Art (Kosinski compressed, S3 lock-on data) =====
     // Sonic animation frames — frames 1-7 share Sonic1 art with different palettes/mappings

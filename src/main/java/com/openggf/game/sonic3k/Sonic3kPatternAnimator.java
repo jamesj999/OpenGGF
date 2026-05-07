@@ -84,6 +84,12 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             0x080, 0x180,
             0x040, 0x1C0
     };
+    private static final int[] ICZ_HORIZONTAL_DMA_WORD_COUNTS = {
+            0x100, 0x000,
+            0x0C0, 0x040,
+            0x080, 0x080,
+            0x040, 0x0C0
+    };
     private static final int ANIPLC_LRZ1_ADDR = 0x028A6A;
     private static final int ART_UNC_ANI_SOZ1_BG_ADDR = 0x0BD9C0;
     private static final int ART_UNC_ANI_SOZ1_BG_SIZE = 0x0C00;
@@ -131,6 +137,11 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     private final Pattern[] hcz2Art3Patterns;
     private final Pattern[] hcz2Art4Patterns;
     private final byte[] cnzBgData;
+    private final byte[] iczArt1Data;
+    private final byte[] iczArt2Data;
+    private final byte[] iczArt3Data;
+    private final byte[] iczArt4Data;
+    private final byte[] iczArt5Data;
     private final byte[] soz1BgData;
     private final byte[] soz1Bg2Data;
     private final byte[] pachinkoScratch;
@@ -197,6 +208,11 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art3Patterns = null;
             this.hcz2Art4Patterns = null;
             this.cnzBgData = null;
+            this.iczArt1Data = null;
+            this.iczArt2Data = null;
+            this.iczArt3Data = null;
+            this.iczArt4Data = null;
+            this.iczArt5Data = null;
             this.soz1BgData = null;
             this.soz1Bg2Data = null;
             this.pachinkoScratch = null;
@@ -223,6 +239,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
         ensureHczPatternCapacity();
         ensurePachinkoPatternCapacity();
+        ensureIczPatternCapacity();
 
         boolean isAiz1Intro = zoneIndex == 0 && actIndex == 0 && !isSkipIntro;
         if (!isAiz1Intro) {
@@ -382,6 +399,30 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art3Patterns = null;
             this.hcz2Art4Patterns = null;
             this.cnzBgData = null;
+        }
+
+        if (zoneIndex == 0x05) {
+            this.iczArt1Data = loadRawBytes(reader,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_1_ADDR,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_1_SIZE);
+            this.iczArt2Data = loadRawBytes(reader,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_2_ADDR,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_2_SIZE);
+            this.iczArt3Data = loadRawBytes(reader,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_3_ADDR,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_3_SIZE);
+            this.iczArt4Data = loadRawBytes(reader,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_4_ADDR,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_4_SIZE);
+            this.iczArt5Data = loadRawBytes(reader,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_5_ADDR,
+                    Sonic3kConstants.ART_UNC_ANI_ICZ_5_SIZE);
+        } else {
+            this.iczArt1Data = null;
+            this.iczArt2Data = null;
+            this.iczArt3Data = null;
+            this.iczArt4Data = null;
+            this.iczArt5Data = null;
         }
 
         if (zoneIndex == 0x08 && actIndex == 0) {
@@ -565,6 +606,18 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         return cnzBgData != null;
     }
 
+    boolean shouldRunIczHorizontalCustomChannels() {
+        return iczArt1Data != null;
+    }
+
+    boolean shouldRunIczAct1VerticalCustomChannels() {
+        return actIndex == 0
+                && iczArt2Data != null
+                && iczArt3Data != null
+                && iczArt4Data != null
+                && iczArt5Data != null;
+    }
+
     void tickScript(AniPlcScriptState script) {
         script.tick(level, GameServices.graphics());
     }
@@ -590,6 +643,14 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
      */
     void updateCnzBackgroundTilesForGraph() {
         updateCnzBackgroundTiles();
+    }
+
+    void updateIczHorizontalTilesForGraph() {
+        updateIczHorizontalTiles();
+    }
+
+    void updateIczAct1VerticalTilesForGraph() {
+        updateIczAct1VerticalTiles();
     }
 
     private void updateHcz1BackgroundStrips() {
@@ -808,6 +869,22 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         applyRawPatternBytesToLevel(slice, destTile);
     }
 
+    private void applyRawPatternSliceAllowingRowOffset(byte[] sourceData, int sourceByteOffset,
+                                                       int byteLength, int destTile) {
+        if (sourceData == null || byteLength <= 0) {
+            return;
+        }
+        if ((byteLength % Pattern.PATTERN_SIZE_IN_ROM) != 0
+                || sourceByteOffset < 0
+                || sourceByteOffset + byteLength > sourceData.length) {
+            return;
+        }
+
+        byte[] slice = new byte[byteLength];
+        System.arraycopy(sourceData, sourceByteOffset, slice, 0, byteLength);
+        applyRawPatternBytesToLevel(slice, destTile);
+    }
+
     private void applyPatternsToLevel(Pattern[] sourcePatterns, int destTile) {
         if (sourcePatterns == null || sourcePatterns.length == 0) {
             return;
@@ -866,6 +943,145 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             LOG.fine(() -> "Sonic3kPatternAnimator.resolveSoz1BgCameraX: " + e.getMessage());
         }
         return cameraX >> 4;
+    }
+
+    /**
+     * ROM: AnimateTiles_ICZ horizontal phase formula:
+     * {@code (Events_bg+$10 - Camera_X_pos_BG_copy) & $1F}.
+     */
+    int computeIczHorizontalPhase() {
+        int bgCameraX = resolveIczBgCameraX();
+        int eventsBg10 = resolveIczEventsBg10(bgCameraX);
+        return (eventsBg10 - bgCameraX) & 0x1F;
+    }
+
+    /**
+     * Packs the four ICZ1 vertical direct-DMA phases into one graph phase key.
+     */
+    int computeIczAct1VerticalCompositePhase() {
+        int bgCameraY = resolveIczAct1BgCameraY();
+        int eventsBg12 = asrWordValue(bgCameraY, 1);
+        int phase2 = (-(bgCameraY - eventsBg12)) & 0x3F;
+        int phase3 = (-(bgCameraY - asrWordValue(eventsBg12, 1)
+                - asrWordValue(asrWordValue(eventsBg12, 1), 1))) & 0x1F;
+        int phase4 = (-(bgCameraY - asrWordValue(eventsBg12, 1))) & 0x0F;
+        int phase5 = (-(bgCameraY - asrWordValue(eventsBg12, 2))) & 0x07;
+        return phase2 | (phase3 << 6) | (phase4 << 11) | (phase5 << 15);
+    }
+
+    private int resolveIczBgCameraX() {
+        int cameraX = getCameraX();
+        if (actIndex == 0) {
+            int x = cameraX & 0xFFFF;
+            if (x < 0x3940) {
+                return 0x1880;
+            }
+            return asrWordValue(cameraX, 1) - 0x1D80;
+        }
+
+        int cameraY = getCameraY();
+        if (!isIczAct2Indoor(cameraX, cameraY)) {
+            return 0;
+        }
+        int d0 = ((short) cameraX) << 16;
+        d0 >>= 1;
+        int d1 = d0 >> 3;
+        for (int i = 0; i < 4; i++) {
+            d0 -= d1;
+        }
+        return (short) (d0 >> 16);
+    }
+
+    private int resolveIczEventsBg10(int bgCameraX) {
+        if (actIndex == 0) {
+            int cameraX = getCameraX() & 0xFFFF;
+            if (cameraX < 0x3940) {
+                return 0;
+            }
+            return asrWordValue(bgCameraX, 1);
+        }
+
+        int cameraX = getCameraX();
+        int cameraY = getCameraY();
+        if (!isIczAct2Indoor(cameraX, cameraY)) {
+            return 0;
+        }
+        int d0 = ((short) cameraX) << 16;
+        d0 >>= 1;
+        int d1 = d0 >> 3;
+        for (int i = 0; i < 5; i++) {
+            d0 -= d1;
+        }
+        return (short) (d0 >> 16);
+    }
+
+    private int resolveIczAct1BgCameraY() {
+        int cameraY = getCameraY();
+        int cameraX = getCameraX() & 0xFFFF;
+        if (cameraX < 0x3940) {
+            return asrWordValue(cameraY, 7);
+        }
+        return asrWordValue(cameraY, 1);
+    }
+
+    private boolean isIczAct2Indoor(int cameraX, int cameraY) {
+        int x = cameraX & 0xFFFF;
+        int y = cameraY & 0xFFFF;
+        if (x >= 0x1900 && x < 0x1B80) {
+            return true;
+        }
+        return x >= 0x1000 && x < 0x3600 && y >= 0x720;
+    }
+
+    /**
+     * ROM: AnimateTiles_ICZ direct horizontal DMA path. It copies one or two
+     * split slices from ArtUnc_AniICZ__1 into tiles $10E-$11D.
+     */
+    private void updateIczHorizontalTiles() {
+        if (iczArt1Data == null) {
+            return;
+        }
+
+        int phase = computeIczHorizontalPhase();
+        int baseOffset = ror16(phase & 7, 7);
+        int splitBits = phase & 0x18;
+        int primarySourceOffset = baseOffset + (splitBits << 4);
+        int pairIndex = splitBits >> 2;
+        int firstWordCount = ICZ_HORIZONTAL_DMA_WORD_COUNTS[pairIndex];
+        int secondWordCount = ICZ_HORIZONTAL_DMA_WORD_COUNTS[pairIndex + 1];
+
+        applyRawPatternSliceToLevel(iczArt1Data, primarySourceOffset, firstWordCount << 1, 0x10E);
+        if (secondWordCount != 0) {
+            int secondDestTile = 0x10E + ((firstWordCount << 1) / Pattern.PATTERN_SIZE_IN_ROM);
+            applyRawPatternSliceToLevel(iczArt1Data, baseOffset, secondWordCount << 1, secondDestTile);
+        }
+    }
+
+    /**
+     * ROM: AnimateTiles_ICZ act-1 vertical DMA path. These row-offset copies
+     * upload the indoor BG pieces at tiles $122-$130.
+     */
+    private void updateIczAct1VerticalTiles() {
+        if (!shouldRunIczAct1VerticalCustomChannels()) {
+            return;
+        }
+
+        int bgCameraY = resolveIczAct1BgCameraY();
+        int eventsBg12 = asrWordValue(bgCameraY, 1);
+
+        int phase2 = (-(bgCameraY - eventsBg12)) & 0x3F;
+        applyRawPatternSliceAllowingRowOffset(iczArt2Data, phase2 << 2, 0x100, 0x122);
+
+        int halfEvents = asrWordValue(eventsBg12, 1);
+        int quarterEvents = asrWordValue(halfEvents, 1);
+        int phase3 = (-(bgCameraY - halfEvents - quarterEvents)) & 0x1F;
+        applyRawPatternSliceAllowingRowOffset(iczArt3Data, phase3 << 2, 0x080, 0x12A);
+
+        int phase4 = (-(bgCameraY - halfEvents)) & 0x0F;
+        applyRawPatternSliceAllowingRowOffset(iczArt4Data, phase4 << 2, 0x040, 0x12E);
+
+        int phase5 = (-(bgCameraY - asrWordValue(eventsBg12, 2))) & 0x07;
+        applyRawPatternSliceAllowingRowOffset(iczArt5Data, phase5 << 2, 0x020, 0x130);
     }
 
     /**
@@ -957,6 +1173,12 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         if (zoneIndex == 0x14) {
             level.ensurePatternCapacity(PACHINKO_BG_DEST_TILE
                     + (PACHINKO_BG_DMA_BYTES / Pattern.PATTERN_SIZE_IN_ROM));
+        }
+    }
+
+    private void ensureIczPatternCapacity() {
+        if (zoneIndex == 0x05) {
+            level.ensurePatternCapacity(0x131);
         }
     }
 
@@ -1220,6 +1442,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
                     : Sonic3kConstants.ANIPLC_HCZ2_ADDR;
             case 2 -> Sonic3kConstants.ANIPLC_MGZ_ADDR;
             case 0x03 -> Sonic3kConstants.ANIPLC_CNZ_ADDR;
+            case 0x05 -> Sonic3kConstants.ANIPLC_ICZ_ADDR;
             case 0x08 -> ANIPLC_LRZ1_ADDR;
             case 0x14 -> Sonic3kConstants.ANIPLC_PACHINKO_ADDR;
             default -> -1;
@@ -1243,11 +1466,19 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             graph.install(S3kAnimatedTileChannels.buildCnzChannels(this, scripts));
             return;
         }
+        if (zoneIndex == 0x05) {
+            graph.install(S3kAnimatedTileChannels.buildIczChannels(this, scripts, actIndex));
+            return;
+        }
         graph.install(List.of());
     }
 
     private static int word(int value) {
         return value & 0xFFFF;
+    }
+
+    private static int asrWordValue(int value, int bits) {
+        return (short) value >> bits;
     }
 
     private static int negateWord(int value) {

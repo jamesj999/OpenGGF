@@ -124,6 +124,45 @@ final class S3kAnimatedTileChannels {
         return channels;
     }
 
+    static List<AnimatedTileChannel> buildIczChannels(Sonic3kPatternAnimator owner,
+                                                      List<AniPlcScriptState> scripts,
+                                                      int actIndex) {
+        List<AnimatedTileChannel> channels = new ArrayList<>(scripts.size() + 2);
+        for (int i = 0; i < scripts.size(); i++) {
+            AniPlcScriptState script = scripts.get(i);
+            channels.add(new AnimatedTileChannel(
+                    "s3k.icz.script." + i,
+                    owner::shouldRunScriptChannels,
+                    ctx -> ctx.frameCounter(),
+                    scriptDestination(script),
+                    AnimatedTileCachePolicy.ALWAYS,
+                    ctx -> owner.tickScript(script)
+            ));
+        }
+
+        channels.add(new AnimatedTileChannel(
+                "s3k.icz.scroll.x",
+                owner::shouldRunIczHorizontalCustomChannels,
+                ctx -> owner.computeIczHorizontalPhase(),
+                new DestinationPlan(0x10E, 0x11D),
+                AnimatedTileCachePolicy.ON_PHASE_CHANGE,
+                new SplitTransferApplyStrategy(owner::updateIczHorizontalTilesForGraph)
+        ));
+
+        if (actIndex == 0) {
+            channels.add(new AnimatedTileChannel(
+                    "s3k.icz1.scroll.y",
+                    owner::shouldRunIczAct1VerticalCustomChannels,
+                    ctx -> owner.computeIczAct1VerticalCompositePhase(),
+                    new DestinationPlan(0x122, 0x130),
+                    AnimatedTileCachePolicy.ON_PHASE_CHANGE,
+                    new SplitTransferApplyStrategy(owner::updateIczAct1VerticalTilesForGraph)
+            ));
+        }
+
+        return channels;
+    }
+
     private static DestinationPlan scriptDestination(AniPlcScriptState script) {
         int startTile = script.destinationTileIndex();
         if (script.tilesPerFrame() <= 1) {
