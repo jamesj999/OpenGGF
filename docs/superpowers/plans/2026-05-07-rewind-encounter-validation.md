@@ -17,6 +17,28 @@ matches the forward run across a 22-second window covering early-trace badnik
 encounters. Slot drift surfaces in `TestRewindTorture` only after many rewinds
 in succession, not from any one rewind window.
 
+## Slot-drift mitigation progress
+
+The `TestRewindTorture` checklist itemizes three architectural fixes; the
+status as of this branch is:
+
+1. **Capture live `usedSlots` BitSet directly.** Done. `ObjectManagerSnapshot`
+   now stores the live `usedSlots.toLongArray()` instead of synthesizing a
+   restorable subset, so the allocator's view at restore matches the reference
+   run at the rewind point even when transient classes lack codecs.
+2. **Add rewind codecs for transient dynamic objects.** Partial.
+   `AnimalObjectInstance`, the `AbstractPointsObjectInstance` family
+   (Sonic1/Sonic2/Sonic3k), and `ExplosionObjectInstance` are covered.
+   `InvincibilityStarsObjectInstance` and `ShieldObjectInstance` remain — both
+   are player-bound and require coordination with the existing post-restore
+   power-up re-pin in `AbstractPlayableSprite#refreshPowerUpObjectsAfterRewindRestore`.
+3. **Coordinate shield re-pin to honour the captured shield slot.** Pending,
+   blocked on (2) for the shield codec.
+
+`RewindObjectStateBlob` also needed content-aware `equals`/`hashCode` so the
+diff helper doesn't report false divergence on byte-identical compact sidecar
+blobs.
+
 Incremental enabling path:
 
 1. Add focused encounter entries by game, zone, object family, and mechanic

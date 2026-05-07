@@ -143,7 +143,7 @@ class TestRewindTorture {
     // lines to validate.
     // -------------------------------------------------------------------------
 
-    @Disabled("Object-manager slot drift at ~iteration 1600 (transient non-restorable dynamic objects); pending architectural fix")
+    @Disabled("Slot drift still surfaces at iter 1600 even with live usedSlots capture + Animal/Points/Explosion codecs; remaining drift comes from other dynamics (BuzzerFlame chains, placement re-alloc cascade) and is pending the player-bound codecs (InvincibilityStars/Shield) plus shield-slot re-pin")
     @Test
     void tortureFixedAdjacent() throws Exception {
         runTorture("fixed-adjacent",
