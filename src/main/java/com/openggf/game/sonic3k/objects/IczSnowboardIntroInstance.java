@@ -32,10 +32,11 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
     private static final int PLAYER_INITIAL_G_SPEED = 0x0800;
     private static final int PLAYER_JUMP_X_SPEED = 0x0400;
     private static final int PLAYER_JUMP_Y_SPEED = -0x0800;
+    private static final int PLAYER_BOARD_LAUNCH_Y = 0x0159;
+    private static final int PLAYER_BOARD_LAUNCH_Y_SUBPIXEL = 0x8800;
     private static final int BOARD_JUMP_Y_SPEED = -0x0600;
     private static final int SNOWBOARD_JUMP_Y_SPEED = -0x0680;
     private static final int SNOWBOARD_HANDOFF_X = 0x0184;
-    private static final int BOARD_CONTACT_MIN_Y = INITIAL_SNOWBOARD_Y - 0x10;
     private static final int FIRST_SCRIPT_MIN_X = 0x1310;
     private static final int FIRST_SCRIPT_MAX_X = 0x1330;
     private static final int SECOND_SCRIPT_MIN_X = 0x2210;
@@ -219,10 +220,14 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
         player.setAir(true);
         player.setJumping(false);
         player.setAnimationId(Sonic3kAnimationIds.ROLL);
+        player.setMappingFrame(0);
+        int centreY = player.getCentreY();
         player.setRolling(true);
+        player.setCentreYPreserveSubpixel((short) centreY);
         player.setControlLocked(true);
         player.setObjectControlled(true);
         player.setObjectControlSuppressesMovement(true);
+        player.setObjectMappingFrameControl(true);
         player.clearForcedInputMask();
     }
 
@@ -232,6 +237,7 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
         if (--startupTimer > 0) {
             return;
         }
+        player.setObjectMappingFrameControl(false);
         player.setObjectControlled(false);
         state = State.WAIT_FOR_BOARD_JUMP;
     }
@@ -244,7 +250,7 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
         }
         currentX = INITIAL_SNOWBOARD_X;
         currentY = INITIAL_SNOWBOARD_Y;
-        if (player.getCentreX() < INITIAL_SNOWBOARD_X || player.getCentreY() < BOARD_CONTACT_MIN_Y) {
+        if (player.getCentreX() < INITIAL_SNOWBOARD_X) {
             return;
         }
         currentX = player.getCentreX();
@@ -255,6 +261,9 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
         boardMotion.xVel = 0;
         boardMotion.yVel = BOARD_JUMP_Y_SPEED;
         boardFrameTimer = 0;
+        player.setCentreYPreserveSubpixel((short) PLAYER_BOARD_LAUNCH_Y);
+        player.setSubpixelRaw(player.getXSubpixelRaw(), PLAYER_BOARD_LAUNCH_Y_SUBPIXEL);
+        player.setAir(true);
         player.setXSpeed((short) PLAYER_JUMP_X_SPEED);
         player.setYSpeed((short) PLAYER_JUMP_Y_SPEED);
         state = State.BOARD_LAUNCH;
@@ -391,9 +400,11 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
         lastOverlayAnimationId = -1;
         sonicSnowboardOverlayActive = true;
         sonicSnowboardTouchedGround = false;
+        player.setMappingFrame(0);
         player.setHidden(true);
         player.setObjectControlled(true);
         player.setObjectControlSuppressesMovement(false);
+        player.setObjectMappingFrameControl(true);
         state = State.SNOWBOARDING;
     }
 
@@ -497,6 +508,7 @@ public class IczSnowboardIntroInstance extends AbstractObjectInstance {
         player.setControlLocked(false);
         player.setObjectControlled(false);
         player.setObjectControlSuppressesMovement(false);
+        player.setObjectMappingFrameControl(false);
         player.setHidden(false);
         player.clearForcedInputMask();
     }

@@ -140,6 +140,56 @@ class TestIczSnowboardArtLoader {
     }
 
     @Test
+    void snowboardBounceUsesRomPreLaunchArcAtContact() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(ZONE_ICZ, ACT_1)
+                .build();
+
+        while (!"BOARD_LAUNCH".equals(snowboardIntro().stateNameForTest())) {
+            fixture.stepFrame(false, false, false, false, false);
+        }
+
+        assertEquals(0x00C0, fixture.sprite().getCentreX(),
+                "ROM loc_39796 should first launch the board when Sonic reaches x=$00C0");
+        assertEquals(0x0159, fixture.sprite().getCentreY(),
+                "ROM MoveSprite_TestGravity arc from y=$00F0 should put Sonic at y=$0159 on the launch frame");
+    }
+
+    @Test
+    void snowboardBounceKeepsSonicAirborneLikeRomIntroArc() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(ZONE_ICZ, ACT_1)
+                .build();
+
+        while (!"BOARD_LAUNCH".equals(snowboardIntro().stateNameForTest())) {
+            fixture.stepFrame(false, false, false, false, false);
+        }
+
+        assertTrue(fixture.sprite().getAir(),
+                "Sonic should still have Status_InAir when Obj_LevelIntroICZ1 applies the board bounce");
+    }
+
+    @Test
+    void snowboardBounceCorrectsToRomLaunchYIfEngineTerrainArcIsHigh() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(ZONE_ICZ, ACT_1)
+                .build();
+        IczSnowboardIntroInstance intro = snowboardIntro();
+
+        while (!"WAIT_FOR_BOARD_JUMP".equals(intro.stateNameForTest())) {
+            fixture.stepFrame(false, false, false, false, false);
+        }
+
+        fixture.sprite().setCentreX((short) IczSnowboardIntroInstance.INITIAL_SNOWBOARD_X);
+        fixture.sprite().setCentreY((short) 0x0120);
+        intro.update(fixture.frameCount(), fixture.sprite());
+
+        assertEquals("BOARD_LAUNCH", intro.stateNameForTest());
+        assertEquals(0x0159, fixture.sprite().getCentreY(),
+                "The board bounce must use the ROM intro arc Y even if terrain collision left Sonic visually high");
+    }
+
+    @Test
     void snowboardSequenceAllowsJumpWhileControlLocked() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(ZONE_ICZ, ACT_1)
