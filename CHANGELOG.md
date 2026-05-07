@@ -80,6 +80,24 @@ All notable changes to the OpenGGF project are documented in this file.
   `TestHTZBossTouchResponse` setUp now also pins `camera.setY` to the
   boss arena Y; previously the test relied on the X-only on-screen
   gate to bypass a Y mismatch between camera (Y=0) and boss (Y=0x0580).
+- **Touch-response Y gate is now S1-only.** The new
+  `cameraBounds.contains(x, y, halfWidth, 32)` Y check above is
+  ROM-correct for S1 only. ROM S2 `Touch_Loop`
+  (`docs/s2disasm/s2.asm` ~84502-84551) has no equivalent render-flag
+  gate at all — every active object is iterated regardless. ROM S3K
+  `TouchResponse` (`docs/skdisasm/sonic3k.asm:20655`) consumes a
+  pre-built `Collision_response_list` where the gate happens upstream
+  during list build, not at touch time. Applying the X+Y check
+  universally regressed S3K MGZ trace replay's first-fail from frame
+  2395 to frame 1659 (Tails picked up an unintended `tails_rolling`
+  state from objects ROM had on the response list). Added
+  `PhysicsFeatureSet.touchResponseUsesRenderFlagYGate` per the
+  per-game framework: `SONIC_1=true`, `SONIC_2=false`, `SONIC_3K=false`.
+  `AbstractObjectInstance.isOnScreenForTouch()` branches on the flag —
+  S1 keeps the X+Y gate (preserves the SYZ3 fix above); S2/S3K fall
+  back to the pre-Task-3 X-only gate (`cameraBounds.containsX(x)`).
+  Restores S3K MGZ trace replay first-fail to frame 2395, with
+  S1 SYZ3 still at trace match.
 - **MZ Push Block: skip inline solid resolution while in falling/sliding
   state.** `Sonic1PushBlockObjectInstance.updateActive` now gates its
   `checkpointAll()` call on the entering `solidState` being 0, mirroring
